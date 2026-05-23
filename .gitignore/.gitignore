@@ -1,0 +1,46 @@
+# Python / Django
+backend/venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+*.log
+
+# Django generated files
+backend/staticfiles/
+backend/media/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local
+
+# Node / Next.js
+frontend/node_modules/
+node_modules/
+frontend/.next/
+.next/
+frontend/out/
+out/
+frontend/.vercel/
+.vercel/
+
+# Build/cache
+.cache/
+dist/
+build/
+coverage/
+
+# VS Code / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Database backups
+*.dump
+*.sql
