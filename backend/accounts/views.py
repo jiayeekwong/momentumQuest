@@ -7,17 +7,22 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import status
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    CustomTokenObtainPairSerializer,
 )
 
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class ProfileView(APIView):
@@ -97,19 +102,24 @@ class VerifyEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if default_token_generator.check_token(user, token):
-            user.is_active = True
-            user.email_verified = True
-            user.save(update_fields=["is_active", "email_verified"])
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"detail": "Verification link is invalid or expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        if user.email_verified and user.is_active:
             return Response({
-                "detail": "Email verified successfully. You can now login."
+                "detail": "Email is already verified. You can login."
             })
 
-        return Response(
-            {"detail": "Verification link is invalid or expired."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        user.is_active = True
+        user.email_verified = True
+        user.save(update_fields=["is_active", "email_verified"])
+
+        return Response({
+            "detail": "Email verified successfully. You can now login."
+        })
 
 
 class PasswordResetRequestView(APIView):
