@@ -1,0 +1,139 @@
+skill_name,skill_category
+Python,Programming Language
+Java,Programming Language
+JavaScript,Programming Language
+TypeScript,Programming Language
+C++,Programming Language
+C#,Programming Language
+PHP,Programming Language
+Ruby,Programming Language
+Go,Programming Language
+Kotlin,Programming Language
+Swift,Programming Language
+Dart,Programming Language
+R,Programming Language
+Scala,Programming Language
+Bash,Programming Language
+PowerShell,Programming Language
+HTML,Frontend Development
+CSS,Frontend Development
+React,Frontend Development
+Next.js,Frontend Development
+Vue.js,Frontend Development
+Angular,Frontend Development
+Tailwind CSS,Frontend Development
+Bootstrap,Frontend Development
+Responsive Design,Frontend Development
+Web Accessibility,Frontend Development
+Redux,Frontend Development
+Vite,Frontend Development
+Django,Backend Development
+Django REST Framework,Backend Development
+Flask,Backend Development
+FastAPI,Backend Development
+Node.js,Backend Development
+Express.js,Backend Development
+Spring Boot,Backend Development
+Laravel,Backend Development
+REST API,Backend Development
+GraphQL,Backend Development
+JWT Authentication,Backend Development
+OAuth,Backend Development
+Microservices,Backend Development
+SQL,Database
+PostgreSQL,Database
+MySQL,Database
+SQLite,Database
+MongoDB,Database
+Redis,Database
+Firebase,Database
+Database Design,Database
+Database Normalization,Database
+Stored Procedures,Database
+Query Optimization,Database
+Excel,Data Analytics
+Power BI,Data Analytics
+Tableau,Data Analytics
+Data Analysis,Data Analytics
+Data Visualization,Data Analytics
+Pandas,Data Analytics
+NumPy,Data Analytics
+Matplotlib,Data Analytics
+Seaborn,Data Analytics
+ETL,Data Analytics
+Data Cleaning,Data Analytics
+Business Intelligence,Data Analytics
+Machine Learning,AI and Machine Learning
+Deep Learning,AI and Machine Learning
+Natural Language Processing,AI and Machine Learning
+Computer Vision,AI and Machine Learning
+TensorFlow,AI and Machine Learning
+PyTorch,AI and Machine Learning
+Scikit-learn,AI and Machine Learning
+Keras,AI and Machine Learning
+OpenCV,AI and Machine Learning
+BERT,AI and Machine Learning
+Large Language Models,AI and Machine Learning
+Prompt Engineering,AI and Machine Learning
+Git,DevOps and Tools
+GitHub,DevOps and Tools
+GitLab,DevOps and Tools
+Docker,DevOps and Tools
+Kubernetes,DevOps and Tools
+CI/CD,DevOps and Tools
+Jenkins,DevOps and Tools
+GitHub Actions,DevOps and Tools
+AWS,Cloud Computing
+Azure,Cloud Computing
+Google Cloud Platform,Cloud Computing
+Linux,Operating System
+Nginx,DevOps and Tools
+Apache,DevOps and Tools
+Cybersecurity,Cybersecurity
+Network Security,Cybersecurity
+Penetration Testing,Cybersecurity
+Vulnerability Assessment,Cybersecurity
+SIEM,Cybersecurity
+Firewall,Cybersecurity
+Encryption,Cybersecurity
+Authentication,Cybersecurity
+Authorization,Cybersecurity
+TCP/IP,Networking
+DNS,Networking
+HTTP,Networking
+VPN,Networking
+Android Development,Mobile Development
+iOS Development,Mobile Development
+Flutter,Mobile Development
+React Native,Mobile Development
+Mobile App Development,Mobile Development
+Software Testing,Testing and QA
+Unit Testing,Testing and QA
+Integration Testing,Testing and QA
+Selenium,Testing and QA
+Pytest,Testing and QA
+Jest,Testing and QA
+Cypress,Testing and QA
+Postman,Testing and QA
+Test Automation,Testing and QA
+Object-Oriented Programming,Software Engineering
+Data Structures,Software Engineering
+Algorithms,Software Engineering
+Agile,Software Engineering
+Scrum,Software Engineering
+Software Development Life Cycle,Software Engineering
+API Integration,Software Engineering
+System Design,Software Engineering
+Version Control,Software Engineering
+Debugging,Software Engineering
+UI Design,UI and UX
+UX Design,UI and UX
+Figma,UI and UX
+Wireframing,UI and UX
+Prototyping,UI and UX
+Communication,Soft Skill
+Problem Solving,Soft Skill
+Teamwork,Soft Skill
+Critical Thinking,Soft Skill
+Time Management,Soft Skill
+Project Management,Soft Skill
