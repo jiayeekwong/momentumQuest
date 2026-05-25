@@ -115,7 +115,7 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-600 to-sky-500 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Logo />
+          <Logo size="lg" theme="dark" layout="vertical" />
 
           <p className="mt-4 text-base font-semibold text-white/85">
             Set a new MomentumQuest password

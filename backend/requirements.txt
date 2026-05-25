@@ -1,0 +1,17 @@
+# Django core
+Django
+djangorestframework
+django-cors-headers
+djangorestframework-simplejwt
+
+# Database (binary version avoids needing C build tools on Windows)
+psycopg2-binary
+
+# Environment variables
+python-dotenv
+
+# Web scraping
+selenium
+beautifulsoup4
+webdriver-manager
+lxml

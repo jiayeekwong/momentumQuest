@@ -1,4 +1,3 @@
-// User types and roles
 export type UserRole = 'student' | 'company' | 'admin';
 
 export interface User {
@@ -8,6 +7,7 @@ export interface User {
   role: UserRole;
   avatar?: string;
   department?: string;
+  desiredJobCategory?: string;
   companyName?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -89,8 +89,8 @@ export interface JobListing {
   requiredSkills: string[];
   matchScore?: number;
   applicants?: number;
-  postedDate: string;
-  status: 'open' | 'closed' | 'filled';
+  postedDate?: string;
+  status?: 'open' | 'closed' | 'filled';
 }
 
 export interface JobApplication {

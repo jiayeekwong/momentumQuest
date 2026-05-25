@@ -1,26 +1,27 @@
+import re
+
 from .models import Skill
 
-# simplest keyword matching skill extractor for now
 
 def extract_skills_from_text(text):
     """
-    Simple keyword-based skill extraction.
+    Word-boundary keyword skill extraction.
 
-    This compares job description text with skills stored in the Skill table.
-    Later, this can be upgraded to spaCy, SkillNER, or BERT.
+    Uses \b regex boundaries to prevent false positives:
+      "R" won't match "required", "Go" won't match "good",
+      "C" won't match "security".
     """
     if not text:
         return []
 
-    text_lower = text.lower()
     matched_skills = []
 
-    skills = Skill.objects.all()
-
-    for skill in skills:
-        skill_name_lower = skill.skill_name.lower()
-
-        if skill_name_lower in text_lower:
+    for skill in Skill.objects.all():
+        pattern = re.compile(
+            rf'\b{re.escape(skill.skill_name)}\b',
+            re.IGNORECASE,
+        )
+        if pattern.search(text):
             matched_skills.append(skill)
 
     return matched_skills
