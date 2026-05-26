@@ -77,27 +77,6 @@ class ScrapedJobSkill(models.Model):
         return f"{self.scraped_job.job_title} — {self.skill.skill_name}"
 
 
-class LearningResource(models.Model):
-    skill    = models.ForeignKey(
-        Skill,
-        on_delete=models.CASCADE,
-        related_name="learning_resources",
-    )
-    title      = models.CharField(max_length=255)
-    platform   = models.CharField(max_length=100)
-    url        = models.URLField()
-    type       = models.CharField(max_length=100)
-    is_active  = models.BooleanField(default=True)
-    scraped_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ("skill", "url")
-        ordering = ["platform", "title"]
-
-    def __str__(self):
-        return f"{self.title} [{self.platform}] — {self.skill.skill_name}"
-
-
 class ScrapeLog(models.Model):
     class Status(models.TextChoices):
         SUCCESS = "SUCCESS", "Success"

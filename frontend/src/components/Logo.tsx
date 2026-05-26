@@ -8,12 +8,11 @@ interface LogoProps {
   className?: string;
 }
 
-const heights = { sm: 40, md: 56, lg: 260 };
-const textSizes = { sm: 'text-sm', md: 'text-base', lg: 'text-3xl' };
+const sizeClasses = { sm: 'h-10 w-auto', md: 'h-14 w-auto', lg: 'h-[260px] w-auto' };
+const textSizes   = { sm: 'text-sm',    md: 'text-base',  lg: 'text-3xl' };
 
 export function Logo({ size = 'md', theme = 'light', layout, className }: LogoProps) {
-  const h = heights[size];
-  const showName = layout === 'vertical' || layout === 'horizontal';
+  const showName  = layout === 'vertical' || layout === 'horizontal';
   const isVertical = layout === 'vertical';
 
   return (
@@ -25,10 +24,9 @@ export function Logo({ size = 'md', theme = 'light', layout, className }: LogoPr
       <Image
         src="/momentumquest-logo.png"
         alt="MomentumQuest"
-        width={h}
-        height={h}
-        style={{ height: h, width: 'auto' }}
-        className="object-contain"
+        width={260}
+        height={260}
+        className={cn('object-contain', sizeClasses[size])}
         priority
       />
       {showName && (

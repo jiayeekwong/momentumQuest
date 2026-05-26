@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, CheckCircle2, Mail, User, Building2 } from 'lucide-react';
@@ -19,8 +19,18 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [department, setDepartment] = useState('');
   const [desiredJobCategory, setDesiredJobCategory] = useState('');
+  const [jobCategories, setJobCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/jobs/categories/`)
+      .then((r) => r.json())
+      .then((data: { category_name: string }[]) =>
+        setJobCategories(data.map((c) => c.category_name))
+      )
+      .catch(() => {});
+  }, []);
 
   const steps = [
     { title: 'Account Details', icon: Mail },
@@ -157,7 +167,19 @@ export default function SignupPage() {
                           <option>Computer System &amp; Networking</option>
                         </select>
                       </div>
-                      <Input label="Desired Job Category" placeholder="e.g. Web Developer" value={desiredJobCategory} onChange={(e) => setDesiredJobCategory(e.target.value)} />
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Desired Job Category</label>
+                        <select
+                          className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={desiredJobCategory}
+                          onChange={(e) => setDesiredJobCategory(e.target.value)}
+                        >
+                          <option value="">Select a job category</option>
+                          {jobCategories.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
                     </>
                   ) : (
                     <p className="text-sm text-neutral-500">Your company account will be created with the name: <strong>{name}</strong></p>

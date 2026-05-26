@@ -1,5 +1,8 @@
 import logging
+import random
+import re
 import time
+from urllib.parse import quote_plus
 
 import requests
 from bs4 import BeautifulSoup
@@ -21,18 +24,41 @@ USER_AGENT = (
 
 HEADERS = {"User-Agent": USER_AGENT}
 
+# Phrases that indicate a bot-detection page — mirrors scraper.py
+BOT_INDICATORS = [
+    "access denied", "blocked", "captcha", "cloudflare",
+    "just a moment", "verify you are human", "403 forbidden",
+]
+
 
 # ============================================================
-# Selenium driver (shared with scraper.py pattern)
+# Shared helpers — mirror scraper.py patterns
 # ============================================================
+
+def random_delay(min_seconds=2, max_seconds=5):
+    """Random sleep to simulate human browsing."""
+    time.sleep(random.uniform(min_seconds, max_seconds))
+
+
+def is_blocked(page_source, page_title=""):
+    """Return True if the page looks like a bot-detection wall."""
+    combined = (page_source[:5000] + page_title).lower()
+    return any(indicator in combined for indicator in BOT_INDICATORS)
+
 
 def create_driver():
+    """
+    Headless Chrome with full anti-detection stack.
+    Mirrors create_driver() in scraper.py exactly, plus:
+      - implicitly_wait(3) from coursera-scraper (TIME_TO_WAIT = 3)
+    """
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-extensions")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument(f"--user-agent={USER_AGENT}")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -40,37 +66,95 @@ def create_driver():
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
+
+    # Hide navigator.webdriver — same CDP trick as scraper.py
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
         "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
     })
+
+    # coursera-scraper uses implicitly_wait(TIME_TO_WAIT=3); job scraper uses 10.
+    # 10 is safer for slow SPAs.
     driver.implicitly_wait(10)
     return driver
 
 
+def safe_load_page(driver, url, retries=3):
+    """
+    Load a URL with retries, gradual human-like scroll, and bot-detection check.
+    Mirrors safe_get_page() in scraper.py.
+    Returns page_source on success, "" on failure.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            driver.get(url)
+            random_delay(3, 6)
+
+            # 3-step gradual scroll — simulates a human reading the page
+            for i in range(1, 4):
+                driver.execute_script(
+                    f"window.scrollTo(0, document.body.scrollHeight * {i / 3});"
+                )
+                random_delay(0.5, 1.5)
+
+            if is_blocked(driver.page_source, driver.title):
+                logger.warning("Bot detection on attempt %d for %s", attempt, url)
+                time.sleep(5 * attempt)
+                continue
+
+            return driver.page_source
+
+        except Exception as exc:
+            logger.warning("Attempt %d/%d failed for %s: %s", attempt, retries, url, exc)
+            if attempt < retries:
+                random_delay(3, 6)
+
+    logger.error("All %d attempts failed for %s", retries, url)
+    return ""
+
+
+def quit_driver(driver):
+    """Safely quit driver — wraps the call so a dead ChromeDriver won't crash the scraper."""
+    try:
+        driver.quit()
+    except Exception:
+        pass
+
+
+def skill_matches_title(skill_name, title):
+    """
+    Word-boundary match so single-char skills like 'R' or 'C' don't match
+    every word that contains those letters (e.g. 'React', 'Framework').
+    """
+    pattern = r'\b' + re.escape(skill_name) + r'\b'
+    return bool(re.search(pattern, title, re.IGNORECASE))
+
+
 # ============================================================
-# freeCodeCamp — live curriculum page scrape
+# freeCodeCamp — React SPA, Selenium required
 # ============================================================
 
 FCC_LEARN_URL = "https://www.freecodecamp.org/learn"
 
 
 def scrape_freecodecamp(skill_names):
-    """
-    Scrape freeCodeCamp's /learn page for available certifications.
-    Matches cert titles against skill_names — no hardcoding.
-    Students are redirected to the cert URL when they select it.
-    Returns list of resource dicts.
-    """
     results = []
+    driver = create_driver()
 
     try:
-        resp = requests.get(FCC_LEARN_URL, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+        page_source = safe_load_page(driver, FCC_LEARN_URL)
+        if not page_source:
+            logger.error("freeCodeCamp: page failed to load after retries.")
+            return results
 
+        # React may still be hydrating — wait for certification links
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="/learn/"]'))
+        )
+        random_delay(2, 4)
+
+        soup      = BeautifulSoup(driver.page_source, "html.parser")
         seen_urls = set()
 
-        # Each certification block is an <a> linking into /learn/...
         for link in soup.find_all("a", href=True):
             href = link["href"]
             if "/learn/" not in href:
@@ -84,15 +168,14 @@ def scrape_freecodecamp(skill_names):
             if url in seen_urls:
                 continue
 
-            title_lower = title.lower()
             for skill_name in skill_names:
-                if skill_name.lower() in title_lower:
+                if skill_matches_title(skill_name, title):
                     results.append({
                         "skill_name": skill_name,
-                        "title":    title,
-                        "platform": "freeCodeCamp",
-                        "url":      url,
-                        "type":     "Certification",
+                        "title":      title[:255],
+                        "platform":   "freeCodeCamp",
+                        "url":        url,
+                        "type":       "Certification",
                     })
                     seen_urls.add(url)
                     break
@@ -102,116 +185,121 @@ def scrape_freecodecamp(skill_names):
     except Exception as exc:
         logger.error("freeCodeCamp scrape failed: %s", exc)
 
+    finally:
+        quit_driver(driver)
+
     return results
 
 
 # ============================================================
-# Microsoft Learn — public JSON catalog API
+# Microsoft Learn — public JSON catalog API (no Selenium)
 # ============================================================
 
 MS_CATALOG_API = "https://learn.microsoft.com/api/catalog/?type=certifications&locale=en-us"
 
 
 def scrape_microsoft_learn(skill_names):
-    """
-    Fetch Microsoft certifications via the public catalog API.
-    Matches titles/subjects against skill_names.
-    Returns list of resource dicts.
-    """
     results = []
-    skill_names_lower = {s.lower() for s in skill_names}
 
-    try:
-        resp = requests.get(MS_CATALOG_API, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        certifications = data.get("certifications", [])
+    for attempt in range(1, 4):
+        try:
+            resp = requests.get(MS_CATALOG_API, headers=HEADERS, timeout=15)
+            resp.raise_for_status()
+            certifications = resp.json().get("certifications", [])
 
-        for cert in certifications:
-            title   = cert.get("title", "")
-            url     = cert.get("url", "")
-            if not title or not url:
-                continue
+            for cert in certifications:
+                title = cert.get("title", "")
+                url   = cert.get("url", "")
+                if not title or not url:
+                    continue
+                if not url.startswith("http"):
+                    url = f"https://learn.microsoft.com{url}"
 
-            # Ensure URL is absolute
-            if not url.startswith("http"):
-                url = f"https://learn.microsoft.com{url}"
+                for skill_name in skill_names:
+                    if skill_matches_title(skill_name, title):
+                        results.append({
+                            "skill_name": skill_name,
+                            "title":      title[:255],
+                            "platform":   "Microsoft Learn",
+                            "url":        url,
+                            "type":       "Certification",
+                        })
+                        break
 
-            # Match against skill names in the cert title
-            title_lower = title.lower()
-            for skill_name in skill_names:
-                if skill_name.lower() in title_lower:
-                    results.append({
-                        "skill_name": skill_name,
-                        "title":    title,
-                        "platform": "Microsoft Learn",
-                        "url":      url,
-                        "type":     "Certification",
-                    })
-                    break  # one skill per resource record
+            logger.info("Microsoft Learn: %d resources matched.", len(results))
+            break
 
-        logger.info("Microsoft Learn: %d resources matched.", len(results))
-
-    except Exception as exc:
-        logger.error("Microsoft Learn scrape failed: %s", exc)
+        except Exception as exc:
+            logger.warning("Microsoft Learn attempt %d/3 failed: %s", attempt, exc)
+            if attempt < 3:
+                time.sleep(2 ** attempt)
 
     return results
 
 
 # ============================================================
-# Cisco NetAcad — public course catalog
+# Cisco NetAcad — Angular SPA, Selenium required
 # ============================================================
 
-CISCO_CATALOG_URL = "https://www.netacad.com/courses/all-courses"
-
-CISCO_CERT_KEYWORDS = ["ccna", "ccnp", "cyberops", "cybersecurity", "networking",
-                        "python", "iot", "linux", "ethical hacking", "network security"]
+CISCO_CATALOG_URL = "https://www.netacad.com/catalog"
 
 
 def scrape_cisco_netacad(skill_names):
-    """
-    Scrape Cisco NetAcad public course catalog.
-    Filters to courses that lead to badges/credentials.
-    Returns list of resource dicts.
-    """
     results = []
-    skill_names_lower = {s.lower() for s in skill_names}
+    driver  = create_driver()
 
     try:
-        resp = requests.get(CISCO_CATALOG_URL, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+        page_source = safe_load_page(driver, CISCO_CATALOG_URL)
+        if not page_source:
+            logger.error("Cisco NetAcad: page failed to load after retries.")
+            return results
 
-        course_cards = soup.find_all(
-            lambda tag: tag.name in ["article", "div", "li"]
-            and tag.find("a", href=True)
-            and tag.get_text(strip=True)
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "a[href]"))
         )
+        random_delay(3, 5)
+
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        # Strip nav / header / footer so we never pick up navigation links.
+        for el in soup.find_all(["nav", "header", "footer"]):
+            el.decompose()
 
         seen_urls = set()
-        for card in course_cards:
-            link = card.find("a", href=True)
-            if not link:
+
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+
+            # Only include links that point to enrollable course pages.
+            # Cisco NetAcad course URLs contain /courses/ or /course/.
+            # This excludes news, blogs, career resources, and static pages.
+            if not any(seg in href for seg in ["/courses/", "/course/"]):
                 continue
 
-            title = link.get_text(strip=True)
-            href  = link["href"]
-            if not title or len(title) < 5:
+            # Prefer the first heading inside the card link — avoids concatenating
+            # category labels, descriptions, and other child text into the title.
+            heading = link.find(["h2", "h3", "h4", "h5", "h6"])
+            if heading:
+                title = heading.get_text(strip=True)
+            else:
+                title = link.get_text(separator=" ", strip=True)
+
+            # Skip too-short or suspiciously long strings (nav text / full card dump).
+            if not title or len(title) < 5 or len(title) > 120:
                 continue
 
             url = href if href.startswith("http") else f"https://www.netacad.com{href}"
             if url in seen_urls:
                 continue
 
-            title_lower = title.lower()
             for skill_name in skill_names:
-                if skill_name.lower() in title_lower:
+                if skill_matches_title(skill_name, title):
                     results.append({
                         "skill_name": skill_name,
-                        "title":    title,
-                        "platform": "Cisco NetAcad",
-                        "url":      url,
-                        "type":     "Badge",
+                        "title":      title[:255],
+                        "platform":   "Cisco NetAcad",
+                        "url":        url,
+                        "type":       "Badge",
                     })
                     seen_urls.add(url)
                     break
@@ -221,129 +309,193 @@ def scrape_cisco_netacad(skill_names):
     except Exception as exc:
         logger.error("Cisco NetAcad scrape failed: %s", exc)
 
+    finally:
+        quit_driver(driver)
+
     return results
 
 
 # ============================================================
-# IBM SkillsBuild — public course catalog
+# Codecademy — catalog page, Selenium required
 # ============================================================
 
-IBM_CATALOG_URL = "https://skillsbuild.org/learn"
+CODECADEMY_CATALOG_URL = "https://www.codecademy.com/catalog/all"
 
 
-def scrape_ibm_skillsbuild(skill_names):
-    """
-    Scrape IBM SkillsBuild public catalog for digital credential courses.
-    Returns list of resource dicts.
-    """
+def scrape_codecademy(skill_names):
     results = []
-    skill_names_lower = {s.lower() for s in skill_names}
+    driver  = create_driver()
 
     try:
-        resp = requests.get(IBM_CATALOG_URL, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+        page_source = safe_load_page(driver, CODECADEMY_CATALOG_URL)
+        if not page_source:
+            logger.error("Codecademy: page failed to load after retries.")
+            return results
 
-        links = soup.find_all("a", href=True)
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="/learn/"]'))
+        )
+        random_delay(3, 5)
+
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        for el in soup.find_all(["nav", "header", "footer"]):
+            el.decompose()
+
         seen_urls = set()
 
-        for link in links:
-            title = link.get_text(strip=True)
-            href  = link["href"]
-            if not title or len(title) < 5:
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if "/learn/" not in href:
                 continue
 
-            url = href if href.startswith("http") else f"https://skillsbuild.org{href}"
+            heading = link.find(["h2", "h3", "h4", "h5", "h6"])
+            if heading:
+                title = heading.get_text(strip=True)
+            else:
+                title = link.get_text(separator=" ", strip=True)
+
+            if not title or len(title) < 5 or len(title) > 120:
+                continue
+
+            url = href if href.startswith("http") else f"https://www.codecademy.com{href}"
             if url in seen_urls:
                 continue
 
-            title_lower = title.lower()
+            resource_type = "Career Path" if "/paths/" in href else "Course"
+
             for skill_name in skill_names:
-                if skill_name.lower() in title_lower:
+                if skill_matches_title(skill_name, title):
                     results.append({
                         "skill_name": skill_name,
-                        "title":    title,
-                        "platform": "IBM SkillsBuild",
-                        "url":      url,
-                        "type":     "Digital Credential",
+                        "title":      title[:255],
+                        "platform":   "Codecademy",
+                        "url":        url,
+                        "type":       resource_type,
                     })
                     seen_urls.add(url)
                     break
 
-        logger.info("IBM SkillsBuild: %d resources matched.", len(results))
+        logger.info("Codecademy: %d resources matched.", len(results))
 
     except Exception as exc:
-        logger.error("IBM SkillsBuild scrape failed: %s", exc)
+        logger.error("Codecademy scrape failed: %s", exc)
+
+    finally:
+        quit_driver(driver)
 
     return results
 
 
 # ============================================================
-# Coursera — Selenium (JS-rendered search)
+# Coursera — search page scraping via Selenium
 # ============================================================
+#
+# Mirrors the approach from github.com/lorenzowne/coursera-scraper:
+#   1. Warm up on the homepage to establish a session.
+#   2. For each JobCategory query, load /search?query={term}.
+#   3. Wait for course links, then extract /learn/ and /specializations/ hrefs.
+#
+# Queries are sourced from JobCategory (populated by the job scraper) so we
+# search by role (e.g. "Data Analyst") rather than individual skills — fewer
+# requests and better relevance.
+#
+# coursera-scraper reference timing constants:
+#   TIME_TO_WAIT      = 3   (implicitly_wait — already in create_driver)
+#   TIME_TO_NEXT_PAGE = 10  (delay between searches)
 
-def _scrape_coursera_for_skill(driver, skill_name):
-    """Fetch Professional Certificate results for one skill from Coursera."""
-    results = []
-    search_url = (
-        f"https://www.coursera.org/search?query={requests.utils.quote(skill_name)}"
-        "&productDifficultyLevel=BEGINNER"
-        "&productDifficultyLevel=INTERMEDIATE"
-        "&productTypeDescription=Professional+Certificates"
-    )
-
-    try:
-        driver.get(search_url)
-        WebDriverWait(driver, 12).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "li.ais-InfiniteHits-item"))
-        )
-        time.sleep(2)
-
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        cards = soup.select("li.ais-InfiniteHits-item")
-
-        for card in cards[:5]:  # top 5 per skill
-            title_tag = card.select_one("h3, h2, [data-testid='product-card-title']")
-            link_tag  = card.select_one("a[href]")
-            if not title_tag or not link_tag:
-                continue
-
-            title = title_tag.get_text(strip=True)
-            href  = link_tag["href"]
-            url   = href if href.startswith("http") else f"https://www.coursera.org{href}"
-
-            results.append({
-                "skill_name": skill_name,
-                "title":    title,
-                "platform": "Coursera",
-                "url":      url,
-                "type":     "Professional Certificate",
-            })
-
-    except Exception as exc:
-        logger.warning("Coursera scrape failed for skill '%s': %s", skill_name, exc)
-
-    return results
+COURSERA_SEARCH_URL = "https://www.coursera.org/search?query={query}&language=English"
 
 
 def scrape_coursera(skill_names):
-    """
-    Scrape Coursera Professional Certificates for all given skill names.
-    Uses one Selenium driver instance shared across all skill queries.
-    Returns list of resource dicts.
-    """
-    results = []
-    driver = create_driver()
+    results   = []
+    seen_urls = set()
+    driver    = create_driver()
 
     try:
-        for skill_name in skill_names:
-            skill_results = _scrape_coursera_for_skill(driver, skill_name)
-            results.extend(skill_results)
-            time.sleep(2)
-    finally:
-        driver.quit()
+        from jobs.models import JobCategory
+        queries = list(JobCategory.objects.values_list("category_name", flat=True))
+    except Exception:
+        queries = []
+
+    if not queries:
+        logger.warning("Coursera: no JobCategory records found, skipping.")
+        quit_driver(driver)
+        return results
+
+    # Warm up on the homepage first — same session-establishment step used by
+    # coursera-scraper before issuing search queries.
+    logger.info("Coursera: warming up session on homepage ...")
+    safe_load_page(driver, "https://www.coursera.org/", retries=2)
+    random_delay(4, 7)
+
+    for query in queries:
+        search_url  = COURSERA_SEARCH_URL.format(query=quote_plus(query))
+        page_source = safe_load_page(driver, search_url, retries=2)
+        if not page_source:
+            logger.warning("Coursera: failed to load search for '%s'", query)
+            random_delay(5, 9)
+            continue
+
+        # Wait for at least one course link — same pattern as coursera-scraper's
+        # implicit wait before reading results.
+        try:
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'a[href*="/learn/"], a[href*="/specializations/"]')
+                )
+            )
+        except Exception:
+            logger.warning("Coursera: no course links appeared for '%s'", query)
+            random_delay(3, 6)
+            continue
+
+        random_delay(2, 4)
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        for el in soup.find_all(["nav", "header", "footer"]):
+            el.decompose()
+
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            is_course = "/learn/" in href
+            is_spec   = "/specializations/" in href
+            if not is_course and not is_spec:
+                continue
+
+            heading = link.find(["h2", "h3", "h4", "h5", "h6"])
+            if heading:
+                title = heading.get_text(strip=True)
+            else:
+                title = link.get_text(separator=" ", strip=True)
+
+            if not title or len(title) < 5 or len(title) > 120:
+                continue
+
+            url = href if href.startswith("http") else f"https://www.coursera.org{href}"
+            if url in seen_urls:
+                continue
+
+            resource_type = "Professional Certificate" if is_spec else "Course"
+
+            for skill_name in skill_names:
+                if skill_matches_title(skill_name, title):
+                    results.append({
+                        "skill_name": skill_name,
+                        "title":      title[:255],
+                        "platform":   "Coursera",
+                        "url":        url,
+                        "type":       resource_type,
+                    })
+                    seen_urls.add(url)
+                    break
+
+        # coursera-scraper waits TIME_TO_NEXT_PAGE = 10 s between page loads.
+        random_delay(8, 12)
 
     logger.info("Coursera: %d resources found.", len(results))
+
+    quit_driver(driver)
     return results
 
 
@@ -355,7 +507,7 @@ PLATFORM_SCRAPERS = {
     "freecodecamp": scrape_freecodecamp,
     "microsoft":    scrape_microsoft_learn,
     "cisco":        scrape_cisco_netacad,
-    "ibm":          scrape_ibm_skillsbuild,
+    "codecademy":   scrape_codecademy,
     "coursera":     scrape_coursera,
 }
 
@@ -364,7 +516,7 @@ PLATFORM_DISPLAY_NAMES = {
     "freecodecamp": "freeCodeCamp",
     "microsoft":    "Microsoft Learn",
     "cisco":        "Cisco NetAcad",
-    "ibm":          "IBM SkillsBuild",
+    "codecademy":   "Codecademy",
     "coursera":     "Coursera",
 }
 
@@ -373,17 +525,12 @@ def scrape_learning_resources(skill_names, platforms=None):
     """
     Scrape learning resources for the given skill names across all platforms.
 
-    Args:
-        skill_names: list of skill name strings from the Skill table.
-        platforms:   optional list of platform keys to limit scraping.
-                     Defaults to all platforms.
-
     Returns:
         {
             "resources":       [list of resource dicts],
             "status":          "SUCCESS" | "PARTIAL" | "FAILED",
             "platform_counts": {"freecodecamp": N, ...},
-            "errors":          [list of platform names that failed],
+            "errors":          [list of platform keys that failed],
         }
     """
     if not skill_names:
@@ -391,9 +538,9 @@ def scrape_learning_resources(skill_names, platforms=None):
                 "platform_counts": {}, "errors": ["No skills provided"]}
 
     active_platforms = platforms or list(PLATFORM_SCRAPERS.keys())
-    all_resources = []
-    platform_counts = {}
-    errors = []
+    all_resources    = []
+    platform_counts  = {}
+    errors           = []
 
     for platform_key in active_platforms:
         scraper_fn = PLATFORM_SCRAPERS.get(platform_key)

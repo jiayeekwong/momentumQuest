@@ -1,11 +1,13 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from jobs.models import Skill, ScrapeLog
+from jobs.models import Skill
 from jobs.resources_scraper import PLATFORM_DISPLAY_NAMES, PLATFORM_SCRAPERS, scrape_learning_resources
-from jobs.services import (
-    create_scrape_log, deactivate_stale_resources,
-    finish_scrape_log, save_learning_resources,
+from resources.models import ResourceScrapeLog
+from resources.services import (
+    create_resource_scrape_log, finish_resource_scrape_log,
+    deactivate_stale_resources, deactivate_url_skill_conflicts,
+    save_learning_resources,
 )
 
 DAYS_THRESHOLD = 30
@@ -13,7 +15,7 @@ DAYS_THRESHOLD = 30
 
 def is_scrape_needed():
     last = (
-        ScrapeLog.objects
+        ResourceScrapeLog.objects
         .filter(status__in=["SUCCESS", "PARTIAL"])
         .order_by("-finished_at")
         .first()
@@ -57,7 +59,6 @@ class Command(BaseCommand):
         platforms    = options["platforms"]
         skill_filter = options["skills"]
 
-        # Frequency check — skip if scraped recently unless --force
         if not force and not is_scrape_needed():
             self.stdout.write(self.style.WARNING(
                 f"Skipped: last successful scrape was less than {DAYS_THRESHOLD} days ago. "
@@ -65,7 +66,6 @@ class Command(BaseCommand):
             ))
             return
 
-        # Load skill names from DB
         qs = Skill.objects.all()
         if skill_filter:
             qs = qs.filter(skill_name__in=skill_filter)
@@ -83,7 +83,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Skills    : {len(skill_names)} skills")
         self.stdout.write(f"  Platforms : {', '.join(active_platforms)}\n")
 
-        log = create_scrape_log(roles_scraped=active_platforms)
+        log = create_resource_scrape_log(platforms=active_platforms)
         error_message = ""
         status = "FAILED"
         created_count = updated_count = deactivated_total = 0
@@ -101,19 +101,20 @@ class Command(BaseCommand):
             for platform, count in platform_counts.items():
                 self.stdout.write(f"  {platform:<20}: {count} resources found")
 
-            log.pages_attempted = len(active_platforms)
-            log.jobs_scraped    = len(resources)
-            log.roles_scraped   = active_platforms
+            log.platforms_scraped = active_platforms
+            log.resources_scraped = len(resources)
             log.save()
 
             created_count, updated_count = save_learning_resources(resources)
 
-            # Deactivate stale resources — only for platforms that scraped successfully
             successfully_scraped = [p for p in active_platforms if p not in errors]
             for platform_key in successfully_scraped:
-                platform_name = PLATFORM_DISPLAY_NAMES.get(platform_key, platform_key)
-                active_urls   = {r["url"] for r in resources if r["platform"] == platform_name}
+                platform_name  = PLATFORM_DISPLAY_NAMES.get(platform_key, platform_key)
+                platform_items = [r for r in resources if r["platform"] == platform_name]
+                active_urls    = {r["url"] for r in platform_items}
+                url_skill_map  = {r["url"]: r["skill_name"] for r in platform_items}
                 deactivated_total += deactivate_stale_resources(platform_name, active_urls)
+                deactivated_total += deactivate_url_skill_conflicts(platform_name, url_skill_map)
 
             if errors:
                 error_message = f"Failed platforms: {', '.join(errors)}"
@@ -123,28 +124,27 @@ class Command(BaseCommand):
             status = "FAILED"
             self.stdout.write(self.style.ERROR(f"Scraper crashed: {exc}"))
 
-        finish_scrape_log(
+        finish_resource_scrape_log(
             log=log,
             status=status,
-            jobs_scraped=created_count + updated_count,
-            jobs_created=created_count,
-            jobs_updated=updated_count,
-            blocked_count=0,
+            resources_created=created_count,
+            resources_updated=updated_count,
+            resources_deactivated=deactivated_total,
             error_message=error_message,
         )
 
         summary = (
-            f"\n  Status     : {status}\n"
-            f"  Created    : {created_count}  |  Updated: {updated_count}  |  Deactivated: {deactivated_total}\n"
-            f"  Log ID     : {log.pk}"
+            f"\n  Status      : {status}\n"
+            f"  Created     : {created_count}  |  Updated: {updated_count}  |  Deactivated: {deactivated_total}\n"
+            f"  Log ID      : {log.pk}"
         )
 
         if status == "SUCCESS":
             self.stdout.write(self.style.SUCCESS(summary))
         elif status == "PARTIAL":
             self.stdout.write(self.style.WARNING(summary))
-            self.stdout.write(self.style.WARNING(f"  Errors     : {error_message}"))
+            self.stdout.write(self.style.WARNING(f"  Errors      : {error_message}"))
         else:
             self.stdout.write(self.style.ERROR(summary))
             if error_message:
-                self.stdout.write(self.style.ERROR(f"  Error      : {error_message}"))
+                self.stdout.write(self.style.ERROR(f"  Error       : {error_message}"))
