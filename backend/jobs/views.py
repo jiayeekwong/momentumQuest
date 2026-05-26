@@ -4,8 +4,9 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import ScrapedJob, JobCategory, Skill, ScrapeLog
+from .models import LearningResource, ScrapedJob, JobCategory, Skill, ScrapeLog
 from .serializers import (
+    LearningResourceSerializer,
     ScrapedJobListSerializer,
     ScrapedJobDetailSerializer,
     JobCategorySerializer,
@@ -113,6 +114,40 @@ def skill_demand_view(request):
         }
         for s in qs
     ])
+
+
+class LearningResourceListView(generics.ListAPIView):
+    """
+    GET /api/jobs/resources/
+    List scraped learning resources.
+
+    Query params:
+      ?skill=      — filter by skill name (e.g. ?skill=Python)
+      ?platform=   — filter by platform (e.g. ?platform=Coursera)
+      ?type=       — filter by type (e.g. ?type=Certification)
+      ?search=     — search title
+    """
+    serializer_class = LearningResourceSerializer
+    permission_classes = [AllowAny]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["title", "platform"]
+    ordering_fields = ["platform", "scraped_at"]
+    ordering = ["platform", "title"]
+
+    def get_queryset(self):
+        qs = LearningResource.objects.filter(is_active=True).select_related("skill")
+        skill    = self.request.query_params.get("skill")
+        platform = self.request.query_params.get("platform")
+        rtype    = self.request.query_params.get("type")
+
+        if skill:
+            qs = qs.filter(skill__skill_name__icontains=skill)
+        if platform:
+            qs = qs.filter(platform__icontains=platform)
+        if rtype:
+            qs = qs.filter(type__icontains=rtype)
+
+        return qs
 
 
 @api_view(["GET"])

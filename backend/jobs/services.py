@@ -1,8 +1,11 @@
+import logging
 from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
 
-from .models import JobCategory, ScrapedJob, ScrapedJobSkill, ScrapeLog
+logger = logging.getLogger(__name__)
+
+from .models import JobCategory, LearningResource, ScrapedJob, ScrapedJobSkill, Skill, ScrapeLog
 from .skill_extractor import extract_skills_from_text
 
 
@@ -100,6 +103,72 @@ def save_scraped_jobs(jobs):
             updated_count += 1
 
     return created_count, updated_count
+
+
+# ============================================================
+# LearningResource helpers
+# ============================================================
+
+def save_learning_resource(resource_data):
+    """
+    Save one learning resource linked to a Skill.
+    Returns (instance, created). Returns (None, False) if skill not found.
+    """
+    skill_name = resource_data.get("skill_name", "").strip()
+    url        = resource_data.get("url", "").strip()
+    title      = resource_data.get("title", "").strip()
+
+    if not skill_name or not url or not title:
+        return None, False
+
+    try:
+        skill = Skill.objects.get(skill_name__iexact=skill_name)
+    except Skill.DoesNotExist:
+        logger.warning("Skill not found in DB, skipping resource: %s", skill_name)
+        return None, False
+
+    instance, created = LearningResource.objects.update_or_create(
+        skill=skill,
+        url=url,
+        defaults={
+            "title":     title,
+            "platform":  resource_data.get("platform", ""),
+            "type":      resource_data.get("type", "Course"),
+            "is_active": True,  # reactivate if it was previously deactivated
+        },
+    )
+    return instance, created
+
+
+def save_learning_resources(resources):
+    """Bulk-save resource dicts. Returns (created_count, updated_count)."""
+    created_count = 0
+    updated_count = 0
+    for data in resources:
+        _, created = save_learning_resource(data)
+        if created:
+            created_count += 1
+        elif _ is not None:
+            updated_count += 1
+    return created_count, updated_count
+
+
+def deactivate_stale_resources(platform_name, active_urls):
+    """
+    Mark resources from a platform as inactive if their URL was not in the
+    latest scrape. Only call this for platforms that scraped successfully —
+    never penalise a platform whose scrape failed.
+    Returns count of deactivated records.
+    """
+    deactivated = (
+        LearningResource.objects
+        .filter(platform=platform_name, is_active=True)
+        .exclude(url__in=active_urls)
+        .update(is_active=False)
+    )
+    if deactivated:
+        logger.info("%s: deactivated %d stale resource(s).", platform_name, deactivated)
+    return deactivated
 
 
 # ============================================================

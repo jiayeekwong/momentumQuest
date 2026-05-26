@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import JobCategory, Skill, ScrapedJob, ScrapedJobSkill, ScrapeLog
+from .models import JobCategory, LearningResource, Skill, ScrapedJob, ScrapedJobSkill, ScrapeLog
 
 
 @admin.register(JobCategory)
@@ -42,6 +42,14 @@ class ScrapedJobSkillAdmin(admin.ModelAdmin):
     list_display = ("scraped_job", "skill", "extraction_method")
     search_fields = ("scraped_job__job_title", "skill__skill_name")
     list_filter = ("extraction_method", "skill__skill_category")
+
+
+@admin.register(LearningResource)
+class LearningResourceAdmin(admin.ModelAdmin):
+    list_display = ("title", "platform", "type", "skill", "is_active", "scraped_at")
+    search_fields = ("title", "platform", "url")
+    list_filter = ("platform", "type", "is_active", "skill__skill_category")
+    readonly_fields = ("scraped_at",)
 
 
 @admin.register(ScrapeLog)

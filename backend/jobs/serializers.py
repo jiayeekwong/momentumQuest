@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import JobCategory, ScrapedJob, ScrapeLog
+from .models import JobCategory, LearningResource, ScrapedJob, ScrapeLog
 
 
 class JobCategorySerializer(serializers.ModelSerializer):
@@ -35,6 +35,14 @@ class ScrapedJobDetailSerializer(ScrapedJobListSerializer):
     """Same as list but includes full description."""
     class Meta(ScrapedJobListSerializer.Meta):
         fields = ScrapedJobListSerializer.Meta.fields + ["description"]
+
+
+class LearningResourceSerializer(serializers.ModelSerializer):
+    skill = serializers.StringRelatedField()
+
+    class Meta:
+        model = LearningResource
+        fields = ["id", "skill", "title", "platform", "url", "type", "scraped_at"]
 
 
 class ScrapeLogSerializer(serializers.ModelSerializer):
