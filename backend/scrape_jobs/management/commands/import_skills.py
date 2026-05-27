@@ -3,14 +3,14 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from jobs.models import Skill
+from scrape_jobs.models import Skill
 
 
 class Command(BaseCommand):
     help = "Import CS skills from CSV into the Skill table"
 
     def handle(self, *args, **options):
-        csv_path = Path("jobs/data/cs_skills.csv")
+        csv_path = Path(__file__).resolve().parents[3] / "scrape_jobs" / "data" / "cs_skills.csv"
 
         if not csv_path.exists():
             self.stdout.write(

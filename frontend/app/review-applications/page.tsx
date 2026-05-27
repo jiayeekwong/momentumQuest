@@ -45,7 +45,7 @@ export default function ReviewApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch('/api/listings/applications/')
+    apiFetch('/api/job-listings/applications/')
       .then(r => r.json())
       .then(data => setApplications(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -53,7 +53,7 @@ export default function ReviewApplicationsPage() {
   }, []);
 
   const updateStatus = async (id: number, status: AppStatus) => {
-    const res = await apiFetch(`/api/listings/applications/${id}/status/`, {
+    const res = await apiFetch(`/api/job-listings/applications/${id}/status/`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });

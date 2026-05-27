@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from jobs.models import Skill
+from scrape_jobs.models import Skill
 from .models import JobApplication, JobListing, JobSkill
 
 

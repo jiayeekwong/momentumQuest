@@ -32,7 +32,7 @@ export default function PostJobPage() {
   const [categories, setCategories] = useState<JobCategory[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/jobs/categories/')
+    fetch('http://localhost:8000/api/scrape-jobs/categories/')
       .then(r => r.json())
       .then(data => setCategories(Array.isArray(data) ? data : (data.results ?? [])))
       .catch(() => {});
@@ -66,7 +66,7 @@ export default function PostJobPage() {
     if (salaryMax)  payload.salary_max = Number(salaryMax);
 
     try {
-      const res = await apiFetch('/api/listings/jobs/', {
+      const res = await apiFetch('/api/job-listings/jobs/', {
         method: 'POST',
         body: JSON.stringify(payload),
       });

@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 from accounts.models import AdminProfile, Company, Student
-from jobs.models import Skill
+from scrape_jobs.models import Skill
 
 
 class LearningResource(models.Model):

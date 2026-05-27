@@ -2,7 +2,7 @@ import logging
 
 from django.utils import timezone
 
-from jobs.models import Skill
+from scrape_jobs.models import Skill
 from .models import LearningResource, ResourceScrapeLog
 
 logger = logging.getLogger(__name__)

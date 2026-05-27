@@ -80,14 +80,41 @@ def parse_salary(salary_text):
 def parse_posted_date(posted_text):
     if not posted_text:
         return None
-    posted_text = posted_text.lower().strip()
-    if any(w in posted_text for w in ["minute", "minutes", "hour", "hours", "minit", "jam"]):
+    t = posted_text.lower().strip()
+
+    # "Just posted", "Today", "Baru sahaja"
+    if any(w in t for w in ["just", "today", "baru", "tadi"]):
         return datetime.today().date()
-    if any(w in posted_text for w in ["day", "days", "hari"]):
-        match = re.search(r"(\d+)", posted_text)
-        if match:
-            days_ago = 31 if "+" in posted_text else int(match.group(1))
+
+    # Short hour formats: "5h ago", "2h"
+    if re.search(r"\d+\s*h\b", t) or any(w in t for w in ["hour", "hours", "jam"]):
+        return datetime.today().date()
+
+    # Short minute formats: "30m ago", "5 min"
+    if re.search(r"\d+\s*m\b", t) or any(w in t for w in ["minute", "minutes", "minit"]):
+        return datetime.today().date()
+
+    # Short day formats: "2d ago", "3d"
+    m = re.search(r"(\d+)\s*d\b", t)
+    if m:
+        days_ago = 31 if "+" in t else int(m.group(1))
+        return (datetime.today() - timedelta(days=days_ago)).date()
+
+    # Long day formats: "2 days ago", "hari ini", "3 hari"
+    if any(w in t for w in ["day", "days", "hari"]):
+        m = re.search(r"(\d+)", t)
+        if m:
+            days_ago = 31 if "+" in t else int(m.group(1))
             return (datetime.today() - timedelta(days=days_ago)).date()
+        return datetime.today().date()
+
+    # ISO / readable date: "27 May 2026", "May 27, 2026"
+    for fmt in ("%d %b %Y", "%d %B %Y", "%b %d, %Y", "%B %d, %Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(posted_text.strip(), fmt).date()
+        except ValueError:
+            pass
+
     return None
 
 
@@ -181,7 +208,7 @@ def extract_job_cards(search_page_html):
 
         job_url = href if href.startswith("http") else f"{BASE_URL}{href}"
 
-        posted_tag = card.find("span", {"data-automation": "jobListingDate"})
+        posted_tag = card.select_one('[data-automation="jobListingDate"]')
         posted_text = clean_text(posted_tag.get_text()) if posted_tag else ""
 
         jobs.append({
@@ -241,6 +268,23 @@ def extract_job_detail(driver, job, retries=2):
 
             salary_min, salary_max = parse_salary(salary_text)
 
+            # Try to get posted date from detail page; fall back to listing card value
+            detail_date = None
+            for selector in [
+                '[data-automation="job-detail-date"]',
+                '[data-automation="jobCreatedAt"]',
+                'time[datetime]',
+                '[data-automation="job-posted-date"]',
+            ]:
+                tag = soup.select_one(selector)
+                if tag:
+                    date_text = tag.get("datetime") or clean_text(tag.get_text())
+                    detail_date = parse_posted_date(date_text)
+                    if detail_date:
+                        break
+
+            posted_date = detail_date or job.get("posted_date")
+
             return {
                 "job_title":    title,
                 "company_name": company,
@@ -250,7 +294,7 @@ def extract_job_detail(driver, job, retries=2):
                 "salary_max":   salary_max,
                 "description":  description,
                 "job_type":     job_type,
-                "posted_date":  job.get("posted_date"),
+                "posted_date":  posted_date,
                 "source_portal": SOURCE_PORTAL,
                 "source_url":   job["source_url"],
             }, False

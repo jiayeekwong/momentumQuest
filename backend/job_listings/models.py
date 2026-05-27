@@ -1,7 +1,7 @@
 from django.db import models
 
 from accounts.models import Company, Student
-from jobs.models import JobCategory, Skill
+from scrape_jobs.models import JobCategory, Skill
 
 
 class JobListing(models.Model):

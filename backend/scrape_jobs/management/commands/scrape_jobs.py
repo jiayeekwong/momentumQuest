@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from jobs.scraper import scrape_jobs, JOBSTREET_ICT_URL
-from jobs.services import create_scrape_log, finish_scrape_log, save_scraped_jobs
+from scrape_jobs.scraper import scrape_jobs, JOBSTREET_ICT_URL
+from scrape_jobs.services import create_scrape_log, finish_scrape_log, save_scraped_jobs
 
 
 class Command(BaseCommand):

@@ -6,8 +6,8 @@ from rest_framework.views import APIView
 
 from accounts.models import User, Student, Company
 from accounts.permissions import IsStudent, IsCompany, IsAdminUserRole
-from jobs.models import JobCategory, Skill, ScrapedJob, ScrapeLog
-from jobs.serializers import ScrapeLogSerializer
+from scrape_jobs.models import JobCategory, Skill, ScrapedJob, ScrapeLog
+from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate  # used in admin dashboard only
 
 from .models import Announcement
@@ -126,7 +126,7 @@ class CompanyDashboardView(APIView):
     permission_classes = [IsCompany]
 
     def get(self, request):
-        from listings.models import JobListing, JobApplication
+        from job_listings.models import JobListing, JobApplication
 
         company = request.user.company_profile
 

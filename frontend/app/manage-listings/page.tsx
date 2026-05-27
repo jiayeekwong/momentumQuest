@@ -69,13 +69,13 @@ export default function ManageListingsPage() {
   const skillInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    apiFetch('/api/listings/jobs/')
+    apiFetch('/api/job-listings/jobs/')
       .then(r => r.json())
       .then(data => setListings(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setIsLoading(false));
 
-    fetch('http://localhost:8000/api/jobs/categories/')
+    fetch('http://localhost:8000/api/scrape-jobs/categories/')
       .then(r => r.json())
       .then(data => setCategories(Array.isArray(data) ? data : (data.results ?? [])))
       .catch(() => {});
@@ -88,7 +88,7 @@ export default function ManageListingsPage() {
     setEditLoading(true);
 
     try {
-      const res = await apiFetch(`/api/listings/jobs/${id}/`);
+      const res = await apiFetch(`/api/job-listings/jobs/${id}/`);
       const detail: ListingDetail = await res.json();
 
       setETitle(detail.job_title);
@@ -141,7 +141,7 @@ export default function ManageListingsPage() {
     if (eSalaryMax)  payload.salary_max = Number(eSalaryMax);
 
     try {
-      const res = await apiFetch(`/api/listings/jobs/${editId}/`, {
+      const res = await apiFetch(`/api/job-listings/jobs/${editId}/`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
@@ -166,7 +166,7 @@ export default function ManageListingsPage() {
 
   const toggleStatus = async (listing: Listing) => {
     const newStatus = listing.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE';
-    const res = await apiFetch(`/api/listings/jobs/${listing.id}/`, {
+    const res = await apiFetch(`/api/job-listings/jobs/${listing.id}/`, {
       method: 'PATCH',
       body: JSON.stringify({ status: newStatus }),
     });
@@ -176,7 +176,7 @@ export default function ManageListingsPage() {
   };
 
   const deleteListing = async (id: number) => {
-    const res = await apiFetch(`/api/listings/jobs/${id}/`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/job-listings/jobs/${id}/`, { method: 'DELETE' });
     if (res.status === 204) {
       setListings(prev => prev.filter(l => l.id !== id));
     }

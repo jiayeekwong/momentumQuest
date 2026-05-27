@@ -87,7 +87,7 @@ class StudentSkill(models.Model):
         ADVANCED     = 'ADVANCED',     'Advanced'
 
     student     = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='student_skills')
-    skill       = models.ForeignKey('jobs.Skill', on_delete=models.CASCADE, related_name='student_skills')
+    skill       = models.ForeignKey('scrape_jobs.Skill', on_delete=models.CASCADE, related_name='student_skills')
     skill_level = models.CharField(max_length=20, choices=SkillLevel.choices, default=SkillLevel.BEGINNER)
 
     class Meta:

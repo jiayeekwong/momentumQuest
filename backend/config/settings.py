@@ -61,10 +61,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'accounts',
-    'jobs',
+    'scrape_jobs',
     'resources',
     'dashboard',
-    'listings',
+    'job_listings',
 ]
 
 MIDDLEWARE = [

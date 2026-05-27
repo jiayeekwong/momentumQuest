@@ -158,55 +158,87 @@ def skill_matches_title(skill_name, title):
 
 
 # ============================================================
-# freeCodeCamp — React SPA, Selenium required
+# freeCodeCamp — catalog page, Selenium required
 # ============================================================
+#
+# Scrapes https://www.freecodecamp.org/catalog which lists every course as a
+# structured card:
+#   <a class="catalog-item" href="/learn/...">
+#     <div class="block-label">Python</div>   ← category = skill name
+#     <h3>Learn Python for Beginners</h3>     ← course title
+#     <p>Description...</p>
+#   </a>
+#
+# Strategy:
+#   1. Extract the category label (block-label) from each card.
+#   2. Match the label directly to a DB skill (case-insensitive) — most
+#      reliable because "Python", "JavaScript", "CSS", "Git", etc. are exact
+#      DB skill names.
+#   3. Fall back to word-boundary title matching for categories that don't
+#      directly match a DB skill (e.g., "Computer Science" → title may contain
+#      "Data Structures" which matches a DB skill).
+#   4. Skip courses that match neither.
 
-FCC_LEARN_URL = "https://www.freecodecamp.org/learn"
+FCC_CATALOG_URL = "https://www.freecodecamp.org/catalog"
 
 
 def scrape_freecodecamp(skill_names):
     results = []
-    driver = create_driver()
+    driver  = create_driver()
+
+    # Build a lookup map: lowercase skill name → original casing in DB
+    skill_lookup = {s.lower(): s for s in skill_names}
 
     try:
-        page_source = safe_load_page(driver, FCC_LEARN_URL)
+        page_source = safe_load_page(driver, FCC_CATALOG_URL)
         if not page_source:
-            logger.error("freeCodeCamp: page failed to load after retries.")
+            logger.error("freeCodeCamp: catalog page failed to load after retries.")
             return results
 
-        # React may still be hydrating — wait for certification links
         WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="/learn/"]'))
+            EC.presence_of_element_located((By.CSS_SELECTOR, "a.catalog-item"))
         )
         random_delay(2, 4)
 
         soup      = BeautifulSoup(driver.page_source, "html.parser")
         seen_urls = set()
 
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if "/learn/" not in href:
-                continue
-
-            title = link.get_text(strip=True)
-            if not title or len(title) < 8:
-                continue
-
-            url = href if href.startswith("http") else f"https://www.freecodecamp.org{href}"
+        for card in soup.select("a.catalog-item[href]"):
+            href = card["href"]
+            url  = href if href.startswith("http") else f"https://www.freecodecamp.org{href}"
             if url in seen_urls:
                 continue
 
-            for skill_name in skill_names:
-                if skill_matches_title(skill_name, title):
-                    results.append({
-                        "skill_name": skill_name,
-                        "title":      title[:255],
-                        "platform":   "freeCodeCamp",
-                        "url":        url,
-                        "type":       "Certification",
-                    })
-                    seen_urls.add(url)
-                    break
+            category_tag = card.select_one("div.block-label")
+            title_tag    = card.select_one("h3")
+
+            category = category_tag.get_text(strip=True) if category_tag else ""
+            title    = title_tag.get_text(strip=True)    if title_tag    else ""
+
+            if not title:
+                continue
+
+            # Step 1 — category label is the primary skill signal
+            matched_skill = skill_lookup.get(category.lower())
+
+            # Step 2 — fall back to word-boundary title matching
+            if not matched_skill:
+                for skill_name in skill_names:
+                    if skill_matches_title(skill_name, title):
+                        matched_skill = skill_name
+                        break
+
+            if not matched_skill:
+                continue
+
+            results.append({
+                "skill_name": matched_skill,
+                "title":      title[:255],
+                "platform":   "freeCodeCamp",
+                "url":        url,
+                "type":       "Course",
+            })
+            seen_urls.add(url)
 
         logger.info("freeCodeCamp: %d resources matched.", len(results))
 
@@ -451,7 +483,7 @@ def scrape_coursera(skill_names):
     driver    = create_driver()
 
     try:
-        from jobs.models import JobCategory
+        from scrape_jobs.models import JobCategory
         queries = list(JobCategory.objects.values_list("category_name", flat=True))
     except Exception:
         queries = []

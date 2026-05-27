@@ -42,7 +42,7 @@ export default function CompanyDashboardPage() {
       .then(setStats)
       .catch(() => {});
 
-    apiFetch('/api/listings/applications/')
+    apiFetch('/api/job-listings/applications/')
       .then(r => r.json())
       .then((data: RecentApp[]) => setRecentApps(Array.isArray(data) ? data.slice(0, 5) : []))
       .catch(() => {});

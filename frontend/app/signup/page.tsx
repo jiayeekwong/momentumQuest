@@ -24,7 +24,7 @@ export default function SignupPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/jobs/categories/`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/scrape-jobs/categories/`)
       .then((r) => r.json())
       .then((data: { category_name: string }[]) =>
         setJobCategories(data.map((c) => c.category_name))

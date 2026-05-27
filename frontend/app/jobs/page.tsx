@@ -77,9 +77,22 @@ export default function JobListingsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [description, setDescription] = useState<string>('');
+  const [descLoading, setDescLoading] = useState(false);
 
   const jobs = useMemo(() => rawJobs.map(j => mapJob(j, mySkills)), [rawJobs, mySkills]);
   const selectedJob = useMemo(() => jobs.find(j => j.id === selectedId) ?? null, [jobs, selectedId]);
+
+  // Fetch full job detail (including description) when selection changes
+  useEffect(() => {
+    if (!selectedId) { setDescription(''); return; }
+    setDescLoading(true);
+    fetch(`http://localhost:8000/api/scrape-jobs/scraped/${selectedId}/`)
+      .then(r => r.json())
+      .then(data => setDescription(data.description ?? ''))
+      .catch(() => setDescription(''))
+      .finally(() => setDescLoading(false));
+  }, [selectedId]);
 
   // Fetch student skills once on mount for match score calculation
   useEffect(() => {
@@ -101,7 +114,7 @@ export default function JobListingsPage() {
       setIsLoading(true);
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      fetch(`http://localhost:8000/api/jobs/scraped/?${params}`)
+      fetch(`http://localhost:8000/api/scrape-jobs/scraped/?${params}`)
         .then(r => r.json())
         .then(data => {
           const list: ScrapedJob[] = Array.isArray(data) ? data : (data.results ?? []);
@@ -283,6 +296,24 @@ export default function JobListingsPage() {
                     </div>
                   </section>
                 )}
+
+                <section>
+                  <h4 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-primary rounded-full" /> Job Description
+                  </h4>
+                  {descLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-neutral-400">
+                      <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                      Loading description…
+                    </div>
+                  ) : description ? (
+                    <div className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line">
+                      {description}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-400 italic">No description available.</p>
+                  )}
+                </section>
 
                 <section>
                   <h4 className="text-lg font-bold text-neutral-900 mb-3 flex items-center gap-2">

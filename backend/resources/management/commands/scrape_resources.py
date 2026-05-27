@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from jobs.models import Skill
-from jobs.resources_scraper import PLATFORM_DISPLAY_NAMES, PLATFORM_SCRAPERS, scrape_learning_resources
+from scrape_jobs.models import Skill
+from resources.scraper import PLATFORM_DISPLAY_NAMES, PLATFORM_SCRAPERS, scrape_learning_resources
 from resources.models import ResourceScrapeLog
 from resources.services import (
     create_resource_scrape_log, finish_resource_scrape_log,
