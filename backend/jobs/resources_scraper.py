@@ -120,11 +120,39 @@ def quit_driver(driver):
         pass
 
 
+# Context words required for single-character skills to avoid false positives.
+# A course title must contain at least one of these words alongside the skill
+# letter, otherwise standalone "R" in breadcrumbs/badges/labels will match.
+_SINGLE_CHAR_CONTEXT: dict[str, set[str]] = {
+    'R': {'programming', 'statistical', 'statistics', 'data', 'language',
+          'tidyverse', 'ggplot', 'cran', 'shiny', 'analytics', 'r studio',
+          'rstudio', 'dplyr'},
+    'C': {'programming', 'language', 'embedded', 'systems', 'c language',
+          'pointer', 'memory', 'struct'},
+}
+
+
 def skill_matches_title(skill_name, title):
     """
     Word-boundary match so single-char skills like 'R' or 'C' don't match
     every word that contains those letters (e.g. 'React', 'Framework').
+
+    For ambiguous single-character skills (R, C) a context-word check is
+    applied on top of the boundary match so that lone "R" characters that
+    appear as UI badges, trademark symbols, or breadcrumb fragments are
+    not treated as the R programming language.
     """
+    if len(skill_name) == 1:
+        # Case-sensitive + exclude trademark (R) / (C) via lookbehind/lookahead.
+        pattern = r'(?<!\()\b' + re.escape(skill_name) + r'\b(?!\))'
+        if not re.search(pattern, title):
+            return False
+        # Additional context check for known ambiguous single-char skills.
+        context_words = _SINGLE_CHAR_CONTEXT.get(skill_name.upper())
+        if context_words:
+            lower_title = title.lower()
+            return any(kw in lower_title for kw in context_words)
+        return True
     pattern = r'\b' + re.escape(skill_name) + r'\b'
     return bool(re.search(pattern, title, re.IGNORECASE))
 
@@ -241,7 +269,16 @@ def scrape_microsoft_learn(skill_names):
 # Cisco NetAcad — Angular SPA, Selenium required
 # ============================================================
 
-CISCO_CATALOG_URL = "https://www.netacad.com/catalog"
+CISCO_CATALOG_URL = "https://www.netacad.com/catalogs/learn"
+
+# URL segments that identify non-course pages on Cisco NetAcad.
+CISCO_NON_COURSE_SEGS = [
+    "/news/", "/blog/", "/stories/",
+    "/press-releases/", "/articles/", "/announcements/",
+]
+
+# Valid URL path prefixes that indicate an actual Cisco course or learning path.
+CISCO_COURSE_SEGS = ["/courses/", "/course/", "/learn/", "/catalog/"]
 
 
 def scrape_cisco_netacad(skill_names):
@@ -270,10 +307,11 @@ def scrape_cisco_netacad(skill_names):
         for link in soup.find_all("a", href=True):
             href = link["href"]
 
-            # Only include links that point to enrollable course pages.
-            # Cisco NetAcad course URLs contain /courses/ or /course/.
-            # This excludes news, blogs, career resources, and static pages.
-            if not any(seg in href for seg in ["/courses/", "/course/"]):
+            # Positive filter: must contain a course path segment.
+            if not any(seg in href for seg in CISCO_COURSE_SEGS):
+                continue
+            # Negative filter: exclude news/blog/announcements.
+            if any(seg in href for seg in CISCO_NON_COURSE_SEGS):
                 continue
 
             # Prefer the first heading inside the card link — avoids concatenating

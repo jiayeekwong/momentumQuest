@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
-from accounts.models import AdminProfile, Student
+from accounts.models import AdminProfile, Company, Student
 from jobs.models import Skill
 
 
@@ -79,6 +79,35 @@ class Certificate(models.Model):
 
     def __str__(self):
         return f"{self.student} — {self.skill.skill_name} ({self.verified_status})"
+
+
+class TrainingProgramme(models.Model):
+    class ApprovalStatus(models.TextChoices):
+        PENDING  = 'PENDING',  'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    company          = models.ForeignKey(Company, on_delete=models.CASCADE,
+                                         related_name='training_programmes')
+    admin            = models.ForeignKey(AdminProfile, on_delete=models.SET_NULL,
+                                         null=True, blank=True,
+                                         related_name='reviewed_programmes')
+    skill            = models.ForeignKey(Skill, on_delete=models.SET_NULL,
+                                         null=True, blank=True,
+                                         related_name='training_programmes')
+    title            = models.CharField(max_length=255)
+    description      = models.TextField(blank=True)
+    programme_duration = models.CharField(max_length=100, blank=True)
+    approval_status  = models.CharField(max_length=10,
+                                        choices=ApprovalStatus.choices,
+                                        default=ApprovalStatus.PENDING)
+    submission_time  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submission_time']
+
+    def __str__(self):
+        return f"{self.title} by {self.company.company_name} ({self.approval_status})"
 
 
 class ResourceScrapeLog(models.Model):

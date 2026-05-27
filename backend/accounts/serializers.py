@@ -11,7 +11,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AdminProfile, Company, Student
+from .models import AdminProfile, Company, Student, StudentSkill
 
 
 User = get_user_model()
@@ -400,3 +400,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             )
 
         return super().validate(attrs)
+
+
+# ============================================================
+# Student skill serializer
+# ============================================================
+
+class StudentSkillSerializer(serializers.ModelSerializer):
+    skill_name = serializers.CharField(source='skill.skill_name', read_only=True)
+
+    class Meta:
+        model = StudentSkill
+        fields = ['skill_name', 'skill_level']

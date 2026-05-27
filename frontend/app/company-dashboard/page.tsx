@@ -1,9 +1,10 @@
 'use client';
 
-import { useAuth } from '@/src/context/AuthContext';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/src/lib/apiFetch';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
-import { Briefcase, Users, Eye, TrendingUp, ChevronRight, Plus, Clock, CheckCircle2 } from 'lucide-react';
+import { Briefcase, Users, CheckCircle2, TrendingUp, ChevronRight, Plus, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Link from 'next/link';
 
@@ -12,30 +13,46 @@ const applicantData = [
   { day: 'Thu', count: 9 }, { day: 'Fri', count: 12 }, { day: 'Sat', count: 3 }, { day: 'Sun', count: 2 },
 ];
 
-const recentApplicants = [
-  { name: 'Aisha Rahman', role: 'Data Scientist', date: 'May 20, 2026', status: 'shortlisted' },
-  { name: 'Tan Wei Liang', role: 'Data Scientist', date: 'May 19, 2026', status: 'pending' },
-  { name: 'Priya Nair', role: 'Product Analyst', date: 'May 18, 2026', status: 'shortlisted' },
-  { name: 'Marcus Lee', role: 'Data Scientist', date: 'May 17, 2026', status: 'rejected' },
-];
-
 const statusVariants: Record<string, 'neutral' | 'primary' | 'warning' | 'danger' | 'success'> = {
-  pending: 'neutral', shortlisted: 'primary', rejected: 'danger', accepted: 'success',
+  PENDING: 'neutral', SHORTLISTED: 'primary', REJECTED: 'danger', ACCEPTED: 'success',
 };
 
-const activeListings = [
-  { title: 'Data Scientist', applicants: 12, views: 340, closing: 'May 30, 2026' },
-  { title: 'Product Analyst', applicants: 7, views: 180, closing: 'Jun 5, 2026' },
-];
+interface DashboardStats {
+  company_name: string;
+  active_listings: number;
+  total_applications: number;
+  shortlisted: number;
+}
+
+interface RecentApp {
+  id: number;
+  student_name: string;
+  job_title: string;
+  applied_time: string;
+  status: string;
+}
 
 export default function CompanyDashboardPage() {
-  const { user } = useAuth();
-  const companyName = user?.name ?? 'Your Company';
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentApps, setRecentApps] = useState<RecentApp[]>([]);
+
+  useEffect(() => {
+    apiFetch('/api/dashboard/company/')
+      .then(r => r.json())
+      .then(setStats)
+      .catch(() => {});
+
+    apiFetch('/api/listings/applications/')
+      .then(r => r.json())
+      .then((data: RecentApp[]) => setRecentApps(Array.isArray(data) ? data.slice(0, 5) : []))
+      .catch(() => {});
+  }, []);
+
+  const companyName = stats?.company_name ?? 'Your Company';
 
   return (
     <DashboardLayout title="Company Dashboard">
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-neutral-900">Welcome back, {companyName}</h2>
@@ -46,13 +63,11 @@ export default function CompanyDashboardPage() {
           </Link>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {[
-            { label: 'Active Listings', value: '2', icon: Briefcase, color: 'bg-indigo-50 text-primary' },
-            { label: 'Total Applicants', value: '19', icon: Users, color: 'bg-sky-50 text-secondary' },
-            { label: 'Shortlisted', value: '6', icon: CheckCircle2, color: 'bg-emerald-50 text-success' },
-            { label: 'Profile Views', value: '520', icon: Eye, color: 'bg-amber-50 text-warning' },
+            { label: 'Active Listings',    value: stats?.active_listings    ?? '—', icon: Briefcase,    color: 'bg-indigo-50 text-primary' },
+            { label: 'Total Applicants',   value: stats?.total_applications ?? '—', icon: Users,        color: 'bg-sky-50 text-secondary' },
+            { label: 'Shortlisted',        value: stats?.shortlisted        ?? '—', icon: CheckCircle2, color: 'bg-emerald-50 text-success' },
           ].map((stat) => (
             <Card key={stat.label} className="p-5 flex items-center gap-4">
               <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${stat.color}`}>
@@ -67,7 +82,6 @@ export default function CompanyDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Applicant trend */}
           <Card className="lg:col-span-3 p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -75,7 +89,7 @@ export default function CompanyDashboardPage() {
                 <p className="text-xs text-neutral-400 font-medium mt-0.5">New applicants this week</p>
               </div>
               <Badge variant="primary" className="text-[10px] font-black tracking-widest">
-                <TrendingUp size={12} className="mr-1" /> +42% WoW
+                <TrendingUp size={12} className="mr-1" /> This Week
               </Badge>
             </div>
             <ResponsiveContainer width="100%" height={200}>
@@ -89,8 +103,7 @@ export default function CompanyDashboardPage() {
             </ResponsiveContainer>
           </Card>
 
-          {/* Active listings */}
-          <Card className="lg:col-span-2 p-6">
+          <Card className="lg:col-span-2 p-6 flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-bold text-neutral-900">Active Listings</h3>
               <Link href="/manage-listings">
@@ -99,24 +112,18 @@ export default function CompanyDashboardPage() {
                 </Button>
               </Link>
             </div>
-            <div className="space-y-4">
-              {activeListings.map((listing) => (
-                <div key={listing.title} className="p-4 bg-neutral-50 rounded-xl border border-neutral-100">
-                  <h4 className="font-bold text-neutral-900 text-sm">{listing.title}</h4>
-                  <div className="flex items-center gap-4 mt-2 text-xs font-semibold text-neutral-500">
-                    <span className="flex items-center gap-1"><Users size={11} /> {listing.applicants} applicants</span>
-                    <span className="flex items-center gap-1"><Eye size={11} /> {listing.views} views</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-2 text-xs font-medium text-neutral-400">
-                    <Clock size={11} /> Closes {listing.closing}
-                  </div>
-                </div>
-              ))}
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
+              <p className="text-5xl font-black text-primary">{stats?.active_listings ?? '—'}</p>
+              <p className="text-sm font-medium text-neutral-500 mt-2">active job listings</p>
+              <Link href="/post-job" className="mt-4">
+                <Button variant="outline" size="sm" className="h-9 text-xs">
+                  <Plus size={14} className="mr-1.5" /> Post New Job
+                </Button>
+              </Link>
             </div>
           </Card>
         </div>
 
-        {/* Recent applicants */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-lg font-bold text-neutral-900">Recent Applicants</h3>
@@ -126,22 +133,34 @@ export default function CompanyDashboardPage() {
               </Button>
             </Link>
           </div>
-          <div className="divide-y divide-neutral-100">
-            {recentApplicants.map((app) => (
-              <div key={app.name} className="py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-black">
-                    {app.name[0]}
+          {recentApps.length > 0 ? (
+            <div className="divide-y divide-neutral-100">
+              {recentApps.map((app) => (
+                <div key={app.id} className="py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-black">
+                      {app.student_name[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-neutral-900">{app.student_name}</p>
+                      <p className="text-xs text-neutral-500 font-medium">
+                        {app.job_title} · {new Date(app.applied_time).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-neutral-900">{app.name}</p>
-                    <p className="text-xs text-neutral-500 font-medium">{app.role} · {app.date}</p>
-                  </div>
+                  <Badge variant={statusVariants[app.status] ?? 'neutral'} className="capitalize px-3 text-[10px] tracking-widest font-black">
+                    {app.status.toLowerCase()}
+                  </Badge>
                 </div>
-                <Badge variant={statusVariants[app.status]} className="capitalize px-3 text-[10px] tracking-widest font-black">{app.status}</Badge>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-12 text-center">
+              <Clock size={32} className="mx-auto text-neutral-200 mb-2" />
+              <p className="text-sm font-bold text-neutral-500">No applications yet</p>
+              <p className="text-xs text-neutral-400 mt-1">Applications will appear here once students apply</p>
+            </div>
+          )}
         </Card>
       </div>
     </DashboardLayout>

@@ -3,9 +3,10 @@
 import { useAuth } from '@/src/context/AuthContext';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
-import { Briefcase, Target, TrendingUp, Bell, ChevronRight, Sparkles, ArrowUpRight } from 'lucide-react';
+import { Briefcase, Target, Star, Bell, ChevronRight, Sparkles, ArrowUpRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 const trendData = [
   { month: 'Jan', demand: 62 }, { month: 'Feb', demand: 68 }, { month: 'Mar', demand: 71 },
@@ -31,6 +32,18 @@ const statusVariants: Record<string, 'neutral' | 'primary' | 'warning' | 'danger
 export default function DashboardPage() {
   const { user } = useAuth();
   const firstName = user?.name?.split(' ')[0] ?? 'there';
+  const [skillsCount, setSkillsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    fetch('http://localhost:8000/api/dashboard/student/', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setSkillsCount(data.skills_count ?? 0))
+      .catch(() => {});
+  }, []);
 
   return (
     <DashboardLayout title="Dashboard">
@@ -53,7 +66,7 @@ export default function DashboardPage() {
           {[
             { label: 'Applications Sent', value: '3', icon: Briefcase, color: 'bg-indigo-50 text-primary', trend: '+1 this week' },
             { label: 'Skill Match Score', value: '72%', icon: Target, color: 'bg-emerald-50 text-success', trend: '+5% vs last month' },
-            { label: 'Profile Views', value: '24', icon: TrendingUp, color: 'bg-amber-50 text-warning', trend: '+8 this week' },
+            { label: 'Skills in Profile', value: skillsCount !== null ? String(skillsCount) : '—', icon: Star, color: 'bg-amber-50 text-warning', trend: 'from your profile' },
           ].map((stat) => (
             <Card key={stat.label} className="p-6 flex items-start gap-5">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${stat.color}`}>

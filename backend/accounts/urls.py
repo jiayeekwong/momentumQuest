@@ -4,11 +4,16 @@ from .views import (
     AdminOnlyTestView,
     CompanyOnlyTestView,
     CustomTokenObtainPairView,
+    EmailChangeConfirmView,
+    EmailChangeRequestView,
+    PasswordChangeConfirmView,
+    PasswordChangeView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ProfileView,
     RegisterView,
     StudentOnlyTestView,
+    StudentSkillListView,
     VerifyEmailView,
 )
 
@@ -22,6 +27,11 @@ urlpatterns = [
     path('test/company/', CompanyOnlyTestView.as_view(), name='test_company'),
     path('test/admin/', AdminOnlyTestView.as_view(), name='test_admin'),
     path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('student/skills/', StudentSkillListView.as_view(), name='student_skills'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('email-change/', EmailChangeRequestView.as_view(), name='email_change'),
+    path('email-change/confirm/', EmailChangeConfirmView.as_view(), name='email_change_confirm'),
+    path('password-change/', PasswordChangeView.as_view(), name='password_change'),
+    path('password-change/confirm/', PasswordChangeConfirmView.as_view(), name='password_change_confirm'),
 ]

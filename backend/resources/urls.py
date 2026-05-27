@@ -8,4 +8,5 @@ urlpatterns = [
     path("courses/<int:pk>/",              views.CourseDetailView.as_view(),          name="course-detail"),
     path("certificates/",                  views.CertificateListCreateView.as_view(), name="certificate-list"),
     path("certificates/<int:pk>/endorse/", views.CertificateEndorseView.as_view(),    name="certificate-endorse"),
+    path("training/",                      views.CompanyTrainingView.as_view(),        name="training-list"),
 ]

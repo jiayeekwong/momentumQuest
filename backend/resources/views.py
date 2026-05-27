@@ -1,12 +1,16 @@
-from rest_framework import filters, generics
+from rest_framework import filters, generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import Certificate, Course, LearningResource
+from accounts.permissions import IsCompany
+from .models import Certificate, Course, LearningResource, TrainingProgramme
 from .serializers import (
     CertificateSerializer,
     CertificateUploadSerializer,
     CourseSerializer,
     LearningResourceSerializer,
+    TrainingProgrammeSerializer,
 )
 
 
@@ -109,3 +113,23 @@ class CertificateEndorseView(generics.UpdateAPIView):
 
     def perform_update(self, serializer):
         serializer.save(admin=self.request.user.admin_profile)
+
+
+class CompanyTrainingView(APIView):
+    """
+    GET  /api/resources/training/  — company lists their own submitted programmes
+    POST /api/resources/training/  — company submits a new training programme (UC-23)
+    """
+    permission_classes = [IsCompany]
+
+    def get(self, request):
+        company = request.user.company_profile
+        qs = TrainingProgramme.objects.filter(company=company).select_related('skill')
+        serializer = TrainingProgrammeSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = TrainingProgrammeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(company=request.user.company_profile)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

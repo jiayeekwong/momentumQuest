@@ -18,9 +18,15 @@ interface SidebarItem {
 }
 
 export function DashboardLayout({ children, title }: { children: ReactNode; title: string }) {
-  const { user, logout } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  // Redirect to login once loading is done and no user is found
+  if (!isLoading && !user) {
+    router.replace('/login');
+    return null;
+  }
 
   const studentItems: SidebarItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },

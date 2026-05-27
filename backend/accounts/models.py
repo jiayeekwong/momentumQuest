@@ -78,3 +78,20 @@ class AdminProfile(models.Model):
 
     def __str__(self):
         return self.admin_name
+
+
+class StudentSkill(models.Model):
+    class SkillLevel(models.TextChoices):
+        BEGINNER     = 'BEGINNER',     'Beginner'
+        INTERMEDIATE = 'INTERMEDIATE', 'Intermediate'
+        ADVANCED     = 'ADVANCED',     'Advanced'
+
+    student     = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='student_skills')
+    skill       = models.ForeignKey('jobs.Skill', on_delete=models.CASCADE, related_name='student_skills')
+    skill_level = models.CharField(max_length=20, choices=SkillLevel.choices, default=SkillLevel.BEGINNER)
+
+    class Meta:
+        unique_together = ('student', 'skill')
+
+    def __str__(self):
+        return f"{self.student.student_name} — {self.skill.skill_name} ({self.skill_level})"

@@ -30,12 +30,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Cross-tab logout: when another tab clears mq_user (e.g. email confirmation), log out here too
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if ((e.key === 'mq_user' || e.key === 'accessToken') && !e.newValue) {
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem('mq_user');
     if (saved) {
-      try { setUser(JSON.parse(saved)); } catch { localStorage.removeItem('mq_user'); }
+      try { setUser(JSON.parse(saved)); setIsLoading(false); return; } catch { localStorage.removeItem('mq_user'); }
     }
-    setIsLoading(false);
+
+    // mq_user missing — try to restore session from a stored access token
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) { setIsLoading(false); return; }
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile/`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error('unauthorized');
+        const profileData = await res.json();
+        const role = profileData.role.toLowerCase() as UserRole;
+        const name =
+          profileData.student_name ||
+          profileData.company_name ||
+          profileData.admin_name ||
+          profileData.email.split('@')[0];
+        const restored: User = {
+          id: profileData.email,
+          name,
+          email: profileData.email,
+          role,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`,
+          department: profileData.department,
+          desiredJobCategory: profileData.desired_job_category,
+          companyName: profileData.company_name,
+        };
+        setUser(restored);
+        localStorage.setItem('mq_user', JSON.stringify(restored));
+      })
+      .catch(() => {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = (email: string, role: UserRole) => {
