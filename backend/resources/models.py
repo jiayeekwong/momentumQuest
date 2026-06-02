@@ -98,6 +98,7 @@ class TrainingProgramme(models.Model):
     title            = models.CharField(max_length=255)
     description      = models.TextField(blank=True)
     programme_duration = models.CharField(max_length=100, blank=True)
+    supporting_doc   = models.URLField(blank=True, null=True)
     approval_status  = models.CharField(max_length=10,
                                         choices=ApprovalStatus.choices,
                                         default=ApprovalStatus.PENDING)

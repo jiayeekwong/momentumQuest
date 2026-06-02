@@ -28,18 +28,25 @@ async function refreshAccessToken(): Promise<string | null> {
 /**
  * Drop-in replacement for fetch() that automatically:
  * 1. Attaches the stored Bearer token.
- * 2. On 401, attempts a silent token refresh and retries once.
- * 3. On second 401 (refresh also expired), redirects to /login.
+ * 2. Skips Content-Type when body is FormData (browser sets multipart boundary).
+ * 3. On 401, attempts a silent token refresh and retries once.
+ * 4. On second 401 (refresh also expired), redirects to /login.
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const token = localStorage.getItem('accessToken') ?? '';
 
-  const makeHeaders = (t: string): HeadersInit => ({
-    'Content-Type': 'application/json',
-    ...(init.headers as Record<string, string> ?? {}),
-    Authorization: `Bearer ${t}`,
-  });
+  const makeHeaders = (t: string): HeadersInit => {
+    const base: Record<string, string> = {
+      ...(init.headers as Record<string, string> ?? {}),
+      Authorization: `Bearer ${t}`,
+    };
+    // Don't set Content-Type for FormData — browser sets multipart/form-data with boundary
+    if (!(init.body instanceof FormData)) {
+      base['Content-Type'] = 'application/json';
+    }
+    return base;
+  };
 
   let res = await fetch(url, { ...init, headers: makeHeaders(token) });
 

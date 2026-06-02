@@ -6,12 +6,14 @@ from .views import (
     CompanyJobDetailView,
     CompanyJobListingView,
     PublicJobListingView,
+    StudentJobApplicationView,
 )
 
 urlpatterns = [
     path('jobs/',                          CompanyJobListingView.as_view()),
     path('jobs/<int:pk>/',                 CompanyJobDetailView.as_view()),
-    path('applications/',                  CompanyApplicationListView.as_view()),
+    path('applications/',                  StudentJobApplicationView.as_view()),  # Student POST to apply
+    path('company/applications/',          CompanyApplicationListView.as_view()),  # Company GET applications
     path('applications/<int:pk>/status/',  CompanyApplicationStatusView.as_view()),
     path('public/',                        PublicJobListingView.as_view()),
 ]

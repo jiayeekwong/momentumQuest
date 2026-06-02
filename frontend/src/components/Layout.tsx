@@ -1,11 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Target, Briefcase, GraduationCap, FileText,
-  UserCircle, LogOut, Bell, ShieldCheck, PlusCircle, Megaphone, FileCheck
+  UserCircle, LogOut, Bell, ShieldCheck, Megaphone, FileCheck, Users
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { cn } from '@/src/lib/utils';
@@ -22,11 +22,13 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect to login once loading is done and no user is found
-  if (!isLoading && !user) {
-    router.replace('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace('/login');
+    }
+  }, [isLoading, user, router]);
+
+  if (!isLoading && !user) return null;
 
   const studentItems: SidebarItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -39,9 +41,9 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
 
   const companyItems: SidebarItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/company-dashboard' },
-    { icon: PlusCircle, label: 'Post Job Listing', path: '/post-job' },
-    { icon: FileText, label: 'Manage Listings', path: '/manage-listings' },
-    { icon: GraduationCap, label: 'Post Training', path: '/post-training' },
+    { icon: Briefcase, label: 'Manage Listings', path: '/manage-listings' },
+    { icon: Users, label: 'Review Applicants', path: '/review-applications' },
+    { icon: GraduationCap, label: 'Training Programme', path: '/post-training' },
     { icon: UserCircle, label: 'Profile', path: '/profile' },
   ];
 
@@ -107,10 +109,12 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
         <header className="h-16 bg-white border-b border-neutral-200 sticky top-0 z-10 px-8 flex items-center justify-between">
           <span className="text-lg font-semibold text-neutral-900">{title}</span>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-full relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-white" />
-            </button>
+            {user?.role === 'student' && (
+              <button className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-full relative">
+                <Bell size={20} />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-white" />
+              </button>
+            )}
             <div className="flex items-center gap-3 pl-4 border-l border-neutral-200">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-neutral-900 leading-none">{user?.name}</p>

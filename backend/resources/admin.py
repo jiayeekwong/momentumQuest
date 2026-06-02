@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Certificate, Course, LearningResource, ResourceScrapeLog
+from .models import Certificate, Course, LearningResource, ResourceScrapeLog, TrainingProgramme
 
 
 @admin.register(LearningResource)
@@ -25,6 +25,14 @@ class CertificateAdmin(admin.ModelAdmin):
     search_fields = ("student__student_name", "skill__skill_name", "source")
     list_filter   = ("verified_status", "skill__skill_category")
     readonly_fields = ("uploaded_time",)
+
+
+@admin.register(TrainingProgramme)
+class TrainingProgrammeAdmin(admin.ModelAdmin):
+    list_display  = ("title", "company", "skill", "approval_status", "submission_time")
+    search_fields = ("title", "company__company_name")
+    list_filter   = ("approval_status",)
+    readonly_fields = ("submission_time",)
 
 
 @admin.register(ResourceScrapeLog)

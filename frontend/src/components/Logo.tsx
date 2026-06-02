@@ -27,6 +27,7 @@ export function Logo({ size = 'md', theme = 'light', layout, className }: LogoPr
         width={260}
         height={260}
         className={cn('object-contain', sizeClasses[size])}
+        style={{ width: 'auto' }}
         priority
       />
       {showName && (

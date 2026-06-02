@@ -50,11 +50,12 @@ class JobListingReadSerializer(serializers.ModelSerializer):
     applicants_count   = serializers.SerializerMethodField()
     category_name      = serializers.CharField(source='category.category_name',
                                                read_only=True, default=None)
+    company            = serializers.SerializerMethodField()
 
     class Meta:
         model = JobListing
         fields = [
-            'id', 'job_title', 'category', 'category_name', 'description',
+            'id', 'job_title', 'category', 'category_name', 'company', 'description',
             'salary_min', 'salary_max', 'work_mode', 'experience_level',
             'closing_date', 'status', 'posted_time',
             'required_skills', 'applicants_count',
@@ -66,6 +67,12 @@ class JobListingReadSerializer(serializers.ModelSerializer):
 
     def get_applicants_count(self, obj):
         return obj.applications.count()
+
+    def get_company(self, obj):
+        return {
+            'id': obj.company.company_id,
+            'company_name': obj.company.company_name,
+        } if obj.company else None
 
 
 class JobListingSummarySerializer(serializers.ModelSerializer):

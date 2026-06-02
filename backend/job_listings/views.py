@@ -1,8 +1,10 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 
 from accounts.permissions import IsCompany
+from accounts.models import Student
 from .models import JobApplication, JobListing
 from .serializers import (
     JobApplicationSerializer,
@@ -34,7 +36,7 @@ class CompanyJobDetailView(APIView):
 
     def _get_own_listing(self, pk, request):
         try:
-            listing = JobListing.objects.get(pk=pk)
+            listing = JobListing.objects.select_related('category', 'company').prefetch_related('job_skills__skill', 'applications').get(pk=pk)
         except JobListing.DoesNotExist:
             return None, Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if listing.company != request.user.company_profile:
@@ -105,3 +107,29 @@ class PublicJobListingView(generics.ListAPIView):
             .select_related('category', 'company')
             .prefetch_related('job_skills__skill', 'applications')
         )
+
+
+class StudentJobApplicationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """
+        POST /api/job-listings/applications/
+        Student submits a job application.
+        Body: { "job": <int job_id> }
+        """
+        student = get_object_or_404(Student, user=request.user)
+        job_id = request.data.get('job')
+
+        if not job_id:
+            return Response({'detail': 'Job ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        job = get_object_or_404(JobListing, pk=job_id, status='ACTIVE')
+
+        # Check if already applied
+        if JobApplication.objects.filter(student=student, job=job).exists():
+            return Response({'detail': 'You have already applied to this job.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        application = JobApplication.objects.create(student=student, job=job)
+        serializer = JobApplicationSerializer(application)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

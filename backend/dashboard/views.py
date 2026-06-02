@@ -1,5 +1,10 @@
+import os
+import uuid
+
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db.models import Count, Q
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,11 +22,25 @@ from .serializers import AnnouncementSerializer
 class AnnouncementListView(generics.ListAPIView):
     """
     GET /api/dashboard/announcements/
-    Latest announcements visible to authenticated students and admins.
+    Returns announcements filtered by the caller's role:
+      STUDENT  → EVERYONE + STUDENTS
+      COMPANY  → EVERYONE + COMPANIES
+      ADMIN    → all
     """
-    queryset = Announcement.objects.select_related('admin').all()
-    serializer_class = AnnouncementSerializer
+    serializer_class   = AnnouncementSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        role = self.request.user.role
+        if role == 'STUDENT':
+            return Announcement.objects.filter(
+                audience__in=['EVERYONE', 'STUDENTS']
+            ).select_related('admin')
+        if role == 'COMPANY':
+            return Announcement.objects.filter(
+                audience__in=['EVERYONE', 'COMPANIES']
+            ).select_related('admin')
+        return Announcement.objects.select_related('admin').all()
 
 
 class AnnouncementCreateView(generics.CreateAPIView):
@@ -34,6 +53,36 @@ class AnnouncementCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(admin=self.request.user.admin_profile)
+
+
+class AnnouncementFileUploadView(APIView):
+    """
+    POST /api/dashboard/announcements/upload/
+    Admin uploads a file (poster, document). Returns the absolute URL to store
+    in supporting_doc — keeps the Announcement model a plain URLField per ERD.
+    """
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'detail': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ext  = os.path.splitext(file.name)[1].lower()
+        name = f"announcements/{uuid.uuid4().hex}{ext}"
+        saved_path = default_storage.save(name, file)
+        url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+        return Response({'url': url}, status=status.HTTP_201_CREATED)
+
+
+class AnnouncementDeleteView(generics.DestroyAPIView):
+    """
+    DELETE /api/dashboard/announcements/<id>/
+    Admin only — deletes an announcement.
+    """
+    queryset           = Announcement.objects.all()
+    serializer_class   = AnnouncementSerializer
+    permission_classes = [IsAdminUserRole]
 
 
 class StudentDashboardView(APIView):
@@ -69,7 +118,7 @@ class StudentDashboardView(APIView):
 
         return Response({
             'skills_count': skills_count,
-            'announcements': AnnouncementSerializer(announcements, many=True).data,
+            'announcements': AnnouncementSerializer(announcements, many=True, context={'request': request}).data,
             'job_demand_trends': {
                 'top_skills': [
                     {
@@ -114,7 +163,7 @@ class AdminDashboardView(APIView):
         return Response({
             'stats': stats,
             'recent_scrape_logs': ScrapeLogSerializer(recent_logs, many=True).data,
-            'recent_announcements': AnnouncementSerializer(recent_announcements, many=True).data,
+            'recent_announcements': AnnouncementSerializer(recent_announcements, many=True, context={'request': request}).data,
         })
 
 
