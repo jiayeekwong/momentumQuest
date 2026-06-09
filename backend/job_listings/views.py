@@ -1,6 +1,11 @@
+import os
+import uuid
+
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.shortcuts import get_object_or_404
 
 from accounts.permissions import IsCompany
@@ -101,9 +106,11 @@ class PublicJobListingView(generics.ListAPIView):
     serializer_class = JobListingReadSerializer
 
     def get_queryset(self):
+        # Only company-posted jobs are applied to internally; scraped jobs are
+        # served separately via /api/scrape-jobs/scraped/ (external redirect).
         return (
             JobListing.objects
-            .filter(status='ACTIVE')
+            .filter(status='ACTIVE', source_type='COMPANY')
             .select_related('category', 'company')
             .prefetch_related('job_skills__skill', 'applications')
         )
@@ -124,12 +131,58 @@ class StudentJobApplicationView(APIView):
         if not job_id:
             return Response({'detail': 'Job ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        job = get_object_or_404(JobListing, pk=job_id, status='ACTIVE')
+        # Students can only apply internally to company-posted jobs.
+        job = get_object_or_404(JobListing, pk=job_id, status='ACTIVE', source_type='COMPANY')
 
         # Check if already applied
         if JobApplication.objects.filter(student=student, job=job).exists():
             return Response({'detail': 'You have already applied to this job.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        application = JobApplication.objects.create(student=student, job=job)
+        # Required application-form fields
+        cv_url = request.data.get('cv_url', '').strip()
+        if not cv_url:
+            return Response({'detail': 'Please attach your CV.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        needs_work_permit = request.data.get('needs_work_permit', None)
+        if needs_work_permit is None:
+            return Response({'detail': 'Please answer the work-permit question.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        application = JobApplication.objects.create(
+            student=student,
+            job=job,
+            cv_url=cv_url,
+            needs_work_permit=bool(needs_work_permit),
+            available_from=request.data.get('available_from') or None,
+            phone=request.data.get('phone', ''),
+            cover_note=request.data.get('cover_note', ''),
+        )
         serializer = JobApplicationSerializer(application)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CVUploadView(APIView):
+    """
+    POST /api/job-listings/cv/upload/
+    Student uploads a CV file (PDF/Word). Returns the absolute URL to store in
+    JobApplication.cv_url — mirrors the training-programme upload pattern so
+    cv_url stays a URLField.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    ALLOWED_EXTENSIONS = ('.pdf', '.doc', '.docx')
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'detail': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ext = os.path.splitext(file.name)[1].lower()
+        if ext not in self.ALLOWED_EXTENSIONS:
+            return Response({'detail': 'CV must be a PDF or Word document.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        name = f"cv/{uuid.uuid4().hex}{ext}"
+        saved_path = default_storage.save(name, file)
+        url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+        return Response({'url': url}, status=status.HTTP_201_CREATED)

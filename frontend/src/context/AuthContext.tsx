@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserRole } from '@/src/types';
+import { User, UserRole, TargetJob } from '@/src/types';
 
 interface BackendProfile {
   email: string;
@@ -10,7 +10,7 @@ interface BackendProfile {
   student_name?: string;
   company_name?: string;
   department?: string;
-  desired_job_category?: string;
+  target_jobs?: TargetJob[];
 }
 
 interface AuthContextType {
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role,
           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`,
           department: profileData.department,
-          desiredJobCategory: profileData.desired_job_category,
+          targetJobs: profileData.target_jobs,
           companyName: profileData.company_name,
         };
         setUser(restored);
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`,
       department: profileData.department,
-      desiredJobCategory: profileData.desired_job_category,
+      targetJobs: profileData.target_jobs,
       companyName: profileData.company_name,
     };
 

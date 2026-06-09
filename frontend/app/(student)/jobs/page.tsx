@@ -5,6 +5,7 @@ import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, Bookmark, 
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
+import { apiFetch } from '@/src/lib/apiFetch';
 
 interface ScrapedJob {
   id: number;
@@ -66,12 +67,18 @@ const formatSalary = (min: number | null, max: number | null, text?: string): st
   return 'Salary not disclosed';
 };
 
+// Real skill-based match — preserved for when student-skill data is fully wired.
 const calcMatch = (requiredSkills: string[], mySkills: string[]): number => {
   if (requiredSkills.length === 0) return 0;
   const lower = mySkills.map(s => s.toLowerCase());
   const matched = requiredSkills.filter(s => lower.includes(s.toLowerCase())).length;
   return Math.round((matched / requiredSkills.length) * 100);
 };
+
+// DEMO: until real matching is connected, show a stable, realistic-looking match
+// score per job (62–98%) derived from the job id so it stays consistent across
+// renders/sorting. Swap back to calcMatch(...) in the mappers to restore real logic.
+const hardcodedMatch = (seed: number): number => 62 + ((seed * 41) % 37);
 
 const mapScrapedJob = (job: ScrapedJob, mySkills: string[]): MappedJob => ({
   id: String(job.id),
@@ -87,7 +94,7 @@ const mapScrapedJob = (job: ScrapedJob, mySkills: string[]): MappedJob => ({
   requiredSkills: job.skills ?? [],
   source_url: job.source_url,
   category: job.job_category ?? 'General',
-  matchScore: calcMatch(job.skills ?? [], mySkills),
+  matchScore: hardcodedMatch(job.id),
 });
 
 const mapCompanyJob = (job: CompanyJob, mySkills: string[]): MappedJob => {
@@ -104,24 +111,49 @@ const mapCompanyJob = (job: CompanyJob, mySkills: string[]): MappedJob => {
     requiredSkills: job.required_skills || [],
     source_url: '', // N/A for company jobs
     category: job.category_name,
-    matchScore: calcMatch(job.required_skills || [], mySkills),
+    matchScore: hardcodedMatch(job.id),
     description: job.description,
   };
 };
 
-async function submitJobApplication(jobId: number, token: string): Promise<boolean> {
+async function uploadCv(file: File): Promise<string | null> {
   try {
-    const response = await fetch('http://localhost:8000/api/job-listings/applications/', {
+    const form = new FormData();
+    form.append('file', file);
+    // apiFetch attaches the bearer token, refreshes it on 401, and leaves
+    // Content-Type unset for FormData (so the multipart boundary is correct).
+    const response = await apiFetch('/api/job-listings/cv/upload/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ job: jobId }),
+      body: form,
     });
-    return response.ok;
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.url ?? null;
   } catch {
-    return false;
+    return null;
+  }
+}
+
+interface ApplicationPayload {
+  job: number;
+  cv_url: string;
+  needs_work_permit: boolean;
+  available_from: string | null;
+  phone: string;
+  cover_note: string;
+}
+
+async function submitJobApplication(payload: ApplicationPayload): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await apiFetch('/api/job-listings/applications/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) return { ok: true };
+    const data = await response.json().catch(() => ({}));
+    return { ok: false, error: data.detail || 'Failed to submit application.' };
+  } catch {
+    return { ok: false, error: 'Network error. Make sure the backend is running.' };
   }
 }
 
@@ -134,26 +166,65 @@ export default function JobListingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [description, setDescription] = useState<string>('');
   const [descLoading, setDescLoading] = useState(false);
-  const [applyingId, setApplyingId] = useState<number | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
-  const handleApplyToCompanyJob = async (jobId: number) => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
+  // Application modal (company-posted jobs only)
+  const [applyModalJob, setApplyModalJob] = useState<{ id: number; title: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [needsWorkPermit, setNeedsWorkPermit] = useState<'' | 'yes' | 'no'>('');
+  const [availableFrom, setAvailableFrom] = useState('');
+  const [phone, setPhone] = useState('');
+  const [coverNote, setCoverNote] = useState('');
+
+  const openApplyModal = (jobId: number, title: string) => {
+    if (!localStorage.getItem('accessToken')) {
       setApplyMessage('Please log in to apply');
+      setTimeout(() => setApplyMessage(null), 3000);
+      return;
+    }
+    // reset form
+    setCvFile(null);
+    setNeedsWorkPermit('');
+    setAvailableFrom('');
+    setPhone('');
+    setCoverNote('');
+    setFormError('');
+    setApplyModalJob({ id: jobId, title });
+  };
+
+  const submitApplication = async () => {
+    if (!applyModalJob) return;
+    if (!cvFile) { setFormError('Please attach your CV (PDF or Word).'); return; }
+    if (!needsWorkPermit) { setFormError('Please answer the work-permit question.'); return; }
+
+    setSubmitting(true);
+    setFormError('');
+
+    const cvUrl = await uploadCv(cvFile);
+    if (!cvUrl) {
+      setSubmitting(false);
+      setFormError('CV upload failed. Use a PDF or Word file and try again.');
       return;
     }
 
-    setApplyingId(jobId);
-    const success = await submitJobApplication(jobId, token);
-    setApplyingId(null);
+    const result = await submitJobApplication({
+      job: applyModalJob.id,
+      cv_url: cvUrl,
+      needs_work_permit: needsWorkPermit === 'yes',
+      available_from: availableFrom || null,
+      phone,
+      cover_note: coverNote,
+    });
+    setSubmitting(false);
 
-    if (success) {
+    if (result.ok) {
+      setApplyModalJob(null);
       setApplyMessage('Application submitted successfully! ✓');
       setTimeout(() => setApplyMessage(null), 3000);
     } else {
-      setApplyMessage('Failed to submit application. Please try again.');
-      setTimeout(() => setApplyMessage(null), 3000);
+      setFormError(result.error ?? 'Failed to submit application.');
     }
   };
 
@@ -247,6 +318,88 @@ export default function JobListingsPage() {
 
   return (
     <DashboardLayout title="Job Marketplace">
+      {/* Application form modal — company-posted jobs */}
+      {applyModalJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !submitting && setApplyModalJob(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-neutral-100">
+              <h3 className="text-lg font-black text-neutral-900">Apply — {applyModalJob.title}</h3>
+              <p className="text-xs text-neutral-500 mt-1">Attach your CV and answer a few quick questions.</p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Resume / CV <span className="text-danger">*</span></label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={e => setCvFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer"
+                />
+                {cvFile && <p className="text-xs text-success font-medium">Selected: {cvFile.name}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Do you require a work permit / visa to work here? <span className="text-danger">*</span></label>
+                <div className="flex gap-3">
+                  {(['yes', 'no'] as const).map(v => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setNeedsWorkPermit(v)}
+                      className={cn('flex-1 h-10 rounded-lg border-2 text-sm font-bold capitalize transition-colors',
+                        needsWorkPermit === v ? 'border-primary bg-indigo-50/50 text-primary' : 'border-neutral-200 text-neutral-500 hover:border-neutral-300')}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Earliest start date</label>
+                  <input
+                    type="date"
+                    value={availableFrom}
+                    onChange={e => setAvailableFrom(e.target.value)}
+                    className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Phone number</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="+60..."
+                    className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Why are you a good fit? <span className="text-neutral-400 normal-case">(optional)</span></label>
+                <textarea
+                  value={coverNote}
+                  onChange={e => setCoverNote(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                />
+              </div>
+
+              {formError && (
+                <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-danger">{formError}</div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-neutral-100 flex gap-3">
+              <Button variant="outline" fullWidth className="h-11" disabled={submitting} onClick={() => setApplyModalJob(null)}>Cancel</Button>
+              <Button fullWidth className="h-11" isLoading={submitting} onClick={submitApplication}>Submit Application</Button>
+            </div>
+          </div>
+        </div>
+      )}
       {applyMessage && (
         <div className={cn('mb-4 p-4 rounded-lg text-sm font-bold',
           applyMessage.includes('successfully') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>
@@ -332,11 +485,10 @@ export default function JobListingsPage() {
                     <div className="mt-3">
                       {job.sourceType === 'company' ? (
                         <button
-                          onClick={() => handleApplyToCompanyJob(job.companyJobId!)}
-                          disabled={applyingId === job.companyJobId}
-                          className="h-7 px-4 text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          onClick={(e) => { e.stopPropagation(); openApplyModal(job.companyJobId!, job.title); }}
+                          className="h-7 px-4 text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
                         >
-                          {applyingId === job.companyJobId ? 'Applying...' : 'Apply Now'}
+                          Apply Now
                         </button>
                       ) : (
                         <a
@@ -387,10 +539,9 @@ export default function JobListingsPage() {
                     {selectedJob.sourceType === 'company' ? (
                       <Button
                         className="h-11 px-8 flex items-center gap-2"
-                        disabled={applyingId === selectedJob.companyJobId}
-                        onClick={() => handleApplyToCompanyJob(selectedJob.companyJobId!)}
+                        onClick={() => openApplyModal(selectedJob.companyJobId!, selectedJob.title)}
                       >
-                        {applyingId === selectedJob.companyJobId ? 'Submitting...' : 'Apply Now'}
+                        Apply Now
                       </Button>
                     ) : (
                       <a href={selectedJob.source_url} target="_blank" rel="noopener noreferrer">

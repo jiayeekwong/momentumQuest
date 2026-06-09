@@ -105,6 +105,7 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             'id', 'student_name', 'student_email', 'student_skills',
             'match_score', 'job_title', 'job',
             'cv_url', 'status', 'applied_time', 'is_read',
+            'needs_work_permit', 'available_from', 'phone', 'cover_note',
         ]
 
     def get_student_skills(self, obj):

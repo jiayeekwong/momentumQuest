@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Card, Input } from "../../src/components/ui";
-import { Logo } from "../../src/components/Logo";
+import { Button, Card, Input } from "@/src/components/ui";
+import { Logo } from "@/src/components/Logo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");

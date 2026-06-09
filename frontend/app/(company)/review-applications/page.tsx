@@ -20,6 +20,10 @@ interface Application {
   status: AppStatus;
   applied_time: string;
   is_read: boolean;
+  needs_work_permit: boolean | null;
+  available_from: string | null;
+  phone: string;
+  cover_note: string;
 }
 
 const statusVariants: Record<AppStatus, 'neutral' | 'primary' | 'danger' | 'success' | 'warning'> = {
@@ -135,13 +139,39 @@ export default function ReviewApplicationsPage() {
 
                 {expanded === app.id && (
                   <div className="px-5 pb-5 pt-0 border-t border-neutral-100">
+                    {/* Application answers */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                      <div>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Work permit needed</p>
+                        <p className="text-sm font-bold text-neutral-900">
+                          {app.needs_work_permit === null ? '—' : app.needs_work_permit ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Earliest start</p>
+                        <p className="text-sm font-bold text-neutral-900">{app.available_from ? formatDate(app.available_from) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Phone</p>
+                        <p className="text-sm font-bold text-neutral-900">{app.phone || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Email</p>
+                        <p className="text-sm font-bold text-neutral-900 truncate">{app.student_email}</p>
+                      </div>
+                    </div>
+                    {app.cover_note && (
+                      <div className="mt-4">
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Why they&apos;re a good fit</p>
+                        <p className="text-sm text-neutral-700 whitespace-pre-line bg-neutral-50 rounded-lg p-3">{app.cover_note}</p>
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-3 pt-4 items-center">
                       {app.cv_url && (
                         <a href={app.cv_url} target="_blank" rel="noopener noreferrer">
                           <Button size="sm" variant="outline" className="h-9 text-xs">View CV</Button>
                         </a>
                       )}
-                      <p className="text-xs text-neutral-400">{app.student_email}</p>
                       <div className="flex gap-2 ml-auto">
                         <Button size="sm"
                           className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"

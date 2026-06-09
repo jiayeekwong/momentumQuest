@@ -21,83 +21,44 @@ class Skill(models.Model):
         return self.skill_name
 
 
-class ScrapedJob(models.Model):
-    job_category = models.ForeignKey(
+class SkillAlias(models.Model):
+    """Alternate names for a skill (e.g. 'JS' -> JavaScript, 'k8s' -> Kubernetes).
+
+    Used by the skill extractor so scraped job descriptions match the canonical
+    Skill even when they use a shorthand.
+    """
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE, related_name="aliases")
+    alias_name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        verbose_name_plural = "Skill aliases"
+        ordering = ["alias_name"]
+
+    def __str__(self):
+        return f"{self.alias_name} -> {self.skill.skill_name}"
+
+
+class JobTitle(models.Model):
+    """Normalised job title (e.g. 'Junior React Developer'), grouped under a
+    JobCategory. JobListing references this via job_title_ref, and students
+    pick target titles from here (accounts.StudentTargetJob).
+    """
+    title_name = models.CharField(max_length=255, unique=True)
+    category = models.ForeignKey(
         JobCategory,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="scraped_jobs",
+        related_name="job_titles",
     )
-
-    job_title = models.CharField(max_length=255)
-    company_name = models.CharField(max_length=255, blank=True)
-    location = models.CharField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
-    salary_text = models.CharField(max_length=100, blank=True)
-
-    salary_min = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True
-    )
-    salary_max = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True
-    )
-
-    job_type = models.CharField(max_length=100, blank=True)
-    posted_date = models.DateField(null=True, blank=True)
-
-    source_portal = models.CharField(max_length=100, default="JobStreet")
-    source_url = models.URLField(unique=True)
-    scraped_time = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-scraped_time"]
+        ordering = ["title_name"]
 
     def __str__(self):
-        return f"{self.job_title} @ {self.company_name}"
+        return self.title_name
 
 
-class ScrapedJobSkill(models.Model):
-    scraped_job = models.ForeignKey(
-        ScrapedJob,
-        on_delete=models.CASCADE,
-        related_name="scraped_job_skills",
-    )
-    skill = models.ForeignKey(
-        Skill,
-        on_delete=models.CASCADE,
-        related_name="scraped_job_skills",
-    )
-    extraction_method = models.CharField(max_length=50, default="keyword")
-
-    class Meta:
-        unique_together = ("scraped_job", "skill")
-
-    def __str__(self):
-        return f"{self.scraped_job.job_title} — {self.skill.skill_name}"
-
-
-class ScrapeLog(models.Model):
-    class Status(models.TextChoices):
-        SUCCESS = "SUCCESS", "Success"
-        BLOCKED = "BLOCKED", "Blocked by Anti-Bot"
-        PARTIAL = "PARTIAL", "Partial (some pages blocked)"
-        FAILED  = "FAILED",  "Failed"
-
-    started_at     = models.DateTimeField(auto_now_add=True)
-    finished_at    = models.DateTimeField(null=True, blank=True)
-    status         = models.CharField(max_length=20, choices=Status.choices, default=Status.FAILED)
-    roles_scraped  = models.JSONField(default=list)
-    pages_attempted = models.IntegerField(default=0)
-    jobs_scraped   = models.IntegerField(default=0)
-    jobs_created   = models.IntegerField(default=0)
-    jobs_updated   = models.IntegerField(default=0)
-    blocked_count  = models.IntegerField(default=0)
-    error_message  = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["-started_at"]
-
-    def __str__(self):
-        finished = self.finished_at.strftime("%H:%M") if self.finished_at else "running"
-        return f"[{self.status}] {self.started_at.strftime('%Y-%m-%d %H:%M')} → {finished} | +{self.jobs_created} new"
+# Scraped jobs were merged into job_listings.JobListing (source_type='SCRAPED').
+# See job_listings/migrations/0003_migrate_scraped_jobs.py for the data move.
+# ScrapeLog now lives in the job_listings app (job_listings.models.ScrapeLog).

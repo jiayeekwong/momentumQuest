@@ -11,7 +11,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AdminProfile, Company, Student, StudentSkill
+from .models import AdminProfile, Company, Student, StudentSkill, StudentTargetJob
 
 
 User = get_user_model()
@@ -72,6 +72,24 @@ def validate_strong_password(password):
         raise serializers.ValidationError({
             "password": ["Password must contain at least one special character."]
         })
+
+
+def set_student_target_jobs(student, title_ids):
+    """Replace a student's target jobs with the given JobTitle IDs.
+
+    Silently ignores IDs that don't exist. Shared by registration and the
+    profile update endpoint.
+    """
+    from scrape_jobs.models import JobTitle
+
+    StudentTargetJob.objects.filter(student=student).delete()
+    if not title_ids:
+        return
+
+    valid_titles = JobTitle.objects.filter(id__in=title_ids)
+    StudentTargetJob.objects.bulk_create(
+        [StudentTargetJob(student=student, job_title=t) for t in valid_titles]
+    )
 
 
 def get_user_from_uid(uid):
@@ -177,9 +195,11 @@ class RegisterSerializer(serializers.Serializer):
         write_only=True,
     )
 
-    desired_job_category = serializers.CharField(
+    # IDs of scrape_jobs.JobTitle the student is targeting (replaces the old
+    # free-text desired_job_category).
+    target_job_titles = serializers.ListField(
+        child=serializers.IntegerField(),
         required=False,
-        allow_blank=True,
         write_only=True,
     )
 
@@ -277,15 +297,12 @@ class RegisterSerializer(serializers.Serializer):
         Create the correct profile table based on the selected role.
         """
         if role == "STUDENT":
-            Student.objects.create(
+            student = Student.objects.create(
                 user=user,
                 student_name=name,
                 department=validated_data.get("department", ""),
-                desired_job_category=validated_data.get(
-                    "desired_job_category",
-                    "",
-                ),
             )
+            set_student_target_jobs(student, validated_data.get("target_job_titles", []))
 
         elif role == "COMPANY":
             Company.objects.create(

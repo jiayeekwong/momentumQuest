@@ -267,10 +267,20 @@ export default function ProfilePage() {
 
               <Card className="p-6">
                 <h3 className="text-base font-bold text-neutral-900 mb-4 flex items-center gap-2">
-                  <Briefcase size={16} className="text-primary" /> Target Role
+                  <Briefcase size={16} className="text-primary" /> Target Roles
                 </h3>
-                <p className="text-2xl font-black text-primary">{user?.desiredJobCategory ?? 'Data Analyst'}</p>
-                <p className="text-xs text-neutral-500 mt-1 font-medium">Your desired job category</p>
+                {user?.targetJobs && user.targetJobs.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {user.targetJobs.map((t) => (
+                      <span key={t.id} className="px-3 py-1.5 rounded-full bg-indigo-50 text-primary text-xs font-bold">
+                        {t.title_name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-400 font-medium">No target roles selected yet.</p>
+                )}
+                <p className="text-xs text-neutral-500 mt-3 font-medium">The job titles you&apos;re aiming for</p>
               </Card>
             </div>
           </div>

@@ -11,7 +11,8 @@ from rest_framework.views import APIView
 
 from accounts.models import User, Student, Company
 from accounts.permissions import IsStudent, IsCompany, IsAdminUserRole
-from scrape_jobs.models import JobCategory, Skill, ScrapedJob, ScrapeLog
+from scrape_jobs.models import JobCategory, Skill
+from job_listings.models import JobListing, ScrapeLog
 from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate  # used in admin dashboard only
 
@@ -102,8 +103,8 @@ class StudentDashboardView(APIView):
         top_skills = (
             Skill.objects
             .annotate(demand_count=Count(
-                'scraped_job_skills',
-                filter=Q(scraped_job_skills__scraped_job__isnull=False),
+                'job_skills',
+                filter=Q(job_skills__job__source_type='SCRAPED'),
             ))
             .filter(demand_count__gt=0)
             .order_by('-demand_count')[:5]
@@ -111,7 +112,10 @@ class StudentDashboardView(APIView):
 
         top_categories = (
             JobCategory.objects
-            .annotate(job_count=Count('scraped_jobs'))
+            .annotate(job_count=Count(
+                'job_listings',
+                filter=Q(job_listings__source_type='SCRAPED'),
+            ))
             .filter(job_count__gt=0)
             .order_by('-job_count')[:5]
         )
@@ -153,7 +157,7 @@ class AdminDashboardView(APIView):
             'total_students': Student.objects.count(),
             'total_companies': Company.objects.count(),
             'pending_certificates': Certificate.objects.filter(verified_status='PENDING').count(),
-            'total_scraped_jobs': ScrapedJob.objects.count(),
+            'total_scraped_jobs': JobListing.objects.filter(source_type='SCRAPED').count(),
             'total_skills': Skill.objects.count(),
         }
 

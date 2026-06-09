@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, CheckCircle2, Mail, User, Building2 } from 'lucide-react';
@@ -10,6 +10,12 @@ import { cn } from '@/src/lib/utils';
 
 type SignupRole = 'STUDENT' | 'COMPANY';
 
+// Mirrors the backend rule (accounts.serializers.validate_strong_password):
+// 8+ chars, at least one letter, one digit, and one special character.
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]).{8,}$/;
+const PASSWORD_RULE_MESSAGE = 'Password must be 8+ chars with a letter, digit, and special character.';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function SignupPage() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<SignupRole>('STUDENT');
@@ -18,19 +24,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [department, setDepartment] = useState('');
-  const [desiredJobCategory, setDesiredJobCategory] = useState('');
-  const [jobCategories, setJobCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/scrape-jobs/categories/`)
-      .then((r) => r.json())
-      .then((data: { category_name: string }[]) =>
-        setJobCategories(data.map((c) => c.category_name))
-      )
-      .catch(() => {});
-  }, []);
 
   const steps = [
     { title: 'Account Details', icon: Mail },
@@ -38,13 +33,42 @@ export default function SignupPage() {
     { title: 'Verify Email', icon: CheckCircle2 },
   ];
 
+  function handleNext() {
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      setError('Please fill in all fields before continuing.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!PASSWORD_REGEX.test(password)) {
+      setError(PASSWORD_RULE_MESSAGE);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setError('');
+    setStep(2);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
-    const pwRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]).{8,}$/;
-    if (!pwRegex.test(password)) {
-      setError('Password must be 8+ chars with a letter, digit, and special character.');
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      setError('Please fill in all fields before continuing.');
+      return;
+    }
+    if (role === 'STUDENT' && !department) {
+      setError('Please select your department.');
+      return;
+    }
+
+    if (!PASSWORD_REGEX.test(password)) {
+      setError(PASSWORD_RULE_MESSAGE);
       return;
     }
     if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
@@ -57,7 +81,6 @@ export default function SignupPage() {
         body: JSON.stringify({
           email, password, confirm_password: confirmPassword, role, name,
           department: role === 'STUDENT' ? department : '',
-          desired_job_category: role === 'STUDENT' ? desiredJobCategory : '',
         }),
       });
       const data = await res.json();
@@ -123,7 +146,7 @@ export default function SignupPage() {
                     <div className="grid grid-cols-2 gap-4">
                       {([
                         { id: 'STUDENT', label: 'Student', icon: User, desc: 'Find your dream job' },
-                        { id: 'COMPANY', label: 'Company', icon: Building2, desc: 'Hire top talent' },
+                        { id: 'COMPANY', label: 'Employer', icon: Building2, desc: 'Hire top talent' },
                       ] as const).map((r) => (
                         <div
                           key={r.id}
@@ -141,7 +164,13 @@ export default function SignupPage() {
                     </div>
                   </div>
 
-                  <Button fullWidth onClick={() => setStep(2)} className="mt-4 h-12">
+                  {error && (
+                    <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-danger whitespace-pre-line">
+                      {error}
+                    </div>
+                  )}
+
+                  <Button fullWidth onClick={handleNext} className="mt-4 h-12">
                     Next Step <ChevronRight size={18} className="ml-1" />
                   </Button>
                 </motion.div>
@@ -165,19 +194,6 @@ export default function SignupPage() {
                           <option>Information Systems</option>
                           <option>Computer System &amp; Networking</option>
                           <option>Multimedia</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Desired Job Category</label>
-                        <select
-                          className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          value={desiredJobCategory}
-                          onChange={(e) => setDesiredJobCategory(e.target.value)}
-                        >
-                          <option value="">Select a job category</option>
-                          {jobCategories.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
                         </select>
                       </div>
                     </>

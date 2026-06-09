@@ -137,21 +137,22 @@ It contains student-specific information such as:
 - user_id
 - student_name
 - department
-- desired_job_category
 
 This table is used when the user role is `STUDENT`.
 
 Main usage:
 
 - Store student profile information.
-- Store the career/job category the student is interested in.
-- Link student to skills, certificates, skill gaps, and job applications.
+- Link student to skills, certificates, skill gaps, target jobs, and job applications.
 
 Important rule:
 
 - A Student record belongs to one User.
 - Student skills should be stored in `Student_skill`, not directly in Student.
 - Student certificate records should be stored in `Certificate`.
+- The student's career interest is no longer a free-text `desired_job_category`.
+  It is now stored in `Student_Target_Job`, which links the student to one or
+  more normalized `Job_Title` records.
 
 ---
 
@@ -325,6 +326,13 @@ Important rule:
 ---
 
 ## Scraped_job
+
+> NOTE (current implementation): the separate `Scraped_job` table has been
+> MERGED into `Job_Listing`. Scraped jobs are now rows in `Job_Listing` with
+> `source_type = 'SCRAPED'`, a null `company`, and a populated `source_url`.
+> Their extracted skills live in `Job_Skill` (not a separate `Scraped_job_skill`
+> table). The scraper writes directly to `Job_Listing`. The sections below
+> describe the original design and are kept for historical context.
 
 The `Scraped_job` table stores external job market data collected from JobStreet or other job portals.
 

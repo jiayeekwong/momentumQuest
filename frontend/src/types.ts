@@ -1,5 +1,10 @@
 export type UserRole = 'student' | 'company' | 'admin';
 
+export interface TargetJob {
+  id: number;
+  title_name: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -7,7 +12,7 @@ export interface User {
   role: UserRole;
   avatar?: string;
   department?: string;
-  desiredJobCategory?: string;
+  targetJobs?: TargetJob[];
   companyName?: string;
   createdAt?: string;
   updatedAt?: string;

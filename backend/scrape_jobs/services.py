@@ -5,7 +5,8 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-from .models import JobCategory, ScrapedJob, ScrapedJobSkill, Skill, ScrapeLog
+from .models import JobCategory, Skill
+from job_listings.models import ScrapeLog
 from .skill_extractor import extract_skills_from_text
 
 
@@ -40,6 +41,20 @@ def get_or_create_job_category(category_name):
     return job_category
 
 
+def get_or_create_job_title(title_name, job_category):
+    """Normalised JobTitle for the scraped title, grouped under its category."""
+    from .models import JobTitle
+
+    job_title, created = JobTitle.objects.get_or_create(
+        title_name=title_name,
+        defaults={"category": job_category},
+    )
+    if not created and job_title.category_id is None and job_category is not None:
+        job_title.category = job_category
+        job_title.save(update_fields=["category"])
+    return job_title
+
+
 def clean_decimal(value):
     if value in [None, ""]:
         return None
@@ -50,7 +65,14 @@ def clean_decimal(value):
 
 
 def save_scraped_job(job_data):
-    """Save one scraped job and its matched skills. Returns (instance, created)."""
+    """Save one scraped job (into JobListing) and its matched skills.
+
+    Scraped jobs are stored in JobListing with source_type='SCRAPED' and no
+    company FK. Deduplicated on source_url. Returns (instance, created).
+    """
+    # Imported here to avoid a circular import (job_listings imports scrape_jobs).
+    from job_listings.models import JobListing, JobSkill
+
     job_title = job_data.get("job_title", "").strip()
     source_url = job_data.get("source_url", "").strip()
 
@@ -59,12 +81,14 @@ def save_scraped_job(job_data):
 
     category_name = classify_job_category(job_title)
     job_category = get_or_create_job_category(category_name)
+    job_title_ref = get_or_create_job_title(job_title, job_category)
 
-    scraped_job, created = ScrapedJob.objects.update_or_create(
+    listing, created = JobListing.objects.update_or_create(
         source_url=source_url,
         defaults={
-            "job_category":  job_category,
+            "category":      job_category,
             "job_title":     job_title,
+            "job_title_ref": job_title_ref,
             "company_name":  job_data.get("company_name", ""),
             "location":      job_data.get("location", ""),
             "description":   job_data.get("description", ""),
@@ -74,6 +98,9 @@ def save_scraped_job(job_data):
             "job_type":      job_data.get("job_type", ""),
             "posted_date":   job_data.get("posted_date"),
             "source_portal": job_data.get("source_portal", "JobStreet"),
+            "source_type":   "SCRAPED",
+            "company":       None,
+            "status":        "ACTIVE",
         },
     )
 
@@ -81,13 +108,13 @@ def save_scraped_job(job_data):
         f"{job_title} {job_data.get('description', '')}"
     )
     for skill in matched_skills:
-        ScrapedJobSkill.objects.get_or_create(
-            scraped_job=scraped_job,
+        JobSkill.objects.get_or_create(
+            job=listing,
             skill=skill,
-            defaults={"extraction_method": "keyword"},
+            defaults={"importance_level": "MEDIUM"},
         )
 
-    return scraped_job, created
+    return listing, created
 
 
 def save_scraped_jobs(jobs):

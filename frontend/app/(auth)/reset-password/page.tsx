@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button, Card, Input } from "../../src/components/ui";
-import { Logo } from "../../src/components/Logo";
+import { Button, Card, Input } from "@/src/components/ui";
+import { Logo } from "@/src/components/Logo";
 
 type ApiErrorResponse = {
   detail?: string | string[];

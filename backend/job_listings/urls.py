@@ -5,6 +5,7 @@ from .views import (
     CompanyApplicationStatusView,
     CompanyJobDetailView,
     CompanyJobListingView,
+    CVUploadView,
     PublicJobListingView,
     StudentJobApplicationView,
 )
@@ -12,6 +13,7 @@ from .views import (
 urlpatterns = [
     path('jobs/',                          CompanyJobListingView.as_view()),
     path('jobs/<int:pk>/',                 CompanyJobDetailView.as_view()),
+    path('cv/upload/',                     CVUploadView.as_view()),                 # Student uploads CV file
     path('applications/',                  StudentJobApplicationView.as_view()),  # Student POST to apply
     path('company/applications/',          CompanyApplicationListView.as_view()),  # Company GET applications
     path('applications/<int:pk>/status/',  CompanyApplicationStatusView.as_view()),

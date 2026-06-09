@@ -6,6 +6,7 @@ urlpatterns = [
     path("scraped/",          views.ScrapedJobListView.as_view(),      name="scraped-job-list"),
     path("scraped/<int:pk>/", views.ScrapedJobDetailView.as_view(),     name="scraped-job-detail"),
     path("categories/",       views.job_categories_view,                name="job-categories"),
+    path("job-titles/",       views.job_titles_view,                    name="job-titles"),
     path("skills/demand/",    views.skill_demand_view,                  name="skill-demand"),
     path("scrape-logs/",      views.scrape_logs_view,                   name="scrape-logs"),
 ]

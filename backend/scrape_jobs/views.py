@@ -4,11 +4,13 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import ScrapedJob, JobCategory, Skill, ScrapeLog
+from job_listings.models import JobListing, ScrapeLog
+from .models import JobCategory, JobTitle, Skill
 from .serializers import (
     ScrapedJobListSerializer,
     ScrapedJobDetailSerializer,
     JobCategorySerializer,
+    JobTitleSerializer,
     ScrapeLogSerializer,
 )
 
@@ -29,19 +31,21 @@ class ScrapedJobListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["job_title", "company_name", "location", "description"]
-    ordering_fields = ["scraped_time", "posted_date", "salary_min", "salary_max"]
-    ordering = ["-scraped_time"]
+    ordering_fields = ["posted_time", "posted_date", "salary_min", "salary_max"]
+    ordering = ["-posted_time"]
 
     def get_queryset(self):
-        qs = ScrapedJob.objects.select_related("job_category").prefetch_related(
-            "scraped_job_skills__skill"
+        qs = (
+            JobListing.objects.filter(source_type="SCRAPED")
+            .select_related("category")
+            .prefetch_related("job_skills__skill")
         )
         category = self.request.query_params.get("category")
         job_type = self.request.query_params.get("job_type")
         location = self.request.query_params.get("location")
 
         if category:
-            qs = qs.filter(job_category__category_name__icontains=category)
+            qs = qs.filter(category__category_name__icontains=category)
         if job_type:
             qs = qs.filter(job_type__icontains=job_type)
         if location:
@@ -55,8 +59,10 @@ class ScrapedJobDetailView(generics.RetrieveAPIView):
     GET /api/jobs/scraped/<id>/
     Full detail including description. source_url is the redirect link to JobStreet.
     """
-    queryset = ScrapedJob.objects.select_related("job_category").prefetch_related(
-        "scraped_job_skills__skill"
+    queryset = (
+        JobListing.objects.filter(source_type="SCRAPED")
+        .select_related("category")
+        .prefetch_related("job_skills__skill")
     )
     serializer_class = ScrapedJobDetailSerializer
     permission_classes = [AllowAny]
@@ -70,11 +76,30 @@ def job_categories_view(request):
     """
     categories = (
         JobCategory.objects
-        .annotate(job_count=Count("scraped_jobs"))
+        .annotate(job_count=Count(
+            "job_listings",
+            filter=Q(job_listings__source_type="SCRAPED"),
+        ))
         .filter(job_count__gt=0)
         .order_by("-job_count")
     )
     return Response(JobCategorySerializer(categories, many=True).data)
+
+
+@api_view(["GET"])
+def job_titles_view(request):
+    """
+    GET /api/scrape-jobs/job-titles/
+    Normalised job titles students can pick as a target (UC signup/profile).
+
+    Query params:
+      ?category=  — filter by job category name
+    """
+    qs = JobTitle.objects.select_related("category").all()
+    category = request.query_params.get("category")
+    if category:
+        qs = qs.filter(category__category_name__icontains=category)
+    return Response(JobTitleSerializer(qs, many=True).data)
 
 
 @api_view(["GET"])
@@ -93,14 +118,15 @@ def skill_demand_view(request):
 
     qs = Skill.objects.annotate(
         demand_count=Count(
-            "scraped_job_skills",
-            filter=Q(scraped_job_skills__scraped_job__isnull=False),
+            "job_skills",
+            filter=Q(job_skills__job__source_type="SCRAPED"),
         )
     ).filter(demand_count__gt=0)
 
     if category:
         qs = qs.filter(
-            scraped_job_skills__scraped_job__job_category__category_name__icontains=category
+            job_skills__job__source_type="SCRAPED",
+            job_skills__job__category__category_name__icontains=category,
         ).distinct()
 
     qs = qs.order_by("-demand_count")[:top]

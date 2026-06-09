@@ -1,14 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Target, CheckCircle2, AlertCircle, PlayCircle, ExternalLink, GraduationCap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 
+interface Category { id: number; category_name: string; }
+interface JobTitle { id: number; title_name: string; }
+
 export default function SkillGapPage() {
-  const [selectedJob, setSelectedJob] = useState('Data Analyst');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedTitleId, setSelectedTitleId] = useState<number | ''>('');
+
+  // Load job categories once.
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/scrape-jobs/categories/`)
+      .then((r) => r.json())
+      .then((data: Category[]) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  // Job titles depend on the selected category — refetch and reset title when it changes.
+  useEffect(() => {
+    setSelectedTitleId('');
+    if (!selectedCategory) { setJobTitles([]); return; }
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/scrape-jobs/job-titles/?category=${encodeURIComponent(selectedCategory)}`)
+      .then((r) => r.json())
+      .then((data: JobTitle[]) => setJobTitles(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [selectedCategory]);
+
+  const selectedTitleName = jobTitles.find((t) => t.id === selectedTitleId)?.title_name;
+  const selectedJob = selectedTitleName || selectedCategory || 'your target role';
 
   return (
     <DashboardLayout title="Skill Gap Analysis">
@@ -18,18 +45,34 @@ export default function SkillGapPage() {
             <h2 className="text-2xl font-bold text-neutral-900 mb-1">Career Transformation Roadmap</h2>
             <p className="text-neutral-600">Identify and bridge the gap between your skills and industry requirements.</p>
           </div>
-          <div className="w-full md:w-64">
-            <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Target Job Category</label>
-            <select
-              value={selectedJob}
-              onChange={(e) => setSelectedJob(e.target.value)}
-              className="w-full h-11 px-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option>Data Analyst</option>
-              <option>Software Engineer</option>
-              <option>UI/UX Designer</option>
-              <option>Cloud Architect</option>
-            </select>
+          <div className="w-full md:w-auto flex flex-col sm:flex-row gap-4">
+            <div className="w-full sm:w-56">
+              <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Target Job Category</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full h-11 px-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.category_name}>{c.category_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-full sm:w-56">
+              <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Target Job Title</label>
+              <select
+                value={selectedTitleId}
+                onChange={(e) => setSelectedTitleId(e.target.value ? Number(e.target.value) : '')}
+                disabled={!selectedCategory}
+                className="w-full h-11 px-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-neutral-100 disabled:cursor-not-allowed"
+              >
+                <option value="">{selectedCategory ? 'Select job title' : 'Select category first'}</option>
+                {jobTitles.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

@@ -19,6 +19,7 @@ from .serializers import (
     RegisterSerializer,
     CustomTokenObtainPairSerializer,
     StudentSkillSerializer,
+    set_student_target_jobs,
 )
 
 
@@ -43,9 +44,13 @@ class ProfileView(APIView):
         }
 
         if user.role == 'STUDENT' and hasattr(user, 'student_profile'):
-            data["student_name"] = user.student_profile.student_name
-            data["department"] = user.student_profile.department
-            data["desired_job_category"] = user.student_profile.desired_job_category
+            profile = user.student_profile
+            data["student_name"] = profile.student_name
+            data["department"] = profile.department
+            data["target_jobs"] = [
+                {"id": t.job_title_id, "title_name": t.job_title.title_name}
+                for t in profile.target_jobs.select_related("job_title").all()
+            ]
 
         elif user.role == 'COMPANY' and hasattr(user, 'company_profile'):
             data["company_name"] = user.company_profile.company_name
@@ -72,9 +77,9 @@ class ProfileView(APIView):
                 profile.student_name = request.data['student_name'].strip() or profile.student_name
             if 'department' in request.data:
                 profile.department = request.data['department']
-            if 'desired_job_category' in request.data:
-                profile.desired_job_category = request.data['desired_job_category']
             profile.save()
+            if 'target_job_titles' in request.data:
+                set_student_target_jobs(profile, request.data['target_job_titles'])
 
         return self.get(request)
     

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .models import JobCategory, ScrapedJob, ScrapeLog
+from job_listings.models import JobListing, ScrapeLog
+from .models import JobCategory, JobTitle
 
 
 class JobCategorySerializer(serializers.ModelSerializer):
@@ -11,12 +12,27 @@ class JobCategorySerializer(serializers.ModelSerializer):
         fields = ["id", "category_name", "description", "job_count"]
 
 
+class JobTitleSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.category_name", default=None, read_only=True)
+
+    class Meta:
+        model = JobTitle
+        fields = ["id", "title_name", "category_name"]
+
+
 class ScrapedJobListSerializer(serializers.ModelSerializer):
-    job_category = serializers.StringRelatedField()
+    """Scraped jobs now live in JobListing (source_type='SCRAPED').
+
+    Field names are kept identical to the old ScrapedJob API so the frontend
+    needs no changes: `category` is exposed as `job_category`, and
+    `posted_time` as `scraped_time`.
+    """
+    job_category = serializers.StringRelatedField(source="category")
+    scraped_time = serializers.DateTimeField(source="posted_time", read_only=True)
     skills = serializers.SerializerMethodField()
 
     class Meta:
-        model = ScrapedJob
+        model = JobListing
         fields = [
             "id", "job_title", "company_name", "location",
             "salary_text", "salary_min", "salary_max",
@@ -27,7 +43,7 @@ class ScrapedJobListSerializer(serializers.ModelSerializer):
     def get_skills(self, obj):
         return [
             rel.skill.skill_name
-            for rel in obj.scraped_job_skills.select_related("skill").all()
+            for rel in obj.job_skills.select_related("skill").all()
         ]
 
 

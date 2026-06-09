@@ -56,7 +56,6 @@ class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     student_name = models.CharField(max_length=100)
     department = models.CharField(max_length=100, blank=True)
-    desired_job_category = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return self.student_name
@@ -78,6 +77,21 @@ class AdminProfile(models.Model):
 
     def __str__(self):
         return self.admin_name
+
+
+class StudentTargetJob(models.Model):
+    """The job title(s) a student is aiming for. Replaces the old free-text
+    Student.desired_job_category; skill-gap analysis runs against these targets.
+    """
+    student    = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='target_jobs')
+    job_title  = models.ForeignKey('scrape_jobs.JobTitle', on_delete=models.CASCADE, related_name='targeting_students')
+    added_time = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('student', 'job_title')
+
+    def __str__(self):
+        return f"{self.student.student_name} → {self.job_title.title_name}"
 
 
 class StudentSkill(models.Model):
