@@ -34,6 +34,11 @@ function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
 }
 
+// Strip HTML tags for short plain-text previews (full HTML is rendered in the modal).
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // ─── Detail Modal ──────────────────────────────────────────────────────────────
 
 function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => void }) {
@@ -207,7 +212,7 @@ export default function ApprovalsPage() {
                         <span className="inline-flex items-center gap-1 ml-2 text-primary"><FileText size={10} /> Attachment</span>
                       )}
                     </p>
-                    <p className="text-sm text-neutral-600 leading-relaxed line-clamp-2">{item.details}</p>
+                    <p className="text-sm text-neutral-600 leading-relaxed line-clamp-2">{stripHtml(item.details)}</p>
                     {item.status === 'pending' && (
                       <div className="flex gap-3 mt-4">
                         <Button size="sm"

@@ -76,7 +76,10 @@ function TrainingModal({ programme: p, onClose }: { programme: TrainingProgramme
 
         <div className="p-7 space-y-5">
           {p.description ? (
-            <p className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line">{p.description}</p>
+            <div
+              className="text-sm text-neutral-700 leading-relaxed rich-text"
+              dangerouslySetInnerHTML={{ __html: p.description }}
+            />
           ) : (
             <p className="text-sm text-neutral-400 italic">No description provided.</p>
           )}
