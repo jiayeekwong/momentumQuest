@@ -10,7 +10,7 @@ class UserManager(BaseUserManager):
 
         email = self.normalize_email(email)
         user = self.model(email=email, role=role, **extra_fields)
-        user.set_password(password)
+        user.set_password(password)  # Hashes the password before saving
         user.save(using=self._db)
         return user
 
