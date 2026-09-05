@@ -7,6 +7,7 @@ import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { RichText } from '@/src/lib/richText';
 
 const TRAINING_PLATFORM = 'Training Programme';
 
@@ -76,9 +77,9 @@ function TrainingModal({ programme: p, onClose }: { programme: TrainingProgramme
 
         <div className="p-7 space-y-5">
           {p.description ? (
-            <div
+            <RichText
               className="text-sm text-neutral-700 leading-relaxed rich-text"
-              dangerouslySetInnerHTML={{ __html: p.description }}
+              html={p.description}
             />
           ) : (
             <p className="text-sm text-neutral-400 italic">No description provided.</p>

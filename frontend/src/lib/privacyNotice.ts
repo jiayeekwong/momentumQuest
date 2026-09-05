@@ -43,6 +43,10 @@ export interface PrivacyNotice {
   consent_statements: Record<string, string>;
   upload_notice: DocumentNotice;
   transcript_notice: DocumentNotice;
+  // Null on notice versions that predate CV processing — 1.0 never described
+  // it, so it must not appear to have.
+  cv_notice: DocumentNotice | null;
+  application_disclosure: string;
 }
 
 /**

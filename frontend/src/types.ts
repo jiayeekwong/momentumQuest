@@ -1,7 +1,8 @@
 export type UserRole = 'student' | 'company' | 'admin';
 
 export interface TargetRole {
-  role_name: string;
+  market_role: string;
+  broad_area?: string;
   added_time?: string;
 }
 
@@ -10,19 +11,6 @@ export interface TargetJob {
   title_name: string;
 }
 
-export interface TargetOccupation {
-  id: number;
-  code: string;
-  preferred_label: string;
-  version: string;
-  preferred_seniority?: string;
-  preferred_specialization?: string;
-  esco_mappings?: Array<{
-    uri: string;
-    preferred_label: string;
-    relation: string;
-  }>;
-}
 
 export interface User {
   id: string;
@@ -32,7 +20,6 @@ export interface User {
   avatar?: string;
   department?: string;
   targetRoles?: TargetRole[];
-  targetOccupations?: TargetOccupation[];
   companyName?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -7,6 +7,7 @@ import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { Briefcase, Users, CheckCircle2, ChevronRight, Plus, Clock, Bell, X, FileText, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { RichText } from '@/src/lib/richText';
 
 const statusVariants: Record<string, 'neutral' | 'primary' | 'warning' | 'danger' | 'success'> = {
   PENDING: 'neutral', SHORTLISTED: 'primary', REJECTED: 'danger', ACCEPTED: 'success',
@@ -79,8 +80,8 @@ function AnnouncementModal({ a, onClose }: { a: Announcement; onClose: () => voi
         </div>
 
         <div className="p-7 space-y-5">
-          <div className="text-sm text-neutral-700 leading-relaxed announcement-body"
-            dangerouslySetInnerHTML={{ __html: a.message }} />
+          <RichText className="text-sm text-neutral-700 leading-relaxed announcement-body"
+            html={a.message} />
 
           {a.supporting_doc && (
             <div className="border border-neutral-200 rounded-xl overflow-hidden">
@@ -245,9 +246,9 @@ export default function CompanyDashboardPage() {
                       <Badge variant="primary" className="text-[9px] shrink-0">{a.categories[0]}</Badge>
                     )}
                   </div>
-                  <div
+                  <RichText
                     className="text-xs text-neutral-500 leading-relaxed announcement-body"
-                    dangerouslySetInnerHTML={{ __html: a.message }}
+                    html={a.message}
                   />
                   <p className="text-[10px] text-neutral-400 font-medium mt-1.5">{timeAgo(a.publish_time)}</p>
                 </div>

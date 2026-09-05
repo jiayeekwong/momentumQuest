@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Award, FileText, Upload, CheckCircle2, XCircle, Clock,
-  ChevronDown, ChevronRight, ExternalLink, AlertTriangle, ShieldCheck, Trash2,
+  ChevronDown, ChevronRight, ExternalLink, AlertTriangle, ShieldCheck, Trash2, X, Plus,
 } from 'lucide-react';
 import { Card, Badge, Button, Checkbox } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
@@ -38,9 +38,28 @@ interface Transcript {
   skills_applied_at: string | null;
 }
 
+type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+interface SkillEvidence {
+  id: number;
+  skill: string;
+  skill_id: number;
+  claimed_level: ProficiencyLevel;
+  approved_level: ProficiencyLevel | '';
+  // What the student actually holds for this skill from this document, or
+  // null while the claim is pending or after it was refused.
+  granted_level: ProficiencyLevel | null;
+  review_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  review_note: string;
+}
+
 interface Certificate {
   id: number;
-  skill: string | null;
+  certificate_name: string;
+  // One document, several claims: a "Data Analytics Programme" certificate is
+  // proof of Python, SQL and Data Visualisation at once, and each is reviewed
+  // on its own.
+  skill_evidence: SkillEvidence[];
   cert_url: string;
   source: string;
   original_name: string;
@@ -51,6 +70,15 @@ interface Certificate {
   // never sent to the student, only this.
   rejection_message: string;
 }
+
+/** Mirrors CertificateSkillEvidence.MAX_SKILLS_PER_CERTIFICATE. */
+const MAX_CLAIMED_SKILLS = 10;
+
+const LEVEL_LABEL: Record<ProficiencyLevel, string> = {
+  BEGINNER: 'Beginner',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
 
 interface SkillOption {
   id: number;
@@ -76,7 +104,6 @@ function formatDate(value: string) {
 
 function TranscriptCard({ transcript }: { transcript: Transcript }) {
   const [expanded, setExpanded] = useState(false);
-  const [opening, setOpening] = useState(false);
 
   const recognised = transcript.parsed_subjects.filter(s => s.skills.length > 0);
 
@@ -86,38 +113,14 @@ function TranscriptCard({ transcript }: { transcript: Transcript }) {
     transcript.verification_status === 'MANUALLY_VERIFIED' ||
     transcript.verification_status === 'AUTO_VERIFIED';
 
-  const statusBadge: { label: string; variant: 'success' | 'warning' | 'danger' | 'neutral' } =
+  // A refused upload never reaches this list: it is deleted before the
+  // response is written, and the student is shown the reason as a message
+  // instead of a failed submission parked in their history. So the only
+  // states a card can be in are verified, or an older row from before that.
+  const statusBadge: { label: string; variant: 'success' | 'neutral' } =
     isVerified
       ? { label: 'Verified', variant: 'success' }
-      : transcript.verification_status === 'REJECTED'
-        ? {
-            label: transcript.document_type_status === 'NOT_TRANSCRIPT'
-              ? 'Could not recognise transcript'
-              : 'Rejected',
-            variant: 'danger',
-          }
-        : { label: 'Awaiting verification', variant: 'warning' };
-
-  // The file endpoint needs the Bearer token, so a plain link would 401 —
-  // fetch it through apiFetch and open the resulting blob instead.
-  const openPdf = async () => {
-    setOpening(true);
-    try {
-      const res = await apiFetch(`/api/resources/skill-validation/transcripts/${transcript.id}/file/`);
-      if (!res.ok) {
-        alert('Could not open this transcript.');
-        return;
-      }
-      const url = URL.createObjectURL(await res.blob());
-      window.open(url, '_blank');
-      // Give the new tab time to load before releasing the object URL.
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch {
-      alert('Could not open this transcript.');
-    } finally {
-      setOpening(false);
-    }
-  };
+      : { label: 'Processed', variant: 'neutral' };
 
   return (
     <Card className="p-0 overflow-hidden">
@@ -147,41 +150,27 @@ function TranscriptCard({ transcript }: { transcript: Transcript }) {
           </p>
         </div>
 
+        {/* No "View PDF": the file was deleted the moment its subjects were
+            read, so there is nothing to open. The subjects below are what the
+            document left behind. */}
         <div className="flex items-center gap-2 shrink-0">
           <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-          <Button size="sm" variant="outline" onClick={openPdf} isLoading={opening}>
-            <ExternalLink size={14} /> View PDF
-          </Button>
         </div>
       </div>
 
-      {/* PENDING is now the exception, not the normal path: a transcript that
-          clears every check is verified on upload. Anything still pending is
-          an older upload waiting on an administrator. */}
-      {transcript.verification_status === 'PENDING' && (
+      {isVerified && (
         <div className="px-5 pb-4 -mt-1">
-          <div className="flex gap-2 text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg p-3">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <div className="flex gap-2 text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+            <ShieldCheck size={16} className="shrink-0 mt-0.5" />
             <span>
-              Awaiting review. Your skills will be updated once this document
-              has been checked.
+              Your subjects and grades were read and the PDF was deleted. Only
+              the subjects, grades and skills below are kept.
             </span>
           </div>
         </div>
       )}
 
-      {/* The safe reason only. Classification detail stays on the admin side
-          so it cannot be read as a checklist for producing a passing forgery. */}
-      {transcript.verification_status === 'REJECTED' && transcript.rejection_reason && (
-        <div className="px-5 pb-4 -mt-1">
-          <div className="flex gap-2 text-sm text-red-800 bg-red-50 border border-red-100 rounded-lg p-3">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <span className="whitespace-pre-line">{transcript.rejection_reason}</span>
-          </div>
-        </div>
-      )}
-
-      {transcript.error_message && transcript.verification_status !== 'REJECTED' && (
+      {transcript.error_message && (
         <div className="px-5 pb-4 -mt-1">
           <div className="flex gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -301,12 +290,17 @@ function DocumentConsentPanel({
 // ─── Certificate upload ───────────────────────────────────────
 
 /**
- * Submits one certificate as proof of a skill.
+ * Submits one certificate as proof of one or more skills.
+ *
+ * A single document routinely evidences several skills, so the form collects
+ * a list of claims rather than one skill. Each claim carries the level the
+ * student is asserting; an administrator reviews each one separately and may
+ * approve a subset, or lower a level that the certificate does not support.
  *
  * Two kinds of proof are accepted because students hold them in two forms: a
  * downloaded PDF/image, or a credential URL from the issuing platform. The
- * backend requires exactly one of them, so the button stays disabled until a
- * skill and at least one proof are present.
+ * backend requires exactly one of them, so the button stays disabled until at
+ * least one skill and at least one proof are present.
  */
 function CertificateUploadForm({
   skillOptions,
@@ -317,7 +311,9 @@ function CertificateUploadForm({
   uploadNotice: DocumentNotice | null;
   onUploaded: (message: { kind: 'ok' | 'err'; text: string }) => void;
 }) {
-  const [skillId, setSkillId] = useState('');
+  const [claims, setClaims] = useState<{ skillId: string; level: ProficiencyLevel }[]>([]);
+  const [pendingSkill, setPendingSkill] = useState('');
+  const [pendingLevel, setPendingLevel] = useState<ProficiencyLevel>('INTERMEDIATE');
   const [source, setSource] = useState('');
   const [certUrl, setCertUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -328,11 +324,31 @@ function CertificateUploadForm({
   const certInput = useRef<HTMLInputElement>(null);
 
   const canSubmit =
-    Boolean(skillId) && Boolean(file || certUrl.trim()) && consentAck
+    claims.length > 0 && Boolean(file || certUrl.trim()) && consentAck
     && Boolean(uploadNotice) && !submitting;
 
+  const addClaim = () => {
+    if (!pendingSkill) return;
+    // Refused rather than silently merged: two entries for one skill at two
+    // levels is a claim the student has not decided on, and quietly keeping
+    // the higher one would ask for a level they may not have meant.
+    if (claims.some(claim => claim.skillId === pendingSkill)) return;
+    if (claims.length >= MAX_CLAIMED_SKILLS) return;
+    setClaims([...claims, { skillId: pendingSkill, level: pendingLevel }]);
+    setPendingSkill('');
+    setPendingLevel('INTERMEDIATE');
+  };
+
+  const removeClaim = (skillId: string) =>
+    setClaims(claims.filter(claim => claim.skillId !== skillId));
+
+  const skillName = (id: string) =>
+    skillOptions.find(option => String(option.id) === id)?.skill_name ?? id;
+
   const reset = () => {
-    setSkillId('');
+    setClaims([]);
+    setPendingSkill('');
+    setPendingLevel('INTERMEDIATE');
     setSource('');
     setCertUrl('');
     setFile(null);
@@ -346,7 +362,12 @@ function CertificateUploadForm({
     setSubmitting(true);
 
     const body = new FormData();
-    body.append('skill', skillId);
+    // A JSON string, because multipart has no representation for a list of
+    // objects and the request carries a file.
+    body.append('skills', JSON.stringify(claims.map(claim => ({
+      skill_id: Number(claim.skillId),
+      claimed_level: claim.level,
+    }))));
     if (source.trim()) body.append('source', source.trim());
     if (certUrl.trim()) body.append('cert_url', certUrl.trim());
     if (file) body.append('file', file);
@@ -359,8 +380,8 @@ function CertificateUploadForm({
         reset();
         onUploaded({
           kind: 'ok',
-          text: 'Certificate submitted. An admin will endorse it before the skill '
-              + 'is added to your profile.',
+          text: 'Certificate submitted. An admin will review each claimed skill '
+              + 'before any of them are added to your profile.',
         });
       } else {
         // DRF returns {field: [message]}; surface the first one rather than [object Object].
@@ -389,26 +410,80 @@ function CertificateUploadForm({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
+          <div className="sm:col-span-2 space-y-2">
             <span className="text-sm font-medium text-neutral-700">
-              Skill proven <span className="text-red-500">*</span>
+              Skills this certificate proves <span className="text-red-500">*</span>
             </span>
-            <select
-              value={skillId}
-              onChange={e => setSkillId(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm
-                         focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">Select a skill…</option>
-              {skillOptions.map(skill => (
-                <option key={skill.id} value={skill.id}>
-                  {skill.skill_name}
-                  {skill.skill_category ? ` — ${skill.skill_category}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+
+            {claims.length > 0 && (
+              <ul className="flex flex-wrap gap-2">
+                {claims.map(claim => (
+                  <li
+                    key={claim.skillId}
+                    className="inline-flex items-center gap-2 rounded-full bg-indigo-50
+                               px-3 py-1.5 text-xs font-semibold text-primary"
+                  >
+                    {skillName(claim.skillId)}
+                    <span className="font-normal text-primary/70">
+                      {LEVEL_LABEL[claim.level]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeClaim(claim.skillId)}
+                      className="text-primary/60 hover:text-danger"
+                      aria-label={`Remove ${skillName(claim.skillId)}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+              <select
+                value={pendingSkill}
+                onChange={e => setPendingSkill(e.target.value)}
+                className="h-10 w-full min-w-0 rounded-lg border border-neutral-200 px-3 text-sm
+                           focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Select a skill…</option>
+                {skillOptions
+                  .filter(skill => !claims.some(c => c.skillId === String(skill.id)))
+                  .map(skill => (
+                    <option key={skill.id} value={skill.id}>
+                      {skill.skill_name}
+                      {skill.skill_category ? ` — ${skill.skill_category}` : ''}
+                    </option>
+                  ))}
+              </select>
+              <select
+                value={pendingLevel}
+                onChange={e => setPendingLevel(e.target.value as ProficiencyLevel)}
+                className="h-10 w-full min-w-0 rounded-lg border border-neutral-200 px-3 text-sm
+                           focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {(Object.keys(LEVEL_LABEL) as ProficiencyLevel[]).map(level => (
+                  <option key={level} value={level}>{LEVEL_LABEL[level]}</option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addClaim}
+                disabled={!pendingSkill || claims.length >= MAX_CLAIMED_SKILLS}
+                className="h-10 shrink-0 whitespace-nowrap px-4"
+              >
+                <Plus size={14} /> Add
+              </Button>
+            </div>
+            <p className="text-xs text-neutral-400">
+              Claim the level you believe this certificate supports. An admin
+              may approve a lower level, or approve only some of these skills.
+              {claims.length >= MAX_CLAIMED_SKILLS
+                && ` Up to ${MAX_CLAIMED_SKILLS} skills per certificate.`}
+            </p>
+          </div>
 
           <label className="block">
             <span className="text-sm font-medium text-neutral-700">Issuer</span>
@@ -417,7 +492,7 @@ function CertificateUploadForm({
               value={source}
               onChange={e => setSource(e.target.value)}
               placeholder="Coursera, Microsoft Learn…"
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm
+              className="mt-1 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm
                          focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
@@ -433,12 +508,17 @@ function CertificateUploadForm({
               className="hidden"
               onChange={e => setFile(e.target.files?.[0] ?? null)}
             />
+            {/* min-w-0 on the flex child, shrink-0 on the button: without
+                both, a long filename squeezed the button until its own label
+                wrapped onto two lines. */}
             <div className="mt-1 flex items-center gap-2">
-              <Button type="button" size="sm" variant="outline"
-                      onClick={() => certInput.current?.click()}>
-                <Upload size={14} /> Choose file
+              <Button type="button" variant="outline"
+                      onClick={() => certInput.current?.click()}
+                      className="h-10 shrink-0 whitespace-nowrap px-4">
+                <Upload size={14} /> Choose
               </Button>
-              <span className="text-sm text-neutral-500 truncate">
+              <span className="min-w-0 flex-1 truncate text-sm text-neutral-500"
+                    title={file ? file.name : undefined}>
                 {file ? file.name : 'PDF, PNG or JPG · max 10MB'}
               </span>
             </div>
@@ -451,7 +531,7 @@ function CertificateUploadForm({
               value={certUrl}
               onChange={e => setCertUrl(e.target.value)}
               placeholder="https://coursera.org/verify/…"
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm
+              className="mt-1 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm
                          focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
@@ -470,10 +550,10 @@ function CertificateUploadForm({
           <Button type="submit" disabled={!canSubmit} isLoading={submitting}>
             {submitting ? 'Submitting…' : 'Submit for endorsement'}
           </Button>
-          {!skillId && (
-            <span className="text-xs text-neutral-400">Choose the skill this certificate proves.</span>
+          {claims.length === 0 && (
+            <span className="text-xs text-neutral-400">Add at least one skill to submit.</span>
           )}
-          {skillId && !consentAck && (
+          {claims.length > 0 && !consentAck && (
             <span className="text-xs text-neutral-400">
               Acknowledge the verification notice to submit.
             </span>
@@ -596,10 +676,11 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
           onSkillsChanged?.();
         }
       } else {
-        setMessage({
-          kind: 'err',
-          text: data.rejection_reason || data.error_message || data.detail || 'Upload failed.',
-        });
+        // A refused upload leaves no record: the backend deletes the row and
+        // returns only the reason, so there is nothing to list and the
+        // student sees a message rather than a failed submission sitting in
+        // their history.
+        setMessage({ kind: 'err', text: data.detail || 'Upload failed.' });
       }
       await loadTranscripts();
     } catch {
@@ -662,8 +743,10 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
               <Upload size={22} className="mx-auto text-neutral-400" />
               <p className="mt-3 font-medium text-neutral-800">Upload your academic transcript</p>
               <p className="text-sm text-neutral-500 mt-1 max-w-md mx-auto">
-                Your subjects and grades are read automatically and matched to skills.
-                No admin approval needed — the examination result is the proof.
+                Your subjects and grades are read automatically and matched to
+                skills, which are added to your profile straight away. The PDF is
+                deleted as soon as it has been read — only the subjects, grades
+                and skills are kept.
               </p>
               <input
                 ref={fileInput}
@@ -744,12 +827,40 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-neutral-900 truncate">
-                        {cert.skill ?? 'Certificate'}
+                        {cert.certificate_name || cert.source || 'Certificate'}
                       </p>
                       <p className="text-sm text-neutral-500 mt-0.5">
                         {cert.source || cert.original_name || 'External course'}
                         {' · '}{formatDate(cert.uploaded_time)}
                       </p>
+                      {/* One certificate, one row, with a badge per claim --
+                          the same document is not listed once per skill. */}
+                      {cert.skill_evidence.length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-1.5">
+                          {cert.skill_evidence.map(evidence => (
+                            <li
+                              key={evidence.id}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-full px-2.5 py-1',
+                                'text-[11px] font-semibold',
+                                evidence.review_status === 'APPROVED'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : evidence.review_status === 'REJECTED'
+                                    ? 'bg-neutral-100 text-neutral-400 line-through'
+                                    : 'bg-amber-50 text-amber-700'
+                              )}
+                              title={evidence.review_note || undefined}
+                            >
+                              {evidence.skill}
+                              <span className="font-normal">
+                                {evidence.granted_level
+                                  ? LEVEL_LABEL[evidence.granted_level]
+                                  : `claimed ${LEVEL_LABEL[evidence.claimed_level]}`}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {cert.rejection_message && (
                         <p className="mt-1.5 text-xs leading-relaxed text-danger">
                           {cert.rejection_message}

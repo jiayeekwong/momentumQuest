@@ -67,7 +67,13 @@ export default function SignupPage() {
     setStep(2);
   }
 
-  const consentGiven = Boolean(notice) && privacyAccepted && documentConsent;
+  // Document-verification consent is a student concern. A company account
+  // never submits a certificate for verification, so asking for permission
+  // that is never exercised would be a click for nothing -- and a stored
+  // consent nothing acts on is noise in the record, not evidence in it.
+  const needsDocumentConsent = role === 'STUDENT';
+  const consentGiven =
+    Boolean(notice) && privacyAccepted && (!needsDocumentConsent || documentConsent);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,7 +95,9 @@ export default function SignupPage() {
       return;
     }
     if (!consentGiven) {
-      setError('Please read and accept both privacy statements to create your account.');
+      setError(needsDocumentConsent
+        ? 'Please read and accept both privacy statements to create your account.'
+        : 'Please read and accept the Privacy Notice to create your account.');
       return;
     }
 
@@ -109,7 +117,7 @@ export default function SignupPage() {
           department: role === 'STUDENT' ? department : '',
           matric_number: role === 'STUDENT' ? matricNumber.trim() : '',
           privacy_notice_accepted: privacyAccepted,
-          document_verification_consent: documentConsent,
+          document_verification_consent: needsDocumentConsent && documentConsent,
         }),
       });
       const data = await res.json();
@@ -285,13 +293,15 @@ export default function SignupPage() {
                         label={notice?.consent_statements.PRIVACY_NOTICE_ACKNOWLEDGEMENT
                                ?? 'Loading the privacy notice…'}
                       />
-                      <Checkbox
-                        checked={documentConsent}
-                        disabled={!notice}
-                        onChange={(e) => setDocumentConsent(e.target.checked)}
-                        label={notice?.consent_statements.DOCUMENT_VERIFICATION_CONSENT
-                               ?? 'Loading the consent statement…'}
-                      />
+                      {needsDocumentConsent && (
+                        <Checkbox
+                          checked={documentConsent}
+                          disabled={!notice}
+                          onChange={(e) => setDocumentConsent(e.target.checked)}
+                          label={notice?.consent_statements.DOCUMENT_VERIFICATION_CONSENT
+                                 ?? 'Loading the consent statement…'}
+                        />
+                      )}
                     </div>
 
                     {notice && (

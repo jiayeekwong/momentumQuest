@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, AlertCircle, Bookmark, Briefcase, Sparkles, ExternalLink } from 'lucide-react';
+import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, AlertCircle, Bookmark, Briefcase, Sparkles, ExternalLink, ChevronDown } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
-import { Card, Badge, Button } from '@/src/components/ui';
+import { Card, Badge, Button, Checkbox } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
+import { usePrivacyNotice } from '@/src/lib/privacyNotice';
+import { RichText } from '@/src/lib/richText';
 
 interface ScrapedJob {
   id: number;
@@ -26,6 +28,10 @@ interface ScrapedJob {
   // Null when the advert lists no skills, so the UI can show nothing at all
   // rather than a misleading 0%.
   match_score: number | null;
+  is_saved: boolean;
+  // A saved listing can lapse. It stays in the student's list, labelled, in
+  // preference to disappearing as though the bookmark had failed.
+  status: 'ACTIVE' | 'CLOSED' | 'DRAFT';
 }
 
 interface CompanyJob {
@@ -61,6 +67,10 @@ interface MappedJob {
   matchScore: number | null;
   companyJobId?: number;
   description?: string;
+  // Bookmarking is offered on scraped listings only: a company listing is
+  // applied to from this page, so a shortlist adds nothing there.
+  isSaved: boolean;
+  isClosed: boolean;
 }
 
 // Mirrors backend/job_listings/matching.py: Beginner 1, Intermediate 2,
@@ -105,6 +115,23 @@ const stringToColor = (str: string): string => {
   return `hsl(${Math.abs(hash) % 360}, 55%, 45%)`;
 };
 
+// The state or federal territory an advert sits in, which is the unit a
+// student actually chooses between. The raw strings are far too granular to
+// put in a menu: 119 distinct values across the current feed, where "Kuala
+// Lumpur", "Kuala Lumpur (Hybrid)" and "Bangsar South, Kuala Lumpur" are one
+// place written three ways. Picking any single spelling would have hidden the
+// other two.
+//
+// The portal writes them as "<area>, <state>" with an optional work-mode
+// suffix, so the trailing bracket goes and the last comma-separated part is
+// the state. A string with neither -- "Penang", or a company advert's
+// "Remote" -- is already the whole answer and is returned as it stands.
+const regionOf = (location: string): string => {
+  const withoutMode = location.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (!withoutMode) return '';
+  return withoutMode.split(',').pop()!.trim();
+};
+
 const formatSalary = (min: number | null, max: number | null, text?: string): string => {
   if (min && max) return `RM ${Number(min).toLocaleString()} – RM ${Number(max).toLocaleString()}`;
   if (text) return text;
@@ -132,6 +159,8 @@ const mapScrapedJob = (job: ScrapedJob): MappedJob => ({
   source_url: job.source_url,
   category: job.job_category ?? 'General',
   matchScore: job.match_score,
+  isSaved: job.is_saved ?? false,
+  isClosed: job.status === 'CLOSED',
 });
 
 const mapCompanyJob = (job: CompanyJob): MappedJob => {
@@ -145,6 +174,8 @@ const mapCompanyJob = (job: CompanyJob): MappedJob => {
     salary: formatSalary(job.salary_min, job.salary_max),
     postedDate: new Date(job.posted_time).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     job_type: job.work_mode || 'Full-time',
+    isSaved: false,
+    isClosed: false,
     requiredSkills: job.required_skills || [],
     requiredSkillLevels: job.required_skill_levels ?? [],
     source_url: '', // N/A for company jobs
@@ -166,6 +197,7 @@ interface ParsedCv {
   education: string[];
   experience: string[];
   detail: string;
+  cv_parse_receipt: string;
 }
 
 // The CV is read on the server and deleted immediately; only what the student
@@ -175,6 +207,9 @@ async function parseCv(file: File): Promise<{ data?: ParsedCv; error?: string }>
   try {
     const form = new FormData();
     form.append('file', file);
+    // The server refuses to read the file without this. It is sent only from
+    // the branch where the student has ticked the box.
+    form.append('cv_processing_ack', 'true');
     // apiFetch attaches the bearer token, refreshes it on 401, and leaves
     // Content-Type unset for FormData (so the multipart boundary is correct).
     const response = await apiFetch('/api/job-listings/cv/parse/', {
@@ -189,8 +224,73 @@ async function parseCv(file: File): Promise<{ data?: ParsedCv; error?: string }>
   }
 }
 
+/**
+ * The extracted lines, every one of them, each editable and removable.
+ *
+ * Every line is rendered rather than the first few: the list is what gets sent
+ * to an employer, so a line the student cannot see is a line they cannot
+ * withhold. The container scrolls instead of truncating.
+ */
+function EditableLines({
+  label,
+  lines,
+  onChange,
+}: {
+  label: string;
+  lines: string[];
+  onChange: (next: string[]) => void;
+}) {
+  if (lines.length === 0) return null;
+
+  const update = (index: number, value: string) =>
+    onChange(lines.map((line, i) => (i === index ? value : line)));
+
+  const remove = (index: number) =>
+    onChange(lines.filter((_, i) => i !== index));
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between">
+        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+          {label}
+        </p>
+        <p className="text-[10px] text-neutral-400">
+          {lines.length} {lines.length === 1 ? 'line' : 'lines'} · edit or remove any
+        </p>
+      </div>
+      <ul className="max-h-48 space-y-1 overflow-y-auto pr-1">
+        {lines.map((line, index) => (
+          <li key={index} className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={line}
+              aria-label={`${label} line ${index + 1}`}
+              onChange={e => update(index, e.target.value)}
+              className="h-8 flex-1 rounded border border-neutral-200 bg-white px-2 text-xs
+                         text-neutral-700 focus:border-primary focus:outline-none
+                         focus:ring-1 focus:ring-primary/20"
+            />
+            <button
+              type="button"
+              onClick={() => remove(index)}
+              aria-label={`Remove ${label.toLowerCase()} line ${index + 1}`}
+              className="shrink-0 rounded p-1 text-neutral-400 transition-colors
+                         hover:bg-red-50 hover:text-danger"
+            >
+              <XCircle size={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 interface ApplicationPayload {
   job: number;
+  // Proof that this application was built from a CV the student consented to
+  // having read. Issued by the parse endpoint, opaque here, and short-lived.
+  cv_parse_receipt: string;
   applicant_snapshot: {
     skills: { skill_id: number }[];
     education: string[];
@@ -224,6 +324,15 @@ export default function JobListingsPage() {
   const [myLevels, setMyLevels] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Empty means every location. Held here rather than sent to the API --
+  // see the locationOptions comment below for why this one is client-side
+  // while search is not.
+  const [location, setLocation] = useState('');
+  // A shortlist tab rather than a separate page: the student is already
+  // looking at jobs, and the saved ones are the same objects with the same
+  // detail panel beside them.
+  const [view, setView] = useState<'all' | 'saved'>('all');
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchedDescription, setFetchedDescription] =
     useState<{ id: string; text: string } | null>(null);
@@ -232,6 +341,16 @@ export default function JobListingsPage() {
   // Application modal (company-posted jobs only)
   const [applyModalJob, setApplyModalJob] = useState<{ id: number; title: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cvProcessingAck, setCvProcessingAck] = useState(false);
+  // The confirmed lines, seeded from what the parser proposed. Held separately
+  // from parsedCv so that what is submitted is what the student has actually
+  // seen and approved, rather than the parser's untouched output.
+  const [educationLines, setEducationLines] = useState<string[]>([]);
+  const [experienceLines, setExperienceLines] = useState<string[]>([]);
+  // The consent wording and the notice version recorded against it must
+  // come from the same place. A stale local copy would mean recording a
+  // student as having agreed to text they never saw.
+  const { notice } = usePrivacyNotice();
   const [formError, setFormError] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
   // Parsed content awaiting the student's confirmation. Nothing is stored
@@ -257,8 +376,16 @@ export default function JobListingsPage() {
     setPhone('');
     setCoverNote('');
     setFormError('');
+    setCvProcessingAck(false);
+    setEducationLines([]);
+    setExperienceLines([]);
     setApplyModalJob({ id: jobId, title });
   };
+
+  // Unchecked by default and reset with the rest of the form. The file input
+  // is disabled until it is ticked, so a CV cannot be sent before the student
+  // has agreed to it being read.
+  const cvAckGiven = cvProcessingAck && Boolean(notice);
 
   const submitApplication = async () => {
     if (!applyModalJob) return;
@@ -270,12 +397,15 @@ export default function JobListingsPage() {
 
     const result = await submitJobApplication({
       job: applyModalJob.id,
+      cv_parse_receipt: parsedCv.cv_parse_receipt,
       applicant_snapshot: {
         skills: parsedCv.skills
           .filter(skill => !excludedSkillIds.includes(skill.skill_id))
           .map(skill => ({ skill_id: skill.skill_id })),
-        education: parsedCv.education,
-        experience: parsedCv.experience,
+        // The confirmed lines, not the parser's originals: anything the
+        // student edited or removed must not reach the employer.
+        education: educationLines.map(line => line.trim()).filter(Boolean),
+        experience: experienceLines.map(line => line.trim()).filter(Boolean),
       },
       needs_work_permit: needsWorkPermit === 'yes',
       available_from: availableFrom || null,
@@ -293,48 +423,132 @@ export default function JobListingsPage() {
     }
   };
 
-  const jobs = useMemo(() => {
-    const mapped = [
+  /** Bookmark or un-bookmark a scraped listing. */
+  const toggleSaved = async (job: MappedJob) => {
+    if (job.sourceType !== 'scraped') return;
+    setSavingId(job.id);
+    // Optimistic: the button answers immediately and is put back if the
+    // request fails. A bookmark that waits on a round trip feels broken.
+    const next = !job.isSaved;
+    setScrapedJobs(prev => prev.map(
+      row => String(row.id) === job.id ? { ...row, is_saved: next } : row));
+    try {
+      const res = await apiFetch(`/api/scrape-jobs/scraped/${job.id}/save/`, {
+        method: next ? 'POST' : 'DELETE',
+      });
+      if (!res.ok) throw new Error('save failed');
+    } catch {
+      setScrapedJobs(prev => prev.map(
+        row => String(row.id) === job.id ? { ...row, is_saved: !next } : row));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const mappedJobs = useMemo(
+    () => [
       ...scrapedJobs.map(mapScrapedJob),
       ...companyJobs.map(mapCompanyJob),
-    ];
+    ],
+    [scrapedJobs, companyJobs]
+  );
+
+  // The locations actually present in the results, so every option returns
+  // something and the student is never offered a place with no adverts in it.
+  //
+  // Built from mappedJobs rather than from the filtered list, or choosing one
+  // location would collapse the menu to that single entry and strand the
+  // student there.
+  //
+  // Filtered on the client, unlike search. The scraped endpoint does take
+  // ?location=, but the company endpoint reads no query parameters at all, so
+  // a server-side filter would narrow the scraped half of the list and hand
+  // back every company advert regardless -- which reads as a broken filter
+  // rather than a partial one. Both halves are already in memory here.
+  const locationOptions = useMemo(() => {
+    // Keyed by lowercase so one region cannot appear twice under two
+    // spellings; the first spelling seen is the one displayed.
+    const tally = new Map<string, { label: string; count: number }>();
+    for (const job of mappedJobs) {
+      const region = regionOf(job.location);
+      if (!region) continue;
+      const key = region.toLowerCase();
+      const row = tally.get(key);
+      if (row) row.count += 1;
+      else tally.set(key, { label: region, count: 1 });
+    }
+    // Busiest first, so the places with jobs in them are at the top of the
+    // menu; ties fall back to alphabetical to keep the order stable.
+    return [...tally.values()].sort(
+      (a, b) => b.count - a.count || a.label.localeCompare(b.label)
+    );
+  }, [mappedJobs]);
+
+  const jobs = useMemo(() => {
+    const wanted = location.trim().toLowerCase();
+    const visible = mappedJobs.filter(job => {
+      if (view === 'saved' && !job.isSaved) return false;
+      if (wanted && regionOf(job.location).toLowerCase() !== wanted) return false;
+      return true;
+    });
     // Scored jobs first, best match first. Unmatched jobs keep the order the
     // API returned them in (newest first) rather than being ranked arbitrarily.
-    return mapped.sort((a, b) => {
+    return visible.sort((a, b) => {
       if (a.matchScore === null && b.matchScore === null) return 0;
       if (a.matchScore === null) return 1;
       if (b.matchScore === null) return -1;
       return b.matchScore - a.matchScore;
     });
-  }, [scrapedJobs, companyJobs]);
+  }, [mappedJobs, view, location]);
 
-  const selectedJob = useMemo(() => jobs.find(j => j.id === selectedId) ?? null, [jobs, selectedId]);
+  const savedCount = useMemo(
+    () => scrapedJobs.filter(job => job.is_saved).length, [scrapedJobs]);
+
+  // Keep the detail panel pointing at something that is actually in the list.
+  //
+  // Selection used to be seeded from the scraped results alone, so a search
+  // matching only company adverts left the panel empty; and a selection that
+  // survived into a result set no longer containing it left it empty too.
+  // Both are the same question -- is the current selection still on screen --
+  // so both are answered here, against the merged list the user can see.
+  //
+  // Derived rather than synced back into state by an effect. selectedId holds
+  // only what the student actually clicked; which job is *shown* is a question
+  // about the current list, and answering it during render means there is no
+  // pass where the panel points at a job that has been filtered away.
+  const selectedJob = useMemo(
+    () => jobs.find(job => job.id === selectedId) ?? jobs[0] ?? null,
+    [jobs, selectedId]
+  );
+  // What the rest of the page should read: the job on screen, which is not the
+  // clicked one when that has been filtered out from under it.
+  const activeId = selectedJob?.id ?? null;
 
   // Company jobs arrive with their description already; only scraped ones need
   // a second request. Both the text and the loading flag are derived rather
   // than set inside the effect, which also stops a stale description showing
   // while a new one loads.
   const needsDescriptionFetch = Boolean(selectedJob) && !selectedJob?.description;
-  const descLoading = needsDescriptionFetch && fetchedDescription?.id !== selectedId;
+  const descLoading = needsDescriptionFetch && fetchedDescription?.id !== activeId;
   const description =
     selectedJob?.description ??
-    (fetchedDescription?.id === selectedId ? fetchedDescription.text : '');
+    (fetchedDescription?.id === activeId ? fetchedDescription.text : '');
 
   useEffect(() => {
-    if (!selectedId || !needsDescriptionFetch) return;
+    if (!activeId || !needsDescriptionFetch) return;
     let cancelled = false;
 
-    fetch(`${API_BASE}/api/scrape-jobs/scraped/${selectedId}/`)
+    fetch(`${API_BASE}/api/scrape-jobs/scraped/${activeId}/`)
       .then(r => r.json())
       .then(data => {
-        if (!cancelled) setFetchedDescription({ id: selectedId, text: data.description ?? '' });
+        if (!cancelled) setFetchedDescription({ id: activeId, text: data.description ?? '' });
       })
       .catch(() => {
-        if (!cancelled) setFetchedDescription({ id: selectedId, text: '' });
+        if (!cancelled) setFetchedDescription({ id: activeId, text: '' });
       });
 
     return () => { cancelled = true; };
-  }, [selectedId, needsDescriptionFetch]);
+  }, [activeId, needsDescriptionFetch]);
 
   // Fetch the student's skills and proficiencies once on mount. Both the
   // per-skill verdict and the level captions read from this.
@@ -379,14 +593,7 @@ export default function JobListingsPage() {
             return list;
           })
           .catch(() => []),
-      ]).then(([scraped]) => {
-        // Select first job if none selected
-        setSelectedId(prev => {
-          if (prev) return prev; // Keep current selection
-          const firstJob = scraped[0];
-          return firstJob ? String(firstJob.id) : null;
-        });
-      }).finally(() => setIsLoading(false));
+      ]).finally(() => setIsLoading(false));
     }, search ? 400 : 0);
     return () => clearTimeout(timer);
   }, [search]);
@@ -405,27 +612,63 @@ export default function JobListingsPage() {
             <div className="p-6 space-y-5">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Resume / CV <span className="text-danger">*</span></label>
+
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                  <Checkbox
+                    checked={cvProcessingAck}
+                    disabled={!notice}
+                    onChange={e => setCvProcessingAck(e.target.checked)}
+                    label={
+                      <>
+                        {notice?.cv_notice?.acknowledgement
+                          ?? notice?.consent_statements?.CV_PROCESSING_CONSENT
+                          ?? 'Loading…'}{' '}
+                        <a
+                          href="/privacy-notice"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-primary hover:underline"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          How we use your CV
+                        </a>
+                      </>
+                    }
+                  />
+                </div>
+
                 <input
                   type="file"
                   accept=".pdf"
+                  disabled={!cvAckGiven}
                   onChange={async e => {
                     const file = e.target.files?.[0] ?? null;
                     setCvFile(file);
                     setParsedCv(null);
                     setExcludedSkillIds([]);
+                    setEducationLines([]);
+                    setExperienceLines([]);
                     if (!file) return;
                     setParsingCv(true);
                     setFormError('');
                     const { data, error } = await parseCv(file);
                     setParsingCv(false);
-                    if (error) setFormError(error);
-                    else setParsedCv(data ?? null);
+                    if (error) {
+                      setFormError(error);
+                      setEducationLines([]);
+                      setExperienceLines([]);
+                    } else {
+                      setParsedCv(data ?? null);
+                      setEducationLines(data?.education ?? []);
+                      setExperienceLines(data?.experience ?? []);
+                    }
                   }}
-                  className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer"
+                  className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer disabled:opacity-50 disabled:file:cursor-not-allowed"
                 />
                 <p className="text-xs text-neutral-500">
-                  PDF only. We read your CV to fill in the details below and then
-                  delete it — the file itself is never stored.
+                  {cvAckGiven
+                    ? 'PDF only, 10MB maximum.'
+                    : 'Tick the box above to attach your CV.'}
                 </p>
                 {parsingCv && <p className="text-xs text-neutral-500">Reading your CV…</p>}
 
@@ -468,27 +711,17 @@ export default function JobListingsPage() {
                       )}
                     </div>
 
-                    {parsedCv.education.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Education</p>
-                        <ul className="text-xs text-neutral-600 space-y-0.5">
-                          {parsedCv.education.slice(0, 5).map((line, index) => (
-                            <li key={index}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <EditableLines
+                      label="Education"
+                      lines={educationLines}
+                      onChange={setEducationLines}
+                    />
 
-                    {parsedCv.experience.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Experience</p>
-                        <ul className="text-xs text-neutral-600 space-y-0.5">
-                          {parsedCv.experience.slice(0, 5).map((line, index) => (
-                            <li key={index}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <EditableLines
+                      label="Experience"
+                      lines={experienceLines}
+                      onChange={setExperienceLines}
+                    />
                   </div>
                 )}
               </div>
@@ -547,9 +780,23 @@ export default function JobListingsPage() {
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-neutral-100 flex gap-3">
-              <Button variant="outline" fullWidth className="h-11" disabled={submitting} onClick={() => setApplyModalJob(null)}>Cancel</Button>
-              <Button fullWidth className="h-11" isLoading={submitting} onClick={submitApplication}>Submit Application</Button>
+            <div className="px-6 py-4 border-t border-neutral-100 space-y-3">
+              {/* The disclosure, stated where the decision is made. Deliberately
+                  not a checkbox: pressing Submit is the affirmative act, and a
+                  tick box in front of a button the student has already chosen to
+                  press adds friction without adding information. The company is
+                  not named here — the record identifies it through the
+                  application, so the audit trail loses nothing. */}
+              <p className="text-xs leading-relaxed text-neutral-500">
+                {notice?.application_disclosure
+                  || 'By submitting, you agree that the information in this '
+                     + 'application will be shared with the employer for '
+                     + 'recruitment purposes.'}
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" fullWidth className="h-11" disabled={submitting} onClick={() => setApplyModalJob(null)}>Cancel</Button>
+                <Button fullWidth className="h-11" isLoading={submitting} onClick={submitApplication}>Submit Application</Button>
+              </div>
             </div>
           </div>
         </div>
@@ -564,6 +811,30 @@ export default function JobListingsPage() {
 
         {/* Left — job list */}
         <div className="w-full lg:w-[450px] flex flex-col gap-4 overflow-hidden">
+          {/* The shortlist sits beside the search rather than on its own
+              page: the student is already looking at jobs, and a saved one is
+              the same card with the same detail panel next to it. */}
+          <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1">
+            {([
+              { key: 'all' as const, label: 'All jobs' },
+              { key: 'saved' as const, label: `Saved${savedCount ? ` (${savedCount})` : ''}` },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setView(tab.key)}
+                className={cn(
+                  'flex-1 h-9 rounded-lg text-sm font-bold transition-colors',
+                  view === tab.key
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-800',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
             <input
@@ -574,6 +845,32 @@ export default function JobListingsPage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+
+          {/* Hidden until there is more than one place to choose between: a
+              menu whose only entry is the one location already shown on every
+              card is a control that cannot change anything. */}
+          {locationOptions.length > 1 && (
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+              <select
+                aria-label="Filter by location"
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+                className="w-full h-11 pl-10 pr-10 bg-white border border-neutral-300 rounded-xl text-sm font-semibold text-neutral-700 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">All locations</option>
+                {locationOptions.map(option => (
+                  <option key={option.label} value={option.label}>
+                    {option.label} ({option.count})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                size={16}
+              />
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto pr-1 space-y-3">
             <div className="flex items-center gap-2 px-1">
@@ -590,7 +887,7 @@ export default function JobListingsPage() {
             ) : jobs.length > 0 ? jobs.map(job => (
               <Card
                 key={job.id}
-                className={cn('p-5 cursor-pointer transition-all border-l-4', selectedId === job.id ? 'border-l-primary bg-indigo-50/30' : 'border-l-transparent')}
+                className={cn('p-5 cursor-pointer transition-all border-l-4', activeId === job.id ? 'border-l-primary bg-indigo-50/30' : 'border-l-transparent')}
                 onClick={() => setSelectedId(job.id)}
               >
                 <div className="flex gap-4">
@@ -671,9 +968,32 @@ export default function JobListingsPage() {
               </Card>
             )) : (
               <div className="p-12 text-center">
-                <Briefcase size={40} className="mx-auto text-neutral-200 mb-2" />
-                <p className="text-sm font-bold text-neutral-500">No jobs found</p>
-                <p className="text-xs text-neutral-400 mt-1">Try a different search term</p>
+                {/* The location filter is named when it is the reason the list
+                    is empty. "Nothing saved yet" beside a filtered-out
+                    shortlist told the student their bookmarks were gone. */}
+                {view === 'saved' ? (
+                  <>
+                    <Bookmark size={40} className="mx-auto text-neutral-200 mb-2" />
+                    <p className="text-sm font-bold text-neutral-500">
+                      {location ? `Nothing saved in ${location}` : 'Nothing saved yet'}
+                    </p>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      {location
+                        ? 'Choose All locations to see the rest of your saved jobs.'
+                        : 'Open a job and press the bookmark to keep it here.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Briefcase size={40} className="mx-auto text-neutral-200 mb-2" />
+                    <p className="text-sm font-bold text-neutral-500">No jobs found</p>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      {location
+                        ? `No jobs in ${location} match your search. Try another location.`
+                        : 'Try a different search term'}
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -699,7 +1019,22 @@ export default function JobListingsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" className="h-11 px-4"><Bookmark size={20} /></Button>
+                    {selectedJob.sourceType === 'scraped' && (
+                      <Button
+                        variant="outline"
+                        className="h-11 px-4"
+                        onClick={() => toggleSaved(selectedJob)}
+                        isLoading={savingId === selectedJob.id}
+                        aria-pressed={selectedJob.isSaved}
+                        title={selectedJob.isSaved ? 'Remove from saved' : 'Save this job'}
+                      >
+                        <Bookmark
+                          size={20}
+                          className={selectedJob.isSaved ? 'text-primary' : ''}
+                          fill={selectedJob.isSaved ? 'currentColor' : 'none'}
+                        />
+                      </Button>
+                    )}
                     {selectedJob.sourceType === 'company' ? (
                       <Button
                         className="h-11 px-8 flex items-center gap-2"
@@ -788,8 +1123,8 @@ export default function JobListingsPage() {
                       Loading description…
                     </div>
                   ) : description ? (
-                    <div className="text-sm text-neutral-700 leading-relaxed rich-text"
-                      dangerouslySetInnerHTML={{ __html: description }} />
+                    <RichText className="text-sm text-neutral-700 leading-relaxed rich-text"
+                      html={description} />
                   ) : (
                     <p className="text-sm text-neutral-400 italic">No description available.</p>
                   )}

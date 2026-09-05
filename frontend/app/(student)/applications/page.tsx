@@ -62,17 +62,37 @@ const formatDate = (value: string) =>
 export default function MyApplicationsPage() {
   const [applications, setApplications] = useState<Application[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
+  // Why the load failed, not merely that it did. An empty list and a failed
+  // request look identical once both render a grey card, and the two were
+  // reported with the same sentence -- so "no applications yet" was read as a
+  // breakage, and a real breakage was read as an empty shortlist.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | ApplicationStatus>('ALL');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    // The status is carried out of the first .then rather than thrown, so a
+    // request that reached the server and was refused stays distinguishable
+    // from one that never arrived. They have different fixes.
+    let refusedWith: number | null = null;
     apiFetch('/api/job-listings/applications/')
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((data: Application[]) => { if (!cancelled) setApplications(data); })
-      .catch(() => { if (!cancelled) setLoadFailed(true); })
+      .then(response => {
+        refusedWith = response.ok ? null : response.status;
+        return response.ok ? response.json() : null;
+      })
+      .then((data: Application[] | null) => {
+        if (cancelled) return;
+        if (refusedWith !== null) {
+          setLoadError(`The server refused the request (${refusedWith}).`);
+        } else {
+          setApplications(data ?? []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('The server could not be reached.');
+      })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -132,9 +152,10 @@ export default function MyApplicationsPage() {
 
         {isLoading ? (
           <Card className="py-16 text-center text-neutral-500">Loading your applications…</Card>
-        ) : loadFailed ? (
+        ) : loadError ? (
           <Card className="py-16 text-center text-neutral-500">
-            Could not load your applications. Please try again.
+            <p className="font-bold text-neutral-700">Could not load your applications</p>
+            <p className="text-sm mt-1">{loadError} Please try again.</p>
           </Card>
         ) : (
           <>

@@ -10,6 +10,7 @@ import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button, Input } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { RichText } from '@/src/lib/richText';
 
 // ─── Constants ────
 
@@ -91,9 +92,9 @@ function DetailModal({ announcement: a, onClose }: { announcement: Announcement;
 
         {/* Body */}
         <div className="p-7 space-y-5">
-          <div
+          <RichText
             className="text-sm text-neutral-700 leading-relaxed announcement-body"
-            dangerouslySetInnerHTML={{ __html: a.message }}
+            html={a.message}
           />
 
           {/* Attachment — image inline, other URLs as link */}
@@ -423,9 +424,9 @@ export default function AnnouncementsPage() {
                       {a.title}
                     </button>
 
-                    <div
+                    <RichText
                       className="text-sm text-neutral-500 mt-2 leading-relaxed announcement-body line-clamp-2"
-                      dangerouslySetInnerHTML={{ __html: a.message }}
+                      html={a.message}
                     />
 
                     <div className="flex items-center gap-3 mt-2">

@@ -21,12 +21,33 @@ const LEVEL_VARIANT: Record<string, 'success' | 'secondary' | 'neutral'> = {
   BEGINNER:     'neutral',
 };
 
+type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+const LEVEL_LABEL: Record<ProficiencyLevel, string> = {
+  BEGINNER: 'Beginner',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
+
+interface VerifiedCertificate {
+  id: number;
+  certificate_name: string;
+  source: string;
+  verified_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  skill_evidence: {
+    id: number;
+    skill: string;
+    granted_level: ProficiencyLevel | null;
+  }[];
+}
+
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const isCompany = user?.role === 'company';
 
   const [skills, setSkills] = useState<StudentSkill[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
+  const [certificates, setCertificates] = useState<VerifiedCertificate[]>([]);
 
   const loadSkills = useCallback(() => {
     apiFetch('/api/auth/student/skills/')
@@ -34,6 +55,19 @@ export default function ProfilePage() {
       .then((data: StudentSkill[]) => setSkills(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setSkillsLoading(false));
+
+    // Verified credentials, shown as one card per document with a badge per
+    // approved skill. Pending and rejected submissions stay on the Skill
+    // Validation page: the profile is what the student has, not what they
+    // have asked for.
+    apiFetch('/api/resources/certificates/')
+      .then(r => (r.ok ? r.json() : []))
+      .then((data: VerifiedCertificate[]) =>
+        setCertificates(
+          (Array.isArray(data) ? data : [])
+            .filter(cert => cert.verified_status === 'APPROVED'
+              && cert.skill_evidence.some(e => e.granted_level))))
+      .catch(() => {});
   }, []);
 
   // The company branch simply skips the fetch — setting state synchronously
@@ -47,7 +81,7 @@ export default function ProfilePage() {
   const completionItems = [
     { label: 'Basic Info',            done: Boolean(user?.name && user?.email) },
     { label: 'Department Set',        done: Boolean(user?.department) },
-    { label: 'Target Role Selected',  done: Boolean(user?.targetRoles?.length || user?.targetOccupations?.length) },
+    { label: 'Target Role Selected',  done: Boolean(user?.targetRoles?.length) },
     { label: 'Skills Validated',      done: skills.length > 0 },
   ];
   const completion = Math.round(
@@ -280,6 +314,62 @@ export default function ProfilePage() {
                 </div>
               </Card>
 
+              {/* One certificate, one card, with every approved skill on it.
+                  The document itself is never linked here: it stays reachable
+                  only to its owner and an administrator, through the Skill
+                  Validation page. */}
+              {certificates.length > 0 && (
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                      <Award size={20} className="text-primary" /> Verified Credentials
+                      <span className="text-sm font-semibold text-neutral-400">
+                        ({certificates.length})
+                      </span>
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    {certificates.map(cert => (
+                      <div
+                        key={cert.id}
+                        className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/40"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-bold text-neutral-900 truncate">
+                              {cert.certificate_name || cert.source || 'Certificate'}
+                            </p>
+                            {cert.source && (
+                              <p className="text-xs text-neutral-500 mt-0.5">
+                                Issued by: {cert.source}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant="success" className="text-[9px] shrink-0">
+                            VERIFIED
+                          </Badge>
+                        </div>
+                        <ul className="mt-3 space-y-1">
+                          {cert.skill_evidence
+                            .filter(evidence => evidence.granted_level)
+                            .map(evidence => (
+                              <li
+                                key={evidence.id}
+                                className="flex items-center gap-2 text-sm text-neutral-700"
+                              >
+                                <CheckCircle2 size={14} className="text-success shrink-0" />
+                                <span className="font-semibold">{evidence.skill}</span>
+                                <span className="text-neutral-400">—</span>
+                                <span>{LEVEL_LABEL[evidence.granted_level!]}</span>
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
               {/* Evidence behind the portfolio above — uploading a transcript
                   writes StudentSkill rows, so the list refreshes on success. */}
               <SkillValidation onSkillsChanged={loadSkills} />
@@ -315,8 +405,8 @@ export default function ProfilePage() {
                 {user?.targetRoles && user.targetRoles.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {user.targetRoles.map((target) => (
-                      <span key={target.role_name} className="px-3 py-1.5 rounded-full bg-indigo-50 text-primary text-xs font-bold">
-                        {target.role_name}
+                      <span key={target.market_role} className="px-3 py-1.5 rounded-full bg-indigo-50 text-primary text-xs font-bold">
+                        {target.market_role}
                       </span>
                     ))}
                   </div>
@@ -324,25 +414,7 @@ export default function ProfilePage() {
                   <p className="text-sm text-neutral-400 font-medium">No target role selected yet.</p>
                 )}
 
-                {/* The occupation is derived from the role, so it is shown as
-                    supporting detail rather than as a second target. Absent
-                    when the role has no reviewed MASCO bridge yet, which is
-                    the common case. */}
-                {user?.targetOccupations && user.targetOccupations.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-neutral-100">
-                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2">
-                      Matched MASCO occupation
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {user.targetOccupations.map((target) => (
-                        <span key={target.id} className="px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-600 text-xs font-bold">
-                          {target.code} — {target.preferred_label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <p className="text-xs text-neutral-500 mt-3 font-medium">IMDA career role used for skill-gap analysis</p>
+                <p className="text-xs text-neutral-500 mt-3 font-medium">Market Role used for skill-gap analysis</p>
               </Card>
             </div>
           </div>

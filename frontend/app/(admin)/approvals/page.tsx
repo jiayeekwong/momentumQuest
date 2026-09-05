@@ -7,6 +7,7 @@ import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { RichText } from '@/src/lib/richText';
 
 type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -73,8 +74,8 @@ function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => voi
         </div>
 
         <div className="p-7 space-y-5">
-          <div className="text-sm text-neutral-700 leading-relaxed rich-text"
-            dangerouslySetInnerHTML={{ __html: item.details }} />
+          <RichText className="text-sm text-neutral-700 leading-relaxed rich-text"
+            html={item.details} />
 
           {item.supportingDoc && (
             <div className="border border-neutral-200 rounded-xl overflow-hidden">

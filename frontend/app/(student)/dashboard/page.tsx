@@ -7,8 +7,9 @@ import { Briefcase, Target, Star, Bell, ChevronRight, Sparkles, ArrowUpRight, X,
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { RichText } from '@/src/lib/richText';
 
 const statusVariants: Record<string, 'neutral' | 'primary' | 'warning' | 'danger' | 'success'> = {
   pending: 'neutral', shortlisted: 'primary', interview: 'warning', rejected: 'danger', accepted: 'success',
@@ -30,10 +31,21 @@ interface DemandPoint {
   observed: boolean;
 }
 
-interface RankedOccupation {
-  id: number;
-  code: string;
-  preferred_label: string;
+interface RankedArea {
+  name: string;
+  job_count: number;
+}
+
+interface AreaOption {
+  name: string;
+  listing_count: number;
+  // The Market Roles inside this area with enough adverts to chart.
+  roles: { id: number; name: string; listing_count: number }[];
+}
+
+interface RankedMarketRole {
+  name: string;
+  broad_area: string;
   job_count: number;
 }
 
@@ -47,16 +59,29 @@ interface MarketDemand {
   mode: 'OVERVIEW' | 'TARGET';
   period_months: number;
   title: string;
-  target_occupation: {
-    id: number;
-    code: string;
-    preferred_label: string;
-    version: string;
-  } | null;
+  // Set when the chart is scoped to one Market Role rather than a whole area.
+  target_market_role: string | null;
+  target_broad_area: string | null;
   series: DemandPoint[];
+  // Still open on JobStreet, and the only ones the skill gap measures
+  // against. Distinct from the 12-month figure the trend line is drawn from.
   total_postings: number;
-  three_month_change_percentage: number | null;
-  top_occupations: RankedOccupation[];
+  total_postings_in_period: number;
+  // The month still running. Reported beside the chart, never plotted in it:
+  // one day of September is not a fall from August, but drawn as a point it
+  // is indistinguishable from one.
+  month_in_progress: { label: string; job_count: number } | null;
+  // Null whenever the two months cannot be honestly compared. `change_basis`
+  // says which case it is, so the tile can explain rather than show a dash.
+  demand_change_percentage: number | null;
+  change_basis: 'MONTH_ON_MONTH' | 'UNEVEN_COLLECTION' | 'SINGLE_MONTH'
+              | 'CURRENT_MONTH_ONLY' | 'NOT_ENOUGH_COLLECTED';
+  collected_months: number;
+  top_broad_areas: RankedArea[];
+  top_market_roles: RankedMarketRole[];
+  // How many adverts the role ranking rests on, so the UI can say so rather
+  // than presenting a handful of adverts as the whole market.
+  market_role_postings: number;
   top_categories: RankedCategory[];
   data_quality: {
     first_observed_date: string | null;
@@ -64,8 +89,12 @@ interface MarketDemand {
     freshness_days: number | null;
     is_stale: boolean;
     market_postings_in_period: number;
-    standardized_postings_in_period: number;
-    standardization_coverage_percentage: number;
+    live_market_postings: number;
+    // How many adverts were placed on a Market Role at all. "Classified",
+    // not "verified": nothing here is human-checked, and the label must not
+    // imply otherwise.
+    matched_postings_in_period: number;
+    matched_coverage_percentage: number;
   };
 }
 
@@ -130,9 +159,9 @@ function AnnouncementDetailModal({ a, onClose }: { a: Announcement; onClose: () 
 
         {/* Body */}
         <div className="p-6 space-y-4">
-          <div
+          <RichText
             className="text-sm text-neutral-700 leading-relaxed announcement-body"
-            dangerouslySetInnerHTML={{ __html: a.message }}
+            html={a.message}
           />
 
           {/* Attachment */}
@@ -165,6 +194,27 @@ function AnnouncementDetailModal({ a, onClose }: { a: Announcement; onClose: () 
   );
 }
 
+/**
+ * Why a month-on-month figure is missing. Shown in place of the number, so
+ * the tile says what is wrong instead of leaving the reader to guess.
+ */
+const CHANGE_LABEL: Record<string, string> = {
+  UNEVEN_COLLECTION: 'Collection uneven',
+  SINGLE_MONTH: 'One month so far',
+  CURRENT_MONTH_ONLY: 'This month only',
+  NOT_ENOUGH_COLLECTED: 'Not enough history',
+};
+
+const CHANGE_EXPLAINER: Record<string, string> = {
+  UNEVEN_COLLECTION:
+    'The scraper ran a different number of times in the two most recent months, '
+    + 'so the difference between them reflects the collection schedule rather than '
+    + 'employer demand. Run it on a regular schedule and this becomes comparable.',
+  SINGLE_MONTH: 'Only one completed month has been collected, so there is nothing to compare it with.',
+  CURRENT_MONTH_ONLY: 'Only the month in progress has been collected. A part-month cannot be compared with a full one.',
+  NOT_ENOUGH_COLLECTED: 'No completed month has been collected yet.',
+};
+
 export default function DashboardPage() {
   const { user, updateUser } = useAuth();
   const firstName = user?.name?.split(' ')[0] ?? 'there';
@@ -176,10 +226,12 @@ export default function DashboardPage() {
   const [dashboardLoading,     setDashboardLoading]     = useState(true);
   const [dashboardError,       setDashboardError]       = useState('');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
-  // Browsing an occupation's trend is separate from committing to it as a
+  // Browsing a career's trend is separate from committing to it as a
   // target — the student can flip between roles as often as they like.
-  const [trendOccupationId,    setTrendOccupationId]    = useState<number | ''>('');
-  const [ictOccupations,       setIctOccupations]       = useState<{ id: number; code: string; preferred_label: string; listing_count: number }[]>([]);
+  // One string covers both levels: "area:Data & AI" or "role:Data Analyst".
+  // A bare name could not say which of the two it meant.
+  const [trendScope,           setTrendScope]           = useState<string>('');
+  const [areas,                setAreas]                = useState<AreaOption[]>([]);
   const [trendLoading,         setTrendLoading]         = useState(false);
 
   const loadDashboard = useCallback(async () => {
@@ -204,20 +256,25 @@ export default function DashboardPage() {
     queueMicrotask(() => void loadDashboard());
   }, [loadDashboard]);
 
-  // Only occupations with standardized listings behind them — anything else
+  // Only Market Roles with classified adverts behind them — anything else
   // renders an empty chart.
   useEffect(() => {
-    apiFetch('/api/dashboard/skill-gap/occupations/')
+    apiFetch('/api/dashboard/skill-gap/market-roles/')
       .then(r => (r.ok ? r.json() : null))
-      .then((data) => setIctOccupations(data?.results ?? []))
+      .then((data) => setAreas(data?.results ?? []))
       .catch(() => {});
   }, []);
 
-  // Re-scope only the chart when the student browses another occupation.
-  const loadTrend = useCallback(async (occupationId: number | '') => {
+  // Re-scope only the chart when the student browses another area or role.
+  const loadTrend = useCallback(async (scope: string) => {
     setTrendLoading(true);
     try {
-      const query = occupationId ? `?occupation=${occupationId}` : '';
+      const [kind, ...rest] = scope.split(':');
+      const value = rest.join(':');
+      const query =
+        kind === 'area' ? `?broad_area=${encodeURIComponent(value)}`
+        : kind === 'role' ? `?role=${encodeURIComponent(value)}`
+        : '';
       const response = await apiFetch(`/api/dashboard/market-demand/${query}`);
       if (response.ok) setMarketDemand(await response.json() as MarketDemand);
     } catch {
@@ -227,28 +284,10 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const rankedItems = useMemo(() => {
-    if (!marketDemand) return [];
-    if (marketDemand.top_occupations.length) {
-      return marketDemand.top_occupations.map((occupation) => ({
-        id: occupation.id,
-        label: occupation.preferred_label,
-        code: occupation.code,
-        jobCount: occupation.job_count,
-        occupationId: occupation.id,
-      }));
-    }
-    return marketDemand.top_categories.map((category) => ({
-      id: category.id,
-      label: category.category_name,
-      code: 'Category',
-      jobCount: category.job_count,
-      occupationId: null,
-    }));
-  }, [marketDemand]);
-
-  const maxRankedCount = Math.max(...rankedItems.map((item) => item.jobCount), 1);
-  const observedPoints = marketDemand?.series.filter((point) => point.observed) ?? [];
+  const plottedPoints = marketDemand?.series.filter(
+    (point) => point.job_count !== null) ?? [];
+  const collectedGaps = (marketDemand?.series ?? []).filter(
+    (point) => !point.observed).length;
 
   return (
     <DashboardLayout title="Dashboard">
@@ -270,7 +309,10 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {[
             { label: 'Applications Sent', value: applicationsCount !== null ? String(applicationsCount) : '—', icon: Briefcase, color: 'bg-indigo-50 text-primary', trend: 'from your applications' },
-            { label: marketDemand?.mode === 'TARGET' ? 'Target Job Postings' : 'Market Job Postings', value: marketDemand ? String(marketDemand.total_postings) : '—', icon: Target, color: 'bg-emerald-50 text-success', trend: `within the ${marketDemand?.period_months ?? 12}-month view` },
+            // Open postings, not everything ever scraped: this number sat
+            // beside a jobs page listing far fewer, because it counted the
+            // closed months the trend line needs.
+            { label: marketDemand?.mode === 'TARGET' ? 'Open Target Postings' : 'Open Job Postings', value: marketDemand ? String(marketDemand.total_postings) : '—', icon: Target, color: 'bg-emerald-50 text-success', trend: marketDemand ? `of ${marketDemand.total_postings_in_period} seen in ${marketDemand.period_months} months` : 'still open on JobStreet' },
             { label: 'Skills in Profile', value: skillsCount !== null ? String(skillsCount) : '—', icon: Star, color: 'bg-amber-50 text-warning', trend: 'from your profile' },
           ].map((stat) => (
             <Card key={stat.label} className="p-6 flex items-start gap-5">
@@ -304,28 +346,40 @@ export default function DashboardPage() {
                 variant={marketDemand?.mode === 'TARGET' ? 'primary' : 'neutral'}
                 className="text-[10px] font-black tracking-widest shrink-0"
               >
-                {marketDemand?.mode === 'TARGET' ? 'YOUR MASCO TARGET' : 'MARKET OVERVIEW'}
+                {marketDemand?.mode !== 'TARGET' ? 'MARKET OVERVIEW'
+                  : marketDemand.target_market_role ? 'MARKET ROLE' : 'CAREER AREA'}
               </Badge>
             </div>
 
-            {/* Browse any ICT occupation's trend — does not change your saved target */}
+            {/* Browse any career's trend — does not change your saved target */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-5">
               <select
-                value={trendOccupationId}
+                value={trendScope}
                 onChange={(e) => {
-                  const value = e.target.value ? Number(e.target.value) : '';
-                  setTrendOccupationId(value);
-                  void loadTrend(value);
+                  setTrendScope(e.target.value);
+                  void loadTrend(e.target.value);
                 }}
                 className="h-10 flex-1 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">
-                  {user?.targetOccupations?.length ? 'My target role' : 'Whole market'}
+                  {user?.targetRoles?.length ? 'My career' : 'Whole market'}
                 </option>
-                {ictOccupations.map((occupation) => (
-                  <option key={occupation.id} value={occupation.id}>
-                    {occupation.code} — {occupation.preferred_label} ({occupation.listing_count} jobs)
-                  </option>
+                {/* Grouped by Broad Area, with the area itself selectable
+                    above its Market Roles. Both levels are offered because
+                    they answer different questions and rest on different
+                    amounts of evidence. Nothing without adverts behind it is
+                    listed, so every option charts something. */}
+                {areas.map((area) => (
+                  <optgroup key={area.name} label={area.name}>
+                    <option value={`area:${area.name}`}>
+                      All {area.name} ({area.listing_count} jobs)
+                    </option>
+                    {area.roles.map((role) => (
+                      <option key={role.id} value={`role:${role.name}`}>
+                        {role.name} ({role.listing_count} jobs)
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               {trendLoading && (
@@ -339,13 +393,16 @@ export default function DashboardPage() {
               </div>
             ) : dashboardLoading ? (
               <div className="h-52 rounded-xl bg-neutral-50 animate-pulse" />
-            ) : observedPoints.length ? (
+            ) : plottedPoints.length ? (
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={marketDemand?.series ?? []} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fontWeight: 600, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={1} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fontWeight: 600, fill: '#9ca3af' }} axisLine={false} tickLine={false} domain={[0, 'auto']} />
                   <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }} />
+                  {/* connectNulls={false} is what makes an uncollected month
+                      a break in the line rather than a straight edge drawn
+                      through demand nobody measured. */}
                   <Line name="Job postings" type="monotone" dataKey="job_count" connectNulls={false} stroke="#4f46e5" strokeWidth={3} dot={{ fill: '#4f46e5', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -357,34 +414,55 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {marketDemand && (collectedGaps > 0 || marketDemand.month_in_progress) && (
+              <p className="text-xs text-neutral-400 mt-3">
+                {collectedGaps > 0 && (
+                  <>Gaps are months the scraper did not run — not months without demand. </>
+                )}
+                {marketDemand.month_in_progress && (
+                  <>{marketDemand.month_in_progress.label} is still in progress
+                    ({marketDemand.month_in_progress.job_count} so far) and is left
+                    off the line until it ends.</>
+                )}
+              </p>
+            )}
+
             {marketDemand && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
                 <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Postings shown</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Open postings</p>
                   <p className="text-xl font-black text-neutral-900 mt-1">{marketDemand.total_postings}</p>
                 </div>
+                {/* Month-on-month, and only when the scraper ran equally
+                    often in both months. A figure computed across an uneven
+                    collection schedule measures how hard we looked, not what
+                    employers advertised -- that is where "+880.9%" came from,
+                    and a number nobody can trust is worse than no number. */}
                 <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">3-month change</p>
-                  <p className={`text-xl font-black mt-1 flex items-center gap-1 ${
-                    marketDemand.three_month_change_percentage === null
-                      ? 'text-neutral-500'
-                      : marketDemand.three_month_change_percentage >= 0
-                        ? 'text-success'
-                        : 'text-danger'
-                  }`}>
-                    {marketDemand.three_month_change_percentage === null ? (
-                      'Not enough history'
-                    ) : marketDemand.three_month_change_percentage >= 0 ? (
-                      <><ArrowUpRight size={17} />{marketDemand.three_month_change_percentage}%</>
-                    ) : (
-                      <><TrendingDown size={17} />{marketDemand.three_month_change_percentage}%</>
-                    )}
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                    Month-on-month
                   </p>
+                  {marketDemand.demand_change_percentage === null ? (
+                    <p className="text-sm font-bold text-neutral-500 mt-2"
+                       title={CHANGE_EXPLAINER[marketDemand.change_basis]}>
+                      {CHANGE_LABEL[marketDemand.change_basis]}
+                    </p>
+                  ) : (
+                    <p className={`text-xl font-black mt-1 flex items-center gap-1 ${
+                      marketDemand.demand_change_percentage >= 0 ? 'text-success' : 'text-danger'
+                    }`}>
+                      {marketDemand.demand_change_percentage >= 0 ? (
+                        <><ArrowUpRight size={17} />+{marketDemand.demand_change_percentage}%</>
+                      ) : (
+                        <><TrendingDown size={17} />{marketDemand.demand_change_percentage}%</>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Latest observed</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Months collected</p>
                   <p className="text-sm font-black text-neutral-900 mt-2">
-                    {marketDemand.data_quality.latest_observed_date ?? 'No data'}
+                    {marketDemand.collected_months} of {marketDemand.period_months}
                   </p>
                 </div>
               </div>
@@ -404,17 +482,15 @@ export default function DashboardPage() {
             {marketDemand?.mode === 'OVERVIEW' && (
               <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
                 <p className="text-sm font-bold text-neutral-900">Personalize this trend</p>
-                {/* A link, not a form. This block used to PATCH
-                    target_occupation_ids, which the profile endpoint no longer
-                    accepts -- it returned 200 and changed nothing. Targets are
-                    now set in one place only, so the dashboard points there
-                    instead of being a second writer. */}
+                {/* A link, not a form. Targets are set in one place only,
+                    so the dashboard points there instead of being a second
+                    writer. */}
                 <p className="text-xs text-neutral-600 mt-1">
-                  Choose your IMDA career role on the Skill Gap page and this trend
+                  Choose your Market Role on the Skill Gap page and this trend
                   will follow it.
                 </p>
                 <Link href="/skill-gap">
-                  <Button className="h-10 mt-3">Choose your career role</Button>
+                  <Button className="h-10 mt-3">Choose your Market Role</Button>
                 </Link>
               </div>
             )}
@@ -454,51 +530,6 @@ export default function DashboardPage() {
             </div>
           </Card>
         </div>
-
-        {/* Market ranking */}
-        <Card className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
-            <div>
-              <h3 className="text-lg font-bold text-neutral-900">
-                {marketDemand?.top_occupations.length ? 'Top MASCO Occupations in Demand' : 'Top Job Categories in Demand'}
-              </h3>
-              <p className="text-xs text-neutral-400 font-medium mt-0.5">
-                {marketDemand?.top_occupations.length
-                  ? 'Standardized occupations ranked by postings in the current chart period'
-                  : 'Category overview shown until MASCO standardization data is available'}
-              </p>
-            </div>
-            {marketDemand && (
-              <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                MASCO coverage {marketDemand.data_quality.standardization_coverage_percentage}%
-              </span>
-            )}
-          </div>
-
-          {rankedItems.length ? (
-            <div className="space-y-4">
-              {rankedItems.map((item) => (
-                <div key={`${item.code}-${item.id}`} className="flex items-center gap-4">
-                  <div className="w-36 sm:w-64 min-w-0">
-                    <p className="text-sm font-bold text-neutral-900 truncate">{item.label}</p>
-                    <p className="text-[10px] font-semibold text-neutral-400 truncate">{item.code}</p>
-                  </div>
-                  <div className="flex-1 h-2.5 rounded-full bg-neutral-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${Math.max(item.jobCount / maxRankedCount * 100, 3)}%` }}
-                    />
-                  </div>
-                  <span className="w-12 text-right text-sm font-black text-neutral-800">{item.jobCount}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl bg-neutral-50 py-8 text-center">
-              <p className="text-sm font-bold text-neutral-500">No market ranking data available</p>
-            </div>
-          )}
-        </Card>
 
         {/* Recent applications */}
         <Card className="p-6">

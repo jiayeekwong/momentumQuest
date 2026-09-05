@@ -9,6 +9,7 @@ import { Card, Badge, Button, Input } from '@/src/components/ui';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { apiFetch } from '@/src/lib/apiFetch';
 import { cn } from '@/src/lib/utils';
+import { RichText } from '@/src/lib/richText';
 
 interface TrainingProgramme {
   id: number;
@@ -72,8 +73,8 @@ function DetailModal({ programme: p, onClose }: { programme: TrainingProgramme; 
 
         <div className="p-7 space-y-5">
           {p.description ? (
-            <div className="text-sm text-neutral-700 leading-relaxed rich-text"
-              dangerouslySetInnerHTML={{ __html: p.description }} />
+            <RichText className="text-sm text-neutral-700 leading-relaxed rich-text"
+              html={p.description} />
           ) : (
             <p className="text-sm text-neutral-400 italic">No description provided.</p>
           )}
@@ -272,8 +273,8 @@ export default function PostTrainingPage() {
                           <span>Submitted {formatDate(prog.submission_time)}</span>
                         </div>
                         {prog.description && (
-                          <div className="text-xs text-neutral-400 mt-2 line-clamp-2 rich-text"
-                            dangerouslySetInnerHTML={{ __html: prog.description }} />
+                          <RichText className="text-xs text-neutral-400 mt-2 line-clamp-2 rich-text"
+                            html={prog.description} />
                         )}
                       </div>
                       <div className="shrink-0">

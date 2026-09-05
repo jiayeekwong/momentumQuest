@@ -8,6 +8,14 @@ import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
 
+type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+const LEVEL_LABEL: Record<ProficiencyLevel, string> = {
+  BEGINNER: 'Beginner',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
+
 interface DemandSkill {
   skill_id: number;
   skill: string;
@@ -16,6 +24,15 @@ interface DemandSkill {
   demand_percentage: number;
   skill_level?: string;
   priority_level?: 'HIGH' | 'MEDIUM' | 'LOW';
+  // Holding a skill is not the same as being ready for it. The level the
+  // market asks for, the level the student holds, and the verdict comparing
+  // them -- reporting only "you have it" hid every partial gap.
+  required_level: ProficiencyLevel;
+  student_level: ProficiencyLevel | null;
+  readiness_status: 'MATCHED' | 'DEVELOPING' | 'MISSING';
+  // How the adverts in scope actually split, so the required level can be
+  // checked rather than taken on trust.
+  level_distribution: Partial<Record<ProficiencyLevel, number>>;
 }
 
 interface OwnedSkill {
@@ -44,29 +61,29 @@ interface Resource {
   skill_demand_percentage: number | null;
 }
 
-interface ICTRoleOption {
-  role_name: string;
-  subtracks: string[];
-  career_levels: string[];
-  listing_count: number;
+interface MarketRoleOption {
+  id: number;
+  name: string;
+  broad_area: string;
+  description: string;
+  advert_count: number;
   // False when the market cannot yet support analysing this role on its own.
-  // The role stays selectable regardless; the analysis falls back to its track.
+  // The role stays selectable regardless; the analysis widens to its area.
   analysable: boolean;
 }
 
-interface ICTRolesResponse {
+interface MarketRolesResponse {
   evidence_floor: number;
   total_roles: number;
   analysable_roles: number;
-  results: { id: number; name: string; slug: string; roles: ICTRoleOption[] }[];
+  results: { name: string; roles: MarketRoleOption[] }[];
 }
 
 interface SkillGap {
   mode: 'TARGET' | 'OVERVIEW';
-  scope: 'ROLE' | 'TRACK' | 'OCCUPATION' | 'MARKET';
+  scope: 'ROLE' | 'BROAD_AREA' | 'MARKET';
   target_role: string | null;
-  target_occupation: { id: number; code: string; preferred_label: string } | null;
-  target_track: { id: number; name: string; slug: string } | null;
+  target_broad_area: string | null;
   total_listings: number;
   critical_skill_count: number;
   match_percentage: number;
@@ -76,11 +93,11 @@ interface SkillGap {
   other_skills: OwnedSkill[];
   recommended_resources: Resource[];
   data_quality: {
-    scope_level: 'ROLE' | 'TRACK' | 'OCCUPATION' | 'MARKET';
+    scope_level: 'ROLE' | 'BROAD_AREA' | 'MARKET';
     target_listing_count: number;
     role_listing_count: number | null;
     market_listing_count: number;
-    fell_back_to_track: boolean;
+    fell_back_to_broad_area: boolean;
     fell_back_to_market: boolean;
     has_target: boolean;
     evidence_floor: number;
@@ -100,68 +117,70 @@ const PLATFORM_COLORS: Record<string, string> = {
   'Coursera':        'bg-violet-700',
 };
 
-interface Track {
-  id: number;
+interface ScopeArea {
   name: string;
-  slug: string;
   listing_count: number;
-  subtrack_count: number;
+  roles: { id: number; name: string; listing_count: number }[];
 }
 
-interface TracksResponse {
-  min_listings: number;
-  results: Track[];
+interface ScopeResponse {
+  evidence_floor: number;
+  results: ScopeArea[];
   coverage: {
-    classified_listings: number;
-    market_listings: number;
-    coverage_percentage: number;
+    scraped_total: number;
+    classified_total: number;
+    classified_percentage: number;
   };
 }
 
-interface RoadmapRole {
-  id: number;
-  role_name: string;
-  career_level: string;
-  progression_order: number;
-  is_cross_subtrack: boolean;
-}
-
-interface Roadmap {
-  track: { id: number; name: string; slug: string };
-  source: { publisher: string; framework: string; page: number | null };
-  subtracks: { name: string; roles: RoadmapRole[] }[];
+interface RoleProfile {
+  role: { id: number; name: string; broad_area: string; description: string };
+  listing_count: number;
+  analysable: boolean;
+  evidence_floor: number;
+  career_levels: { career_level: string; listing_count: number }[];
+  // How this role's adverts were classified, so the evidence behind the
+  // numbers can be judged rather than assumed.
+  classification_methods: { classification_method: string; listing_count: number }[];
+  reviewed_titles: string[];
 }
 
 const LEVEL_COLORS: Record<string, string> = {
-  ASSOCIATE: 'bg-sky-100 text-sky-800',
-  PROFESSIONAL: 'bg-indigo-100 text-indigo-800',
-  SENIOR: 'bg-violet-100 text-violet-800',
-  LEAD: 'bg-purple-100 text-purple-800',
-  ARCHITECT: 'bg-purple-100 text-purple-800',
-  MANAGER: 'bg-amber-100 text-amber-800',
-  DIRECTOR: 'bg-orange-100 text-orange-800',
-  HEAD: 'bg-orange-100 text-orange-800',
-  EXECUTIVE: 'bg-rose-100 text-rose-800',
+  INTERN: 'bg-sky-100 text-sky-800',
+  GRADUATE: 'bg-teal-100 text-teal-800',
+  JUNIOR: 'bg-emerald-100 text-emerald-800',
+  ASSOCIATE: 'bg-indigo-100 text-indigo-800',
+  MID: 'bg-violet-100 text-violet-800',
+  SENIOR: 'bg-amber-100 text-amber-800',
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  EXACT_MARKET_ROLE: 'Title is the Market Role',
+  REVIEWED_TITLE_ALIAS: 'Reviewed title alias',
+  CAREER_LEVEL_NORMALIZED_ROLE: 'Market Role after career level removed',
+  CAREER_LEVEL_NORMALIZED_ALIAS: 'Reviewed alias after career level removed',
+  REVIEWED_SEGMENT_MATCH: 'Reviewed segment of a compound title',
+  JD_RESOLVED: 'Resolved from advert responsibilities',
+  HUMAN_REVIEW: 'Set by a reviewer',
 };
 
 export default function SkillGapPage() {
   const [gap, setGap] = useState<SkillGap | null>(null);
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [coverage, setCoverage] = useState<TracksResponse['coverage'] | null>(null);
-  const [selectedTrack, setSelectedTrack] = useState<number | ''>('');
-  const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
-  const [showRoadmap, setShowRoadmap] = useState(false);
+  const [areas, setAreas] = useState<ScopeArea[]>([]);
+  const [coverage, setCoverage] = useState<ScopeResponse['coverage'] | null>(null);
+  const [selectedArea, setSelectedArea] = useState<string>('');
+  const [profile, setProfile] = useState<RoleProfile | null>(null);
+  const [showEvidence, setShowEvidence] = useState(false);
 
-  // Role browsing is separate from the saved target, exactly as the track
-  // selector already works: choosing a role previews it, "Set as my target"
-  // is what persists it.
-  const [roleData, setRoleData] = useState<ICTRolesResponse | null>(null);
+  // Role browsing is separate from the saved target: choosing a Market Role
+  // previews it, "Set as my target" is what persists it.
+  const [roleData, setRoleData] = useState<MarketRolesResponse | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [savedRole, setSavedRole] = useState<string | null>(null);
   const [savingTarget, setSavingTarget] = useState(false);
   const [targetMessage, setTargetMessage] = useState<string | null>(null);
 
-  // Rule 5: records the wording only. Never creates a role or a target.
+  // Records the wording only. Never creates a role or a target.
   const [missingOpen, setMissingOpen] = useState(false);
   const [missingText, setMissingText] = useState('');
   const [missingSent, setMissingSent] = useState(false);
@@ -170,37 +189,34 @@ export default function SkillGapPage() {
   // selection, rather than set synchronously inside the effect (which causes
   // a cascading render).
   const [loadedScope, setLoadedScope] = useState<string | null>(null);
-  const scopeKey = selectedRole ? `role:${selectedRole}` : `track:${selectedTrack}`;
+  const scopeKey = selectedRole ? `role:${selectedRole}` : `area:${selectedArea}`;
   const isLoading = loadedScope !== scopeKey;
 
-  // IMDA career tracks with enough scraped listings to analyse. Tracks rather
-  // than MASCO occupations: ~88% of listings carry a track, ~26% an occupation.
+  // The Market Roles the analysis can actually answer for, grouped by Broad
+  // Area. Broad Area is presentation only -- it groups the list and widens a
+  // thin measurement; it never decides which role an advert belongs to.
   useEffect(() => {
-    apiFetch('/api/dashboard/skill-gap/tracks/')
+    apiFetch('/api/dashboard/skill-gap/market-roles/')
       .then(r => (r.ok ? r.json() : null))
-      .then((data: TracksResponse | null) => {
-        setTracks(data?.results ?? []);
+      .then((data: ScopeResponse | null) => {
+        setAreas(data?.results ?? []);
         setCoverage(data?.coverage ?? null);
-        if (data?.results?.length && !selectedTrack) {
-          setSelectedTrack(data.results[0].id);
-        }
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Every IMDA role, grouped by track. All roles are returned whether or not
-  // the market can analyse them -- listing_count and analysable let the page
-  // set expectations without removing the option.
+  // Every Market Role, grouped by Broad Area. All roles are returned whether
+  // or not the market can analyse them -- advert_count and analysable let the
+  // page set expectations without removing the option.
   useEffect(() => {
-    apiFetch('/api/scrape-jobs/ict-roles/')
+    apiFetch('/api/scrape-jobs/market-roles/')
       .then(r => (r.ok ? r.json() : null))
-      .then((data: ICTRolesResponse | null) => setRoleData(data))
+      .then((data: MarketRolesResponse | null) => setRoleData(data))
       .catch(() => {});
     apiFetch('/api/auth/profile/')
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        const saved = data?.target_roles?.[0]?.role_name ?? null;
+        const saved = data?.target_roles?.[0]?.market_role ?? null;
         setSavedRole(saved);
         if (saved) setSelectedRole(saved);
       })
@@ -210,48 +226,62 @@ export default function SkillGapPage() {
   useEffect(() => {
     // Guards against a slow earlier request overwriting a newer selection.
     let cancelled = false;
+    // An empty query used to mean "no role and no area", which the server
+    // read as "use my saved target" -- so choosing "Not sure" answered with
+    // the role the student had just stepped away from. scope=market says the
+    // whole market is the actual request.
     const query = selectedRole
       ? `?role=${encodeURIComponent(selectedRole)}`
-      : (selectedTrack ? `?track=${selectedTrack}` : '');
+      : (selectedArea
+        ? `?broad_area=${encodeURIComponent(selectedArea)}`
+        : '?scope=market');
     apiFetch(`/api/dashboard/skill-gap/${query}`)
       .then(r => (r.ok ? r.json() : null))
       .then((data: SkillGap | null) => { if (!cancelled) setGap(data); })
-      .catch(() => {})
+      // A thrown request used to be swallowed while the scope was still
+      // marked loaded, which left the previous role's analysis on screen
+      // under the newly chosen one. Clearing it shows the error card instead
+      // of attributing one career's skills to another.
+      .catch(() => { if (!cancelled) setGap(null); })
       .finally(() => { if (!cancelled) setLoadedScope(scopeKey); });
     return () => { cancelled = true; };
-  }, [selectedRole, selectedTrack, scopeKey]);
+  }, [selectedRole, selectedArea, scopeKey]);
 
-  // The ladder comes from the IMDA hierarchy itself, so it is complete for
-  // every track no matter how few job adverts matched an individual role.
-  // Stale roadmaps are filtered at render time rather than cleared here.
+  // What the market says about the selected role: how many adverts it rests
+  // on, at which career levels, and how each was classified. There is no
+  // progression ladder, deliberately -- the scraped adverts make no claim
+  // about career structure, only about what is currently advertised.
   useEffect(() => {
-    if (!selectedTrack) return;
+    // No clearing here. The panel below already renders only when the loaded
+    // profile belongs to the current selection, so a stale one is invisible
+    // rather than wrong -- and clearing it synchronously inside the effect was
+    // a cascading render for no visible gain.
+    if (!selectedRole) return;
     let cancelled = false;
-    apiFetch(`/api/dashboard/career-roadmap/?track=${selectedTrack}`)
+    apiFetch(`/api/dashboard/market-role/?role=${encodeURIComponent(selectedRole)}`)
       .then(r => (r.ok ? r.json() : null))
-      .then((data: Roadmap | null) => { if (!cancelled) setRoadmap(data); })
+      .then((data: RoleProfile | null) => { if (!cancelled) setProfile(data); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [selectedTrack]);
+  }, [selectedRole]);
 
   const matchLabel = (value: number) =>
     value >= 70 ? 'STRONG MATCH' : value >= 40 ? 'DEVELOPING' : 'EARLY STAGE';
 
   const allRoles = useMemo(
-    () => (roleData?.results ?? []).flatMap(t => t.roles),
+    () => (roleData?.results ?? []).flatMap(area => area.roles),
     [roleData]
   );
-  const currentRole = allRoles.find(r => r.role_name === selectedRole) ?? null;
+  const currentRole = allRoles.find(r => r.name === selectedRole) ?? null;
 
-  // Rule 9: the heading names the scope that actually answered, never the
-  // role the student asked for when the analysis fell back to its track.
+  // The heading names the scope that actually answered, never the role the
+  // student asked for when the analysis had to widen.
   const scopeLabel =
     gap?.scope === 'ROLE' ? gap.target_role
-    : gap?.scope === 'TRACK' ? `${gap.target_track?.name ?? 'career track'} track`
-    : gap?.scope === 'OCCUPATION' ? gap.target_occupation?.preferred_label
+    : gap?.scope === 'BROAD_AREA' ? gap.target_broad_area
     : 'the whole ICT market';
 
-  const roleLabel = gap?.target_role ?? gap?.target_track?.name ?? 'your target';
+  const roleLabel = gap?.target_role ?? gap?.target_broad_area ?? 'your target';
 
   const saveTarget = async () => {
     if (!selectedRole) return;
@@ -266,18 +296,25 @@ export default function SkillGapPage() {
         setSavedRole(selectedRole);
         setTargetMessage(`${selectedRole} is now your career target.`);
       } else {
-        setTargetMessage('Could not save your target. Please try again.');
+        // The server's own reason where it gave one. A rejected Market Role
+        // name and an expired session both used to print the same sentence,
+        // which said only that something went wrong and never what.
+        const detail = await res.json().catch(() => null);
+        const reason =
+          detail?.target_roles?.[0] ?? detail?.detail ?? `the server answered ${res.status}`;
+        setTargetMessage(`Could not save your target — ${reason}`);
       }
     } catch {
-      setTargetMessage('Could not save your target. Please try again.');
+      // Thrown rather than refused: the request never reached the server.
+      setTargetMessage('Could not save your target — the server could not be reached.');
     } finally {
       setSavingTarget(false);
     }
   };
 
-  // Rule 4: saves no role. It only clears the role selection so the student
-  // can browse by track instead.
-  const exploreByTrack = () => {
+  // Saves no role. It only clears the role selection so the student can
+  // browse by career area instead.
+  const exploreByArea = () => {
     setSelectedRole('');
     setTargetMessage(null);
   };
@@ -290,7 +327,7 @@ export default function SkillGapPage() {
         method: 'POST',
         body: JSON.stringify({
           searched_text: text,
-          context_track: selectedTrack || null,
+          context_broad_area: selectedArea || null,
         }),
       });
     } catch {
@@ -305,7 +342,7 @@ export default function SkillGapPage() {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900 mb-1">Career Transformation Roadmap</h2>
+            <h2 className="text-2xl font-bold text-neutral-900 mb-1">Career Transformation Plan</h2>
             <p className="text-neutral-600">
               Identify and bridge the gap between your skills and industry requirements.
             </p>
@@ -314,24 +351,28 @@ export default function SkillGapPage() {
           <div className="w-full lg:w-[26rem] space-y-3">
             <div className="space-y-2">
               <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider block">
-                Career Role — IMDA Skills Framework for ICT
+                Market Role — grouped from Malaysian ICT job adverts
               </label>
-              {/* Every role is listed, analysable or not. A role the market
-                  cannot evidence yet is still a valid thing to aim at; the
-                  option carries its job count so the expectation is set here
-                  rather than discovered after choosing. */}
+              {/* Market Roles only. A raw advert title ("Senior Front-End
+                  Engineer (Remote)") and its normalized form ("frontend
+                  engineer") are matching evidence, never career options.
+
+                  Every role is listed, analysable or not: one the market
+                  cannot evidence yet is still a valid thing to aim at, and
+                  the option carries its advert count so the expectation is
+                  set here rather than discovered after choosing. */}
               <select
                 value={selectedRole}
                 onChange={e => { setSelectedRole(e.target.value); setTargetMessage(null); }}
                 className="w-full h-11 px-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="">Not sure — explore by track</option>
-                {(roleData?.results ?? []).map(track => (
-                  <optgroup key={track.id} label={track.name}>
-                    {track.roles.map(role => (
-                      <option key={`${track.id}-${role.role_name}`} value={role.role_name}>
-                        {role.role_name}
-                        {role.listing_count > 0 ? ` (${role.listing_count} jobs)` : ' (no jobs yet)'}
+                <option value="">Not sure — explore by career area</option>
+                {(roleData?.results ?? []).map(area => (
+                  <optgroup key={area.name} label={area.name}>
+                    {area.roles.map(role => (
+                      <option key={role.id} value={role.name}>
+                        {role.name}
+                        {role.advert_count > 0 ? ` (${role.advert_count} jobs)` : ' (no jobs yet)'}
                       </option>
                     ))}
                   </optgroup>
@@ -349,14 +390,14 @@ export default function SkillGapPage() {
                       ? 'Your career target'
                       : savingTarget ? 'Saving…' : 'Set as my target'}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={exploreByTrack}>
-                    Explore by track
+                  <Button variant="outline" size="sm" onClick={exploreByArea}>
+                    Explore by career area
                   </Button>
                 </div>
               ) : (
                 <p className="text-xs text-neutral-400">
-                  Browsing by track. Pick a role above to see the gap for that career,
-                  and to set it as your target.
+                  Browsing by career area. Pick a Market Role above to see the gap for
+                  that career, and to set it as your target.
                 </p>
               )}
               {targetMessage && (
@@ -364,46 +405,48 @@ export default function SkillGapPage() {
               )}
               {currentRole && !currentRole.analysable && (
                 <p className="text-xs text-amber-700">
-                  {currentRole.listing_count === 0
-                    ? 'No scraped listings mention this role yet'
-                    : `Only ${currentRole.listing_count} listing(s) mention this role`}
+                  {currentRole.advert_count === 0
+                    ? 'No scraped adverts have been classified into this role yet'
+                    : `Only ${currentRole.advert_count} advert(s) classified into this role`}
                   {` — fewer than the ${roleData?.evidence_floor ?? 5} needed to analyse it on its own.`}
-                  {' You can still target it; the analysis below uses its track.'}
+                  {' You can still target it; the analysis below uses its career area.'}
                 </p>
               )}
             </div>
 
-            {/* Track selector stays as the browse-by-area path (rule 4). It is
-                hidden while a role is chosen, because two competing scopes on
-                screen at once is exactly the confusion rule 9 guards against. */}
+            {/* The career-area selector is the browse path. It is hidden while
+                a role is chosen, because two competing scopes on screen at
+                once is exactly the confusion the scope label guards against.
+
+                Broad Area groups and widens; it never classifies. */}
             {!selectedRole && (
               <div className="space-y-2">
                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider block">
-                  Career Track
+                  Career Area
                 </label>
                 <select
-                  value={selectedTrack}
-                  onChange={e => setSelectedTrack(e.target.value ? Number(e.target.value) : '')}
+                  value={selectedArea}
+                  onChange={e => setSelectedArea(e.target.value)}
                   className="w-full h-11 px-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Whole ICT market</option>
-                  {tracks.map(track => (
-                    <option key={track.id} value={track.id}>
-                      {track.name} ({track.listing_count} jobs)
+                  {areas.map(area => (
+                    <option key={area.name} value={area.name}>
+                      {area.name} ({area.listing_count} jobs)
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-neutral-400">
-                  {tracks.length === 0
-                    ? 'No career tracks have enough job data yet.'
-                    : `${tracks.length} tracks have enough JobStreet data to analyse.`}
-                  {coverage && ` ${coverage.classified_listings} of ${coverage.market_listings} listings classified (${coverage.coverage_percentage}%).`}
+                  {areas.length === 0
+                    ? 'No career area has enough job data yet.'
+                    : `${areas.reduce((n, a) => n + a.roles.length, 0)} Market Roles have enough JobStreet data to analyse.`}
+                  {coverage && ` ${coverage.classified_total} of ${coverage.scraped_total} adverts classified (${coverage.classified_percentage}%).`}
                 </p>
               </div>
             )}
 
-            {/* Rule 5: records wording only. No role is created, nothing is
-                targeted, and no suggestion is returned. */}
+            {/* Records wording only. No role is created, nothing is targeted,
+                and no suggestion is returned. */}
             {!missingOpen ? (
               <button
                 type="button"
@@ -454,12 +497,10 @@ export default function SkillGapPage() {
           </Card>
         ) : (
           <>
-            {/* Rule 9: role-level and track-level results are never presented
-                as equivalent. This banner is persistent, not dismissible, and
+            {/* Role-level and area-level results are never presented as
+                equivalent. This banner is persistent, not dismissible, and
                 always names the scope that actually answered rather than the
-                role the student asked for. With most roles below the evidence
-                floor, the fallback is the common case and has to read as a
-                deliberate answer, not a degraded one. */}
+                role the student asked for. */}
             <div className={cn(
               'flex gap-2 text-sm rounded-lg p-4 border',
               gap.scope === 'ROLE'
@@ -470,33 +511,32 @@ export default function SkillGapPage() {
               <span>
                 {gap.scope === 'ROLE' ? (
                   <>Analysed against <strong>{gap.target_role}</strong> specifically —{' '}
-                  {gap.data_quality.role_listing_count} scraped listing(s) for that role.</>
-                ) : gap.data_quality.fell_back_to_track ? (
-                  <>Only {gap.data_quality.role_listing_count} scraped listing(s) mention{' '}
-                  <strong>{gap.target_role}</strong> so far — fewer than the{' '}
-                  {gap.data_quality.evidence_floor} needed to analyse a role on its own.
-                  These figures cover the <strong>{gap.target_track?.name}</strong> track
-                  ({gap.total_listings} listings) instead, which is the closest honest
-                  answer for that career.</>
-                ) : gap.scope === 'TRACK' ? (
-                  <>Analysed against the <strong>{gap.target_track?.name}</strong> track
-                  ({gap.total_listings} listings). Pick a role above to narrow this further.</>
-                ) : gap.scope === 'OCCUPATION' ? (
-                  <>Analysed against <strong>{gap.target_occupation?.preferred_label}</strong>{' '}
-                  ({gap.total_listings} listings).</>
+                  {gap.data_quality.role_listing_count} scraped advert(s) classified into
+                  that Market Role.</>
+                ) : gap.data_quality.fell_back_to_broad_area ? (
+                  <>Only {gap.data_quality.role_listing_count} scraped advert(s) have been
+                  classified into <strong>{gap.target_role}</strong> so far — fewer than the{' '}
+                  {gap.data_quality.evidence_floor} needed to analyse a Market Role on its
+                  own. These figures cover the whole{' '}
+                  <strong>{gap.target_broad_area}</strong> area ({gap.total_listings}{' '}
+                  adverts) instead, which is the closest honest answer for that career.</>
+                ) : gap.scope === 'BROAD_AREA' ? (
+                  <>Analysed against the <strong>{gap.target_broad_area}</strong> area
+                  ({gap.total_listings} adverts). Pick a Market Role above to narrow this
+                  further.</>
                 ) : gap.data_quality.has_target ? (
-                  <>Neither <strong>{roleLabel}</strong> nor its career track has enough
-                  scraped listings to analyse yet, so these figures cover the whole ICT
-                  market ({gap.total_listings} listings).</>
+                  <>Neither <strong>{roleLabel}</strong> nor its career area has enough
+                  classified adverts to analyse yet, so these figures cover the whole ICT
+                  market ({gap.total_listings} adverts).</>
                 ) : (
-                  <>No career role selected, so this compares your skills against the whole
-                  scraped ICT market ({gap.total_listings} listings). Pick a role above for
-                  a sharper analysis.</>
+                  <>No Market Role selected, so this compares your skills against the whole
+                  scraped ICT market ({gap.total_listings} adverts). Pick a Market Role
+                  above for a sharper analysis.</>
                 )}
               </span>
             </div>
 
-            {/* Heading names the scope that actually answered (rule 9). */}
+            {/* Heading names the scope that actually answered. */}
             <p className="text-xs font-black text-neutral-400 uppercase tracking-widest">
               Showing: {scopeLabel}
             </p>
@@ -569,8 +609,20 @@ export default function SkillGapPage() {
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {gap.matched_skills.map(skill => (
-                              <Badge key={skill.skill_id} variant="success" className="bg-white px-3 py-1.5 flex items-center gap-1.5">
-                                <CheckCircle2 size={14} /> {skill.skill} · {skill.skill_level}
+                              <Badge
+                                key={skill.skill_id}
+                                variant={skill.readiness_status === 'MATCHED' ? 'success' : 'warning'}
+                                className="bg-white px-3 py-1.5 flex items-center gap-1.5"
+                                title={`Market asks ${LEVEL_LABEL[skill.required_level]}`}
+                              >
+                                <CheckCircle2 size={14} /> {skill.skill}
+                                {' · '}
+                                {skill.student_level ? LEVEL_LABEL[skill.student_level] : '—'}
+                                {skill.readiness_status === 'DEVELOPING' && (
+                                  <span className="font-normal opacity-70">
+                                    {` of ${LEVEL_LABEL[skill.required_level]}`}
+                                  </span>
+                                )}
                               </Badge>
                             ))}
                           </div>
@@ -613,12 +665,22 @@ export default function SkillGapPage() {
                           <div>
                             <h5 className="font-bold text-neutral-900">{gapSkill.skill}</h5>
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
-                              Industry Demand
+                              {gapSkill.readiness_status === 'DEVELOPING'
+                                ? `${LEVEL_LABEL[gapSkill.student_level!]} → ${LEVEL_LABEL[gapSkill.required_level]}`
+                                : `Needs ${LEVEL_LABEL[gapSkill.required_level]}`}
                             </span>
                           </div>
-                          <Badge variant={PRIORITY_VARIANT[gapSkill.priority_level ?? 'LOW']}>
-                            {gapSkill.priority_level}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge
+                              variant={gapSkill.readiness_status === 'DEVELOPING' ? 'warning' : 'neutral'}
+                              className="text-[9px]"
+                            >
+                              {gapSkill.readiness_status}
+                            </Badge>
+                            <Badge variant={PRIORITY_VARIANT[gapSkill.priority_level ?? 'LOW']}>
+                              {gapSkill.priority_level}
+                            </Badge>
+                          </div>
                         </div>
                         <div className="relative w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                           <motion.div
@@ -634,6 +696,15 @@ export default function SkillGapPage() {
                         <div className="mt-4 flex items-center justify-between">
                           <span className="text-xs font-semibold text-neutral-600">
                             {gapSkill.demand_percentage}% of listings ({gapSkill.demand_count} jobs)
+                          </span>
+                          {/* The spread behind the required level, so the
+                              student can see the evidence rather than trust a
+                              single word. */}
+                          <span className="text-[10px] text-neutral-400">
+                            {(Object.entries(gapSkill.level_distribution) as
+                              [ProficiencyLevel, number][])
+                              .map(([level, n]) => `${LEVEL_LABEL[level]} ${n}`)
+                              .join(' · ')}
                           </span>
                         </div>
                       </Card>
@@ -686,52 +757,107 @@ export default function SkillGapPage() {
               </section>
             )}
 
-            {/* Career ladder — read straight from the IMDA hierarchy */}
-            {roadmap && roadmap.track.id === selectedTrack && (
+            {/* What the market actually says about this Market Role.
+
+                There is no progression ladder here, deliberately. A ladder
+                would be a claim about career structure that scraped adverts
+                do not make; what they do support is how many adverts back
+                this role, at which levels employers advertise it, and how
+                each advert came to be filed here. */}
+            {profile && profile.role.name === selectedRole && (
               <section>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div>
                     <h4 className="text-xl font-bold text-neutral-900">
-                      Career Roadmap — {roadmap.track.name}
+                      Market evidence — {profile.role.name}
                     </h4>
                     <p className="text-xs text-neutral-400 font-medium mt-0.5">
-                      {roadmap.source.framework}, {roadmap.source.publisher}
-                      {roadmap.source.page ? ` (p.${roadmap.source.page})` : ''}
+                      {profile.listing_count} classified advert(s) in {profile.role.broad_area}
+                      {profile.analysable
+                        ? ''
+                        : ` — below the ${profile.evidence_floor} needed to analyse this role alone`}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setShowRoadmap(v => !v)}>
-                    {showRoadmap ? 'Hide' : 'Show'} {roadmap.subtracks.length} sub-tracks
+                  <Button variant="outline" size="sm" onClick={() => setShowEvidence(v => !v)}>
+                    {showEvidence ? 'Hide' : 'Show'} evidence
                   </Button>
                 </div>
 
-                {showRoadmap && (
+                {showEvidence && (
                   <div className="space-y-4">
-                    {roadmap.subtracks.map(subtrack => (
-                      <Card key={subtrack.name} className="p-5">
-                        <h5 className="font-bold text-neutral-900 mb-3">{subtrack.name}</h5>
+                    {profile.career_levels.length > 0 && (
+                      <Card className="p-5">
+                        <h5 className="font-bold text-neutral-900 mb-3">
+                          Career levels employers advertise
+                        </h5>
                         <div className="flex flex-wrap items-center gap-2">
-                          {subtrack.roles.map((role, index) => (
-                            <div key={role.id} className="flex items-center gap-2">
-                              {index > 0 && <span className="text-neutral-300">→</span>}
-                              <div className={cn(
-                                'px-3 py-2 rounded-lg border border-neutral-100',
-                                role.is_cross_subtrack ? 'bg-neutral-50' : 'bg-white'
+                          {profile.career_levels.map(level => (
+                            <div
+                              key={level.career_level}
+                              className="px-3 py-2 rounded-lg border border-neutral-100 bg-white"
+                            >
+                              <span className={cn(
+                                'inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wide',
+                                LEVEL_COLORS[level.career_level] ?? 'bg-neutral-100 text-neutral-600'
                               )}>
-                                <p className="text-sm font-semibold text-neutral-900">
-                                  {role.role_name}
-                                </p>
-                                <span className={cn(
-                                  'inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide',
-                                  LEVEL_COLORS[role.career_level] ?? 'bg-neutral-100 text-neutral-600'
-                                )}>
-                                  {role.career_level}
-                                </span>
-                              </div>
+                                {level.career_level}
+                              </span>
+                              <p className="text-sm font-semibold text-neutral-900 mt-1">
+                                {level.listing_count} advert(s)
+                              </p>
                             </div>
                           ))}
                         </div>
                       </Card>
-                    ))}
+                    )}
+
+                    <Card className="p-5">
+                      <h5 className="font-bold text-neutral-900 mb-1">
+                        How these adverts were classified
+                      </h5>
+                      <p className="text-xs text-neutral-500 mb-3">
+                        Every advert keeps the evidence that placed it here, so these
+                        figures can be checked rather than taken on trust.
+                      </p>
+                      <div className="space-y-1.5">
+                        {profile.classification_methods.map(row => (
+                          <div
+                            key={row.classification_method}
+                            className="flex items-center justify-between text-sm"
+                          >
+                            <span className="text-neutral-700">
+                              {METHOD_LABELS[row.classification_method]
+                                ?? row.classification_method}
+                            </span>
+                            <span className="font-semibold text-neutral-900">
+                              {row.listing_count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+
+                    {profile.reviewed_titles.length > 0 && (
+                      <Card className="p-5">
+                        <h5 className="font-bold text-neutral-900 mb-1">
+                          Job titles grouped into this role
+                        </h5>
+                        <p className="text-xs text-neutral-500 mb-3">
+                          Reviewed naming variations, not guesses: each was checked as a
+                          genuine way employers write this same career.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.reviewed_titles.map(title => (
+                            <span
+                              key={title}
+                              className="px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-700 text-xs font-medium"
+                            >
+                              {title}
+                            </span>
+                          ))}
+                        </div>
+                      </Card>
+                    )}
                   </div>
                 )}
               </section>

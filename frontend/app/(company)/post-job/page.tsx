@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Briefcase, MapPin, Calendar, Plus, X, CheckCircle2 } from 'lucide-react';
+import { Briefcase, MapPin, Calendar, Plus, X, CheckCircle2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Button, Input } from '@/src/components/ui';
@@ -29,6 +29,25 @@ const experienceLevels = ['Entry Level', 'Mid Level', 'Senior Level', 'Internshi
 
 interface JobCategory { id: number; category_name: string; }
 
+/**
+ * DRF errors arrive as {field: [message]} or {detail: message}. Dumping the
+ * raw JSON onto the page showed the student a brace-and-quote blob instead of
+ * the sentence inside it.
+ */
+function formatApiError(data: unknown): string {
+  if (!data || typeof data !== 'object') return 'Could not post this job. Please try again.';
+  const record = data as Record<string, unknown>;
+  if (typeof record.detail === 'string') return record.detail;
+
+  const parts: string[] = [];
+  for (const [field, value] of Object.entries(record)) {
+    const text = Array.isArray(value) ? value.join(' ') : String(value);
+    const label = field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+    parts.push(field === 'non_field_errors' ? text : `${label}: ${text}`);
+  }
+  return parts.join('  •  ') || 'Could not post this job. Please try again.';
+}
+
 export default function PostJobPage() {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
@@ -49,6 +68,8 @@ export default function PostJobPage() {
   // and "Beginner Python" are different requirements.
   const [skills, setSkills] = useState<RequiredSkill[]>([]);
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('INTERMEDIATE');
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState<string | null>(null);
   const [categories, setCategories] = useState<JobCategory[]>([]);
 
   useEffect(() => {
@@ -67,6 +88,54 @@ export default function PostJobPage() {
 
   const removeSkill = (name: string) =>
     setSkills(prev => prev.filter(s => s.name !== name));
+
+  /**
+   * Fill the list from the description the company has already written.
+   *
+   * A suggestion, not a replacement for the field. The extractor recognises
+   * that a skill is wanted but never at what level, and the level is what
+   * candidates are scored against -- so the results land in the same editable
+   * chips, at the default level, for the company to correct.
+   *
+   * Existing entries are kept and their levels preserved: pressing this twice,
+   * or after hand-adding a skill, must not discard work.
+   */
+  const readSkillsFromDescription = async () => {
+    setReading(true);
+    setReadNote(null);
+    try {
+      const res = await apiFetch('/api/job-listings/skills/extract/', {
+        method: 'POST',
+        body: JSON.stringify({ text: description }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReadNote(data?.detail ?? 'Could not read skills from the description.');
+        return;
+      }
+      const found: { skill_name: string }[] = data?.skills ?? [];
+      const known = new Set(skills.map(entry => entry.name.toLowerCase()));
+      const fresh = found
+        .filter(entry => !known.has(entry.skill_name.toLowerCase()))
+        .map(entry => ({ name: entry.skill_name, level: skillLevel }));
+
+      if (fresh.length === 0) {
+        setReadNote(found.length
+          ? 'Every skill in the description is already listed.'
+          : 'No known skills were recognised in the description.');
+        return;
+      }
+      setSkills(prev => [...prev, ...fresh]);
+      setReadNote(
+        `Added ${fresh.length} skill${fresh.length === 1 ? '' : 's'} at ${
+          SKILL_LEVELS.find(l => l.value === skillLevel)?.label ?? skillLevel
+        }. Check the levels — the description does not state them.`);
+    } catch {
+      setReadNote('Could not read skills from the description.');
+    } finally {
+      setReading(false);
+    }
+  };
 
   const setLevelFor = (name: string, level: SkillLevel) =>
     setSkills(prev => prev.map(s => (s.name === name ? { ...s, level } : s)));
@@ -102,9 +171,14 @@ export default function PostJobPage() {
       if (res.status === 201) {
         setSubmitted(true);
         setTimeout(() => router.push('/manage-listings'), 2500);
+      } else if (res.status === 403) {
+        // Reached only if the role guard is bypassed. The API's own wording
+        // ("You do not have permission to perform this action") reads like a
+        // broken account rather than the wrong one signed in.
+        setError('Only a company account can post a job. You are signed in with a different account type.');
       } else {
-        const data = await res.json();
-        setError(JSON.stringify(data));
+        const data = await res.json().catch(() => null);
+        setError(formatApiError(data));
       }
     } catch {
       setError('Network error. Please try again.');
@@ -177,10 +251,31 @@ export default function PostJobPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Required Skills</label>
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Required Skills</label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 shrink-0 whitespace-nowrap"
+                        onClick={readSkillsFromDescription}
+                        isLoading={reading}
+                        disabled={description.trim().length < 40}
+                        title={description.trim().length < 40
+                          ? 'Write the job description first'
+                          : 'Read the skills mentioned in your description'}
+                      >
+                        <Sparkles size={14} /> Read from description
+                      </Button>
+                    </div>
                     <p className="text-xs text-neutral-500 -mt-1">
                       The level you set here is what candidates are scored against.
+                      Reading from the description fills in the names; it cannot
+                      tell what level you need, so check those yourself.
                     </p>
+                    {readNote && (
+                      <p className="text-xs font-semibold text-primary">{readNote}</p>
+                    )}
                     <div className="flex gap-2">
                       <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}

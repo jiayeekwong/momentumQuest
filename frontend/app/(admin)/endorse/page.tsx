@@ -9,13 +9,35 @@ import { apiFetch } from '@/src/lib/apiFetch';
 
 type EndorseStatus = 'pending' | 'endorsed' | 'rejected';
 
+type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+const LEVEL_LABEL: Record<ProficiencyLevel, string> = {
+  BEGINNER: 'Beginner',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
+
+interface SkillEvidence {
+  id: number;
+  skill: string;
+  skill_id: number;
+  claimed_level: ProficiencyLevel;
+  approved_level: ProficiencyLevel | '';
+  granted_level: ProficiencyLevel | null;
+  review_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  review_note: string;
+}
+
 interface EndorsementRequest {
   id: number;
   student_name: string | null;
   student_email: string;
   matric_number: string;
   department: string;
-  skill: string | null;
+  // Each claimed skill is decided on its own: a broad programme routinely
+  // over-claims, and rejecting the whole document for one bad claim would
+  // throw away the ones it genuinely supports.
+  skill_evidence: SkillEvidence[];
   cert_url: string;
   source: string;
   certificate_type: string;
@@ -86,6 +108,12 @@ export default function EndorsePage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState('');
+  // Per-skill decisions, keyed by skill id. A claim absent from this map is
+  // refused: an administrator approving two of three should not have to spell
+  // out the refusal, and defaulting the other way would approve claims nobody
+  // looked at.
+  const [skillDecisions, setSkillDecisions] =
+    useState<Record<number, ProficiencyLevel>>({});
 
   const resetDecisionForm = () => {
     setChecks(VERIFICATION_CHECKS.map(() => false));
@@ -93,12 +121,32 @@ export default function EndorsePage() {
     setRejectionReason('');
     setNotes('');
     setFormError('');
+    setSkillDecisions({});
   };
 
   const openPanel = (id: number) => {
     resetDecisionForm();
+    // Opening a submission pre-selects every claim at the level the student
+    // asked for, so "approve everything as claimed" is one click and any
+    // correction is a deliberate edit away from it.
+    const request = requests.find(r => r.id === id);
+    if (request && expanded !== id) {
+      setSkillDecisions(Object.fromEntries(
+        request.skill_evidence.map(e => [e.skill_id, e.claimed_level])));
+    }
     setExpanded(expanded === id ? null : id);
   };
+
+  const toggleSkill = (skillId: number, claimed: ProficiencyLevel) =>
+    setSkillDecisions(prev => {
+      const next = { ...prev };
+      if (skillId in next) delete next[skillId];
+      else next[skillId] = claimed;
+      return next;
+    });
+
+  const setSkillLevel = (skillId: number, level: ProficiencyLevel) =>
+    setSkillDecisions(prev => ({ ...prev, [skillId]: level }));
 
   const allChecked = checks.every(Boolean);
 
@@ -135,6 +183,12 @@ export default function EndorsePage() {
       setFormError('Select a reason so the student is told why.');
       return;
     }
+    if (decision === 'APPROVED' && Object.keys(skillDecisions).length === 0) {
+      setFormError(
+        'Approve at least one claimed skill, or reject the submission. '
+        + 'A verified certificate that grants nothing is a rejection.');
+      return;
+    }
 
     setFormError('');
     setActionLoading(id);
@@ -145,6 +199,12 @@ export default function EndorsePage() {
           verified_status: decision,
           rejection_reason: decision === 'REJECTED' ? rejectionReason : '',
           verification_notes: notes.trim(),
+          skills: decision === 'APPROVED'
+            ? Object.entries(skillDecisions).map(([skillId, level]) => ({
+                skill_id: Number(skillId),
+                approved_level: level,
+              }))
+            : [],
         }),
       });
       if (res.ok) {
@@ -170,7 +230,8 @@ export default function EndorsePage() {
     const uiStatus = toUiStatus(r.verified_status);
     const matchFilter = filter === 'All' || uiStatus === filter;
     const name  = (r.student_name ?? '').toLowerCase();
-    const skill = (r.skill ?? '').toLowerCase();
+    const skill = r.skill_evidence
+      .map(e => e.skill).join(' ').toLowerCase();
     const matchSearch = name.includes(search.toLowerCase()) || skill.includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
@@ -222,7 +283,11 @@ export default function EndorsePage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="font-bold text-neutral-900">{req.student_name ?? 'Unknown Student'}</h3>
-                          <p className="text-sm font-semibold text-primary mt-0.5">{req.skill ?? 'Unknown Skill'}</p>
+                          <p className="text-sm font-semibold text-primary mt-0.5">
+                            {req.skill_evidence.length
+                              ? req.skill_evidence.map(e => e.skill).join(', ')
+                              : 'No skill claimed'}
+                          </p>
                           <p className="text-[10px] font-medium text-neutral-400 mt-0.5">Submitted {formatDate(req.uploaded_time)}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -316,6 +381,64 @@ export default function EndorsePage() {
                                 nothing to compare an identification number against. Check the name
                                 instead. Any identification number visible on the document stays
                                 inside it — do not copy it anywhere.
+                              </p>
+                            </div>
+
+
+                            {/* Each claimed skill is decided on its own.
+                                A broad programme routinely over-claims, so
+                                approving a subset -- or lowering a level the
+                                document does not support -- must be possible
+                                without rejecting the whole submission. */}
+                            <div className="rounded-xl border border-neutral-100 bg-white p-4 space-y-3">
+                              <p className="text-[10px] font-black text-neutral-900 uppercase tracking-widest">
+                                Claimed Skills
+                              </p>
+                              {req.skill_evidence.length === 0 ? (
+                                <p className="text-sm text-neutral-400 italic">
+                                  This submission claims no skills.
+                                </p>
+                              ) : req.skill_evidence.map(evidence => {
+                                const approved = evidence.skill_id in skillDecisions;
+                                return (
+                                  <div
+                                    key={evidence.id}
+                                    className={cn(
+                                      'flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between',
+                                      approved
+                                        ? 'border-emerald-200 bg-emerald-50/50'
+                                        : 'border-neutral-200 bg-neutral-50'
+                                    )}
+                                  >
+                                    <Checkbox
+                                      checked={approved}
+                                      onChange={() => toggleSkill(
+                                        evidence.skill_id, evidence.claimed_level)}
+                                      label={`${evidence.skill} — claimed ${LEVEL_LABEL[evidence.claimed_level]}`}
+                                    />
+                                    <select
+                                      value={skillDecisions[evidence.skill_id] ?? evidence.claimed_level}
+                                      disabled={!approved}
+                                      onChange={e => setSkillLevel(
+                                        evidence.skill_id,
+                                        e.target.value as ProficiencyLevel)}
+                                      className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs
+                                                 disabled:opacity-40 focus:border-primary focus:outline-none"
+                                    >
+                                      {(Object.keys(LEVEL_LABEL) as ProficiencyLevel[]).map(level => (
+                                        <option key={level} value={level}>
+                                          Approve at {LEVEL_LABEL[level]}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              })}
+                              <p className="pt-1 text-[11px] leading-relaxed text-neutral-400">
+                                Unticked claims are refused. An approved certificate
+                                may carry refused claims — that is the normal outcome
+                                when a broad programme evidences only some of what was
+                                asked for.
                               </p>
                             </div>
 
