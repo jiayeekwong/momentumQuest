@@ -8,8 +8,8 @@ Saved on 18 August 2026 from the user-provided project artifacts.
 Use these artifacts as product and architecture references during future work.
 For the deployed database schema, Django models and applied migrations remain
 the executable source of truth. The ERD may therefore need revision when the
-implementation adds or changes entities, including the MASCO/ESCO occupation
-standardization models.
+implementation adds or changes entities, including the Market Role
+classification models (`MarketRole`, `MarketRoleAlias`, `MarketRoleCandidate`).
 
 Original locations:
 

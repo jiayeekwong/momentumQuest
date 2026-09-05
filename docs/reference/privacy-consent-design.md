@@ -1,7 +1,7 @@
 # Privacy Consent and Certificate Verification — Design Record
 
 **Status:** implemented
-**Privacy notice version at time of writing:** 1.0 (effective 24 August 2026)
+**Current privacy notice version:** 1.1 (effective 31 August 2026); 1.0 preserved
 **Source of truth for the text:** `backend/accounts/privacy_notice.py`
 
 This document records the decisions behind MomentumQuest's handling of personal
@@ -50,10 +50,18 @@ So the trade is: no stored number, and no claim to verify one.
 | Document is readable and legible | Yes |
 | Issuing institution or organisation is identifiable | Yes |
 | Qualification/skill information matches the submission | Yes |
+| Each claimed skill is genuinely evidenced, at the level claimed | Yes |
 | Identification number matches a stored identity record | **No — nothing to compare against** |
 
+A decision is made per claimed skill as well as per document. One certificate
+evidences several skills (`CertificateSkillEvidence`), and an administrator may
+approve every claim, approve only the ones the document supports, or lower an
+exaggerated claimed level — so an approved certificate can legitimately carry
+refused claims. Refusing the whole document because one claim was overstated
+would discard the ones it genuinely proves.
+
 The admin verification checklist in `frontend/app/(admin)/endorse/page.tsx`
-contains the four available checks and deliberately omits the fifth, with a note
+contains the available checks and deliberately omits the identity one, with a note
 on screen explaining why. `Certificate.RejectionReason` likewise has no
 `IDENTITY_NUMBER_MISMATCH` option: offering a reason the system cannot support
 would invite a decision an administrator has no basis to make.
@@ -144,6 +152,69 @@ The consent checkboxes stay **disabled until the wording arrives**, and the
 upload buttons with them: a box ticked against text that has not loaded is not
 informed consent. Shared client in `frontend/src/lib/privacyNotice.ts`.
 
+### Consent is asked for per purpose, not once
+
+Four consent types, because four different things happen to four different
+kinds of data:
+
+| Type | Asked | Source | Linked to |
+|---|---|---|---|
+| `PRIVACY_NOTICE_ACKNOWLEDGEMENT` | signup | `SIGNUP` | — |
+| `DOCUMENT_VERIFICATION_CONSENT` | signup, and every document upload | `SIGNUP`, `CERTIFICATE_UPLOAD`, `TRANSCRIPT_UPLOAD` | `Certificate.upload_consent`, `TranscriptUpload.upload_consent` |
+| `CV_PROCESSING_CONSENT` | before each CV is read | `CV_PARSE` | `JobApplication.cv_processing_consent` |
+| `APPLICATION_DISCLOSURE_ACKNOWLEDGEMENT` | on submitting an application | `JOB_APPLICATION` | `JobApplication.disclosure_consent` |
+
+A company or admin account records only the first. Neither ever submits a
+document for verification, and a consent nothing acts on is noise in the
+record rather than evidence in it.
+
+### The application disclosure has no checkbox
+
+The sentence *"By submitting, you agree that the information in this
+application will be shared with the employer for recruitment purposes"* sits
+directly above the Submit button, and pressing Submit is the affirmative act.
+
+A checkbox in front of a button the student has already chosen to press adds a
+click without adding information — it is the kind of consent theatre that
+trains people to tick without reading. The record is written server-side either
+way, so nothing is lost evidentially.
+
+The sentence deliberately names no company. Naming one would mean re-rendering
+the disclosure per advert for no gain, because the audit trail already reaches
+the recipient: `disclosure_consent` → `JobApplication` → `job` → `company`.
+Who received what is answerable without asking the student to read a company
+name off a checkbox.
+
+### CV processing: consent recorded, file not kept
+
+A CV is read once to propose an application and deleted immediately —
+`cv_parser` writes it to a temporary path only because pdfplumber needs one,
+and unlinks it in a `finally`. Nothing survives the request.
+
+Consent is checked **before** the file is read: reading first and asking after
+would be the processing the acknowledgement exists to authorise. It is recorded
+before parsing too, so the record exists even when reading then fails — the CV
+was processed either way.
+
+The parse endpoint returns a **signed, time-limited receipt**
+(`job_listings/cv_receipt.py`, one hour, `django.core.signing`). Submitting an
+application requires one. It exists so the submit endpoint can record which
+consent the application was built on without trusting the client to name one:
+a client-supplied consent id could be any row, while a signed receipt can only
+be one this server issued, to this user, recently.
+
+The CV file is deleted in a `finally` block, which covers an exception but
+**not** a hard kill — no in-process cleanup can. `sweep_orphaned_cv_files`
+therefore runs at the start of each parse and removes abandoned temporary CVs
+older than 15 minutes. The guarantee is "a CV does not survive long after the
+request", not the stronger claim the module used to make.
+
+**What the receipt does not claim:** that the extracted information is
+accurate, verified, or genuinely from the CV. The student edits the parsed
+result before submitting, and is meant to. Information taken from a CV is
+student-declared, not evidence — which is the whole difference between it and
+an administrator-approved certificate.
+
 ## 3. Notice versioning
 
 Versions live in `NOTICES` in `backend/accounts/privacy_notice.py`, keyed by
@@ -165,6 +236,26 @@ backend change with no page redeploy.
 `contact_email` is injected at read time from `settings.PRIVACY_CONTACT_EMAIL`.
 It is deployment configuration, not agreed text, so changing it must not require
 a new version.
+
+### Version 1.1
+
+Published because 1.0 described neither CV processing nor disclosure to
+employers, and both now happen. It also states that document verification is a
+required student function, that subject codes and grades are extracted from a
+transcript, and what withdrawal costs.
+
+A version may carry its own `summary`, `consent_statements`, `upload_notice`,
+`transcript_notice`, `cv_notice` and `application_disclosure`. Where it does
+not, the 1.0 text applies — so publishing 1.1 could not retroactively change
+what a 1.0 acknowledgement refers to. `cv_notice` is null for 1.0 and
+`application_disclosure` empty, because 1.0 genuinely said nothing about
+either and must not appear to have.
+
+**Existing students are not blocked from logging in.** The re-acknowledgement
+is the next document action itself: every document function asks at the point
+of use and records against whatever version is current, so a student who last
+agreed to 1.0 acknowledges the current notice the next time they upload
+something. No separate gate, no interruption at the door.
 
 ## 4. Document storage
 
@@ -194,6 +285,12 @@ DLL on Windows, and the four accepted formats have short unambiguous signatures.
 
 ## 5. Retention: active account only
 
+**CV files are never retained.** They are written to a temporary path only
+because the PDF reader needs one, and unlinked in a `finally` — success or
+failure. No copy reaches `MEDIA_ROOT` or `PRIVATE_MEDIA_ROOT`. What survives is
+the structured information the student reviewed and confirmed, stored on the
+application.
+
 The project policy is that documents are retained while the account is active and
 removed when it is deleted, with **no grace period**.
 
@@ -207,6 +304,56 @@ A student may also withdraw a submission themselves — but only while it is
 `PENDING`. Deleting an approved certificate would remove the evidence behind a
 skill the student already holds, leaving the granted `StudentSkill` standing with
 nothing supporting it.
+
+### Withdrawal
+
+One entry point: `accounts/withdrawal.py::withdraw_consent`, and everything it
+implies happens inside one transaction. Withdrawal was previously described in
+this document and in the notice, but implemented nowhere — `is_live` existed
+and nothing called it, so withdrawing disabled nothing.
+
+`POST /api/auth/me/consents/withdraw/` withdraws the caller's own active
+consent. It takes no user parameter, so there is no way to withdraw anybody
+else's, and there is no admin variant — "an administrator revoked your
+consent" is not something consent can mean.
+
+What it does:
+
+1. **Stamps `withdrawn_at`.** Never deletes the row, never clears `accepted` or
+   `accepted_at` — a record that could be erased would not be evidence, and the
+   fact that consent *was* given on a date stays true.
+2. **Stops future processing.** Certificate and transcript uploads refuse while
+   the latest document consent is withdrawn. Checked against the *latest* row,
+   not any row: consent is append-only, so someone who withdrew and later
+   re-consented is consenting now.
+3. **Rejects receipts issued under it.** A CV parse receipt naming a withdrawn
+   consent is refused at submission, so it cannot outlive the permission it
+   represents.
+4. **Recalculates skills.** Delegates to `resources.skill_evidence`, the one
+   authority on what level each skill is currently supported at. A skill is
+   re-derived from every live source — approved claims on approved
+   certificates, verified transcripts, neither resting on a withdrawn consent
+   — and dropped when nothing supports it. Withdrawing an Advanced certificate
+   now *lowers* a skill to whatever the remaining evidence supports rather
+   than leaving it standing. Skills with no evidence row at all are left
+   alone: they predate evidence tracking, and removing them would be guessing.
+5. **Writes a `CONSENT_WITHDRAWN` audit row.**
+
+Only `DOCUMENT_VERIFICATION_CONSENT` and `CV_PROCESSING_CONSENT` are
+withdrawable. The privacy acknowledgement is not: it records that the user was
+shown the notice, which stays true, and un-acknowledging it would mean holding
+an account whose terms they had never seen.
+
+Withdrawal does not delete the account and does not withdraw applications
+already submitted. Past processing stays lawful.
+
+**An endorsement decision is final.** Rejecting an already-approved certificate
+did not take the granted skill back, so the certificate read REJECTED while the
+skill it produced stayed on the profile and kept reaching employers. Revoking a
+granted skill needs a policy — what happens to applications already sent citing
+it, in particular — and there is none, so the endorsement endpoint now accepts
+a decision only on a PENDING submission rather than half-performing a
+reversal.
 
 ## 6. Audit logging
 
@@ -238,8 +385,23 @@ administrator should not see a 500 because the log table was briefly unavailable
 Companies get the verification **result** and nothing behind it.
 
 `JobApplicationSerializer.get_student_skills` returns
-`{skill_name, skill_level, verified}`, where `verified` means an administrator
-approved a certificate for that skill. The certificate, the document, and any
+`{skill_name, skill_level, verified}` **read from the frozen snapshot**, not
+from the live profile. `verified` means an administrator had checked the
+evidence for that skill *at the moment the application was submitted*.
+
+Both review routes count, via one helper (`verified_skill_ids`): an approved
+certificate, and a verified transcript. Reading only certificates meant a
+student whose skill came from a reviewed transcript was reported to employers
+as unverified — the opposite of what the review established. Evidence resting
+on a withdrawn consent does not count.
+
+An employer reviewing an application weeks later sees what was submitted. If
+the student has since added skills, had a certificate approved, or had one
+revoked, none of it rewrites an application already sent — and a snapshot with
+an empty skill list stays empty rather than falling back to the profile, which
+would show the employer skills the student chose not to submit. The fallback
+survives only for rows that predate snapshots entirely, keyed on the `skills`
+key being absent rather than on the list being empty. The certificate, the document, and any
 identification number printed on it appear in no company-reachable payload.
 
 Company accounts are refused by every certificate route:
@@ -272,7 +434,46 @@ notes previously returned 200, stamped `verified_at` on a still-PENDING
 certificate, and wrote a `CERTIFICATE_REJECTED` audit row for a rejection that
 never happened -- a false entry in the one table that must be trustworthy.
 
-## 9. Deliberate non-changes
+## 9. Public uploads
+
+Training-programme and announcement documents are written into `MEDIA_ROOT`,
+which `config/urls.py` serves with no authentication. Both endpoints previously
+took the extension from the client's filename and saved whatever arrived.
+
+That made the file type the entire security boundary, and there was none: an
+`.html` or `.svg` uploaded there would be served from the application's own
+origin and could run script against anyone who opened it. Both now go through
+`validate_document` — magic-byte sniffing, a size ceiling, and a generated
+storage name — so the accepted set is PDF, JPEG and PNG regardless of what the
+file is called.
+
+## 10. A transcript's appearance never grants a skill
+
+The classifier can say a PDF looks like a transcript from a recognised
+institution and carries this student's matric number. It cannot say the
+document is genuine — a forgery with consistent arithmetic and the student's
+own matric number satisfies every gate it has.
+
+So classification routes the review queue and nothing more:
+
+| Classification | Outcome |
+|---|---|
+| `NOT_TRANSCRIPT` | rejected |
+| identity definitely mismatched | rejected, whatever the document looks like |
+| `UNCERTAIN` | `PENDING` — an administrator decides |
+| `LIKELY_TRANSCRIPT` | `PENDING` — an administrator decides |
+
+No upload path writes a `StudentSkill`. Only `approve_transcript` grants, and
+only an administrator calls it. `AUTO_VERIFIED` is reserved for a digital
+signature, a trusted QR check or a university API — mechanisms that actually
+establish the issuer — and is unreachable from the upload path.
+
+A definite identity mismatch is refused even when the document is otherwise
+transcript-shaped: sending someone else's examination result to an
+administrator for review would disclose a third party's results to our
+reviewer.
+
+## 11. Deliberate non-changes
 
 **Rejecting a previously approved certificate does not revoke the granted
 skill.** Changing a student's standing on re-review needs a defined project
@@ -305,6 +506,10 @@ work against the goal.
 | File type validation | `backend/resources/file_validation.py` |
 | Retention | `backend/resources/signals.py` |
 | Company-facing verification status | `backend/job_listings/serializers.py` |
+| Application validation + snapshot | `backend/job_listings/serializers.py` |
+| CV parse receipt | `backend/job_listings/cv_receipt.py` |
+| Private-file helpers | `backend/resources/private_storage.py` |
+| Withdrawal service | `backend/accounts/withdrawal.py` |
 | Public notice page | `frontend/app/privacy-notice/page.tsx` |
 | Signup consent UI | `frontend/app/(auth)/signup/page.tsx` |
 | Upload consent UI | `frontend/src/components/SkillValidation.tsx` |
@@ -316,10 +521,15 @@ work against the goal.
 GET    /api/auth/privacy-notice/current/     public
 GET    /api/auth/departments/                public
 GET    /api/auth/me/consents/                own consents only
+POST   /api/auth/me/consents/withdraw/       own consents only
 POST   /api/auth/register/                   requires both consents
 
 GET    /api/resources/certificates/          student: own; admin: all; company: 403
 POST   /api/resources/certificates/          student only, requires upload consent
+POST   /api/resources/skill-validation/transcripts/  student only, requires upload consent
+
+POST   /api/job-listings/cv/parse/           student only, requires cv_processing_ack
+POST   /api/job-listings/applications/       student only, requires cv_parse_receipt
 GET    /api/resources/certificates/<id>/     owner or admin
 DELETE /api/resources/certificates/<id>/     owner, PENDING only
 GET    /api/resources/certificates/<id>/file/    owner or admin
