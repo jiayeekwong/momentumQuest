@@ -1,0 +1,3684 @@
+alias_name,skill_name,source,requires_context,is_active
+.NET CLI,dotnet cli,MTO,false,true
+.NET Core,.NET,MTO,false,true
+.NET Framework,.NET,MTO,false,true
+.NET Language Integrated Query,LINQ (Language Integrated Query),MTO,false,true
+.proto,Protobuf,MTO,false,false
+0mq for .net,NetMQ,MTO,false,true
+7zip,7-Zip,MTO,true,true
+@kubernetes/client-node,kubernetes-client,MTO,false,true
+@microsoft/rush,Rush,MTO,false,true
+AP Scheduler,APScheduler,MTO,false,true
+AQL,AQL (ArangoDB Query Language),MTO,true,true
+ART,Adversarial Robustness Toolbox,MTO,true,false
+ASE database,Sybase ASE,MTO,false,true
+ASGI (Asynchronous Server Gateway Interface),ASGI,MTO,false,true
+AWS AppSync GraphQL,AWS AppSync,MTO,false,true
+AWS Athena,Amazon Athena,MTO,false,true
+AWS Athena Query Service,Amazon Athena,MTO,false,true
+AWS Aurora,Amazon Aurora,MTO,false,true
+AWS Aurora Database,Amazon Aurora,MTO,false,true
+AWS Aurora MySQL,Amazon Aurora MySQL,MTO,false,true
+AWS Aurora PostgreSQL,Amazon Aurora PostgreSQL,MTO,false,true
+AWS Aurora for MySQL,Amazon Aurora MySQL,MTO,false,true
+AWS Aurora for Postgres,Amazon Aurora PostgreSQL,MTO,false,true
+AWS Blockchain,Amazon Managed Blockchain,MTO,false,true
+AWS DocumentDB,Amazon DocumentDB,MTO,false,true
+AWS DocumentDB (MongoDB compatible),Amazon DocumentDB,MTO,false,true
+AWS Dynamo,AWS DynamoDB,MTO,false,true
+AWS EMR,Amazon EMR,MTO,false,true
+AWS EMR Druid,Amazon EMR (with Apache Druid),MTO,false,true
+AWS EMR with Druid,Amazon EMR (with Apache Druid),MTO,false,true
+AWS ElastiCache Memcached,Amazon ElastiCache for Memcached,MTO,false,true
+AWS ElastiCache Redis,Amazon ElastiCache for Redis,MTO,false,true
+AWS ElastiCache for Memcached,Amazon ElastiCache for Memcached,MTO,false,true
+AWS ElastiCache for Redis,Amazon ElastiCache for Redis,MTO,false,true
+AWS Elastic MapReduce,Amazon EMR,MTO,false,true
+AWS Elasticsearch (old name),Amazon OpenSearch,MTO,false,true
+AWS Glue Data Catalog,AWS Glue,MTO,false,true
+AWS Glue ETL,AWS Glue,MTO,false,true
+AWS Kendra,Amazon Kendra,MTO,false,true
+AWS Kendra Intelligent Search,Amazon Kendra,MTO,false,true
+AWS Keyspaces,Amazon Keyspaces,MTO,false,true
+AWS Keyspaces for Cassandra,Amazon Keyspaces,MTO,false,true
+AWS Lake Formation Data Lake,AWS Lake Formation,MTO,false,true
+AWS LakeFormation,AWS Lake Formation,MTO,false,true
+AWS Managed Blockchain,Amazon Managed Blockchain,MTO,false,true
+AWS Managed Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+AWS Managed Service for Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+AWS MemoryDB Redis,Amazon MemoryDB for Redis,MTO,false,true
+AWS MemoryDB for Redis,Amazon MemoryDB for Redis,MTO,false,true
+AWS Neptune,Amazon Neptune,MTO,false,true
+AWS Neptune Graph Database,Amazon Neptune,MTO,false,true
+AWS OpenSearch,Amazon OpenSearch,MTO,false,true
+AWS OpenSearch Service,Amazon OpenSearch,MTO,false,true
+AWS QLDB,Amazon QLDB,MTO,false,true
+AWS Quantum Ledger Database,Amazon QLDB,MTO,false,true
+AWS RDS MySQL,Amazon RDS for MySQL,MTO,false,true
+AWS RDS Oracle,Amazon RDS for Oracle,MTO,false,true
+AWS RDS Postgres,Amazon RDS for PostgreSQL,MTO,false,true
+AWS RDS SQL Server,Amazon RDS for SQL Server,MTO,false,true
+AWS RDS for MySQL,Amazon RDS for MySQL,MTO,false,true
+AWS RDS for Oracle,Amazon RDS for Oracle,MTO,false,true
+AWS RDS for PostgreSQL,Amazon RDS for PostgreSQL,MTO,false,true
+AWS RDS for SQL Server,Amazon RDS for SQL Server,MTO,false,true
+AWS Redshift,Amazon Redshift,MTO,false,true
+AWS Redshift Data Warehouse,Amazon Redshift,MTO,false,true
+AWS Relational Database Service,AWS RDS,MTO,false,true
+AWS S3 Query,Amazon S3 Select,MTO,false,true
+AWS S3 Select,Amazon S3 Select,MTO,false,true
+AWS Simple Database,Amazon SimpleDB,MTO,false,true
+AWS SimpleDB,Amazon SimpleDB,MTO,false,true
+AWS Timestream,Amazon Timestream,MTO,false,true
+AWS Timestream Time Series Database,Amazon Timestream,MTO,false,true
+AWS cloudformation,CloudFormation,MTO,false,true
+AWS moto,moto,MTO,false,true
+AWS redshift,Amazon Redshift,MTO,false,true
+AWS sagemaker,Amazon SageMaker,MTO,false,true
+AWS sm,AWS Secrets Manager,MTO,false,true
+Actian Avalanche Cloud,Actian Avalanche,MTO,false,true
+Actian Cloud Avalanche,Actian Avalanche,MTO,false,true
+Actian avalanche cloud,Actian Avalanche,MTO,false,true
+Alibaba ApsaraDB,Alibaba Cloud ApsaraDB,MTO,false,true
+Alibaba Cloud Database,Alibaba Cloud ApsaraDB,MTO,false,true
+Alibaba cloud database,Alibaba Cloud ApsaraDB,MTO,false,true
+AllegroGraph RDF,AllegroGraph,MTO,false,true
+AllegroGraph database,AllegroGraph,MTO,false,true
+AllegroGraph graph database,AllegroGraph,MTO,false,true
+Amazon AppSync,AWS AppSync,MTO,false,true
+Amazon Athena Query Service,Amazon Athena,MTO,false,true
+Amazon Aurora Database,Amazon Aurora,MTO,false,true
+Amazon Aurora for MySQL,Amazon Aurora MySQL,MTO,false,true
+Amazon Aurora for PostgreSQL,Amazon Aurora PostgreSQL,MTO,false,true
+Amazon Blockchain,Amazon Managed Blockchain,MTO,false,true
+Amazon DocumentDB (MongoDB compatible),Amazon DocumentDB,MTO,false,true
+Amazon Dynamo,AWS DynamoDB,MTO,false,true
+Amazon EC2,EC2,INTERNAL,false,true
+Amazon ElastiCache Memcached,Amazon ElastiCache for Memcached,MTO,false,true
+Amazon ElastiCache Redis,Amazon ElastiCache for Redis,MTO,false,true
+Amazon Elastic MapReduce,Amazon EMR,MTO,false,true
+Amazon Elasticsearch (old name),Amazon OpenSearch,MTO,false,true
+Amazon Kendra Intelligent Search,Amazon Kendra,MTO,false,true
+Amazon Keyspaces for Cassandra,Amazon Keyspaces,MTO,false,true
+Amazon Managed Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+Amazon MemoryDB Redis,Amazon MemoryDB for Redis,MTO,false,true
+Amazon MySQL RDS,Amazon RDS for MySQL,MTO,false,true
+Amazon Neptune Graph Database,Amazon Neptune,MTO,false,true
+Amazon OpenSearch Service,Amazon OpenSearch,MTO,false,true
+Amazon Oracle RDS,Amazon RDS for Oracle,MTO,false,true
+Amazon PostgreSQL RDS,Amazon RDS for PostgreSQL,MTO,false,true
+Amazon Quantum Ledger Database,Amazon QLDB,MTO,false,true
+Amazon Redshift Data Warehouse,Amazon Redshift,MTO,false,true
+Amazon Relational Database Service,AWS RDS,MTO,false,true
+Amazon S3 Query,Amazon S3 Select,MTO,false,true
+Amazon SQL Server RDS,Amazon RDS for SQL Server,MTO,false,true
+Amazon Simple Database,Amazon SimpleDB,MTO,false,true
+Amazon Timestream Time Series Database,Amazon Timestream,MTO,false,true
+Anaconda Python,Python,MTO,false,false
+Apache Asterix DB,Apache AsterixDB,MTO,false,true
+Apache Cassandra database,Apache Cassandra,MTO,false,true
+Apache Derby database,Apache Derby,MTO,false,true
+Apache Drill SQL,Drill SQL (Apache Drill),MTO,false,true
+Apache Drill database,Apache Drill,MTO,false,true
+Apache Druid database,Apache Druid,MTO,false,true
+Apache Gremlin,Gremlin,MTO,false,true
+Apache Hadoop,Hadoop,MTO,false,true
+Apache Hive database,Apache Hive,MTO,false,true
+Apache Jena Fuseki server,Apache Jena Fuseki,MTO,false,true
+Apache Phoenix,Apache Phoenix (over Apache HBase),MTO,false,true
+Apache Phoenix SQL,Phoenix SQL (Apache Phoenix),MTO,false,true
+Apache Pig Latin,Pig Latin (Apache Pig),MTO,false,true
+Apache Pig database,Apache Pig,MTO,false,true
+Apache TinkerPop TinkerGraph,Apache TinkerGraph,MTO,false,true
+Apache Trafodion database,Apache Trafodion,MTO,false,true
+Apama,Apama (Software AG),MTO,false,true
+Apama CEP,Apama (Software AG),MTO,false,true
+Apama engine,Apama (Software AG),MTO,false,true
+AppSync,AWS AppSync,MTO,false,true
+Application Programming Interface,API,INTERNAL,false,true
+Approval Tests,ApprovalTests,MTO,false,true
+ApsaraDB,Alibaba Cloud ApsaraDB,MTO,false,true
+Arango DB,ArangoDB (with GraphQL support),MTO,false,true
+Arango Oasis,ArangoDB Oasis,MTO,false,true
+ArangoDB,ArangoDB (with GraphQL support),MTO,false,true
+ArangoDB Cloud Oasis,ArangoDB Oasis,MTO,false,true
+ArangoDB GraphQL,ArangoDB (with GraphQL support),MTO,false,true
+ArangoDB Managed,ArangoDB Oasis,MTO,false,true
+ArangoDB Query Language,AQL (ArangoDB Query Language),MTO,false,true
+ArangoDB database,ArangoDB (with GraphQL support),MTO,false,true
+ArangoDB managed cloud,ArangoDB Oasis,MTO,false,true
+Asterix database,Apache AsterixDB,MTO,false,true
+AsterixDB,Apache AsterixDB,MTO,false,true
+Astra DB,Cassandra Astra,MTO,false,true
+Astra Database,Cassandra Astra,MTO,false,true
+Athena,Amazon Athena,MTO,false,true
+Atlas,MongoDB Atlas,MTO,false,true
+AuraDB,Neo4j AuraDB,MTO,false,true
+Aurora,Amazon Aurora,MTO,false,false
+Aurora MySQL,Amazon Aurora MySQL,MTO,false,true
+Aurora PostgreSQL,Amazon Aurora PostgreSQL,MTO,false,true
+Autonomous Database,Oracle Autonomous Database,MTO,false,true
+Avalanche,Actian Avalanche,MTO,false,true
+Axon,Axon (Elixir),MTO,true,true
+Axon ML,Axon (Elixir),MTO,false,true
+Axon for Elixir,Axon (Elixir),MTO,false,true
+Azure Cache for Redis,Azure Cache,MTO,false,true
+Azure Cognitive Search Vector,Azure Cognitive Search,MTO,false,true
+Azure Cosmos,Azure Cosmos DB,MTO,false,true
+Azure Cosmos DB Gremlin,Azure Cosmos DB for Gremlin,MTO,false,true
+Azure Cosmos Gremlin,Azure Cosmos DB for Gremlin,MTO,false,true
+Azure CosmosDB,Azure Cosmos DB,MTO,false,true
+Azure Data Explorer Kusto,Azure Data Explorer,MTO,false,true
+Azure Data Explorer Query Language,KQL (Kusto Query Language),MTO,false,true
+Azure HD Insight,Azure HDInsight,MTO,false,true
+Azure HDInsight Hadoop,Azure HDInsight,MTO,false,true
+Azure Kusto,Azure Data Explorer,MTO,false,true
+Azure Monitor Metrics,Azure Monitor,MTO,false,true
+Azure Monitor Prometheus,Azure Monitor,MTO,false,true
+Azure OpenAI Embeddings Vector,Azure OpenAI Embeddings,MTO,false,true
+Azure OpenAI Vector,Azure OpenAI Embeddings,MTO,false,true
+Azure Redis Cache,Azure Cache,MTO,false,true
+Azure SQL,Azure SQL Database,MTO,false,true
+Azure SQL DB,Azure SQL Database,MTO,false,true
+Azure SQL MI,Azure SQL Managed Instance,MTO,false,true
+Azure SQL Managed,Azure SQL Managed Instance,MTO,false,true
+Azure Search,Azure Cognitive Search,MTO,false,true
+Azure Synapse DW,Azure Synapse,MTO,false,true
+Azure Table,Azure Table Storage,MTO,false,true
+Azure Tables,Azure Table Storage,MTO,false,true
+BCrypt.Net-Next,bcrypt,MTO,false,true
+Base X,BaseX,MTO,false,true
+BaseX XML database,BaseX,MTO,false,true
+BaseX database,BaseX,MTO,false,true
+BentoML,BentoML for Agents,MTO,false,true
+Big Data Hadoop,Hadoop,MTO,false,true
+Big Query,Google BigQuery,MTO,false,true
+Bigtable,Cloud Bigtable,MTO,false,true
+Border Gateway Protocol,BGP,INTERNAL,false,true
+Brakeman scanner,Brakeman,MTO,false,true
+C Sharp,C#,MTO,false,false
+CIM Query Language,CIM Query Language (CQL),MTO,false,true
+CIM-CQL,CIM Query Language (CQL),MTO,false,true
+CPython,Python,MTO,false,false
+CQL,CQL (Cassandra Query Language),MTO,true,true
+CQL (CIM),CIM Query Language (CQL),MTO,false,true
+CQL TimeSeries,CQL for TimeSeries,MTO,false,true
+CSS 3,CSS,MTO,false,false
+CSS3,CSS,INTERNAL,false,true
+Capella,Couchbase Capella,MTO,false,true
+Cassandra,Apache Cassandra,MTO,false,true
+Cassandra CQL,CQL (Cassandra Query Language),MTO,false,true
+Cassandra Query Language,CQL (Cassandra Query Language),MTO,false,true
+Cassandra database,Apache Cassandra,MTO,false,true
+Certified Information Security Manager,CISM,INTERNAL,false,true
+Certified Information Systems Security Professional,CISSP,INTERNAL,false,true
+Certified in Risk and Information Systems Control,CRISC,INTERNAL,false,true
+Chroma,ChromaDB,MTO,false,true
+Chroma DB,ChromaDB,MTO,false,true
+Chroma Vector Database,ChromaDB,MTO,false,true
+Chroma database,ChromaDB,MTO,false,true
+Chroma vector database,ChromaDB,MTO,false,true
+ChromaDB database,ChromaDB,MTO,false,true
+Cisco Certified Internetwork Expert,CCIE,INTERNAL,false,true
+Cisco Certified Network Associate,CCNA,INTERNAL,false,true
+Cisco Certified Network Professional,CCNP,INTERNAL,false,true
+Citus,Citus (extension for PostgreSQL),MTO,false,true
+Citus database,Citus (extension for PostgreSQL),MTO,false,true
+Citus for Postgres,Citus (extension for PostgreSQL),MTO,false,true
+CitusData,Citus (extension for PostgreSQL),MTO,false,true
+CloudSQL,Google Cloud SQL,MTO,false,true
+Cockroach Cloud,CockroachDB Cloud,MTO,false,true
+CockroachCloud,CockroachDB Cloud,MTO,false,true
+CockroachDB Managed,CockroachDB Cloud,MTO,false,true
+CockroachDB managed cloud,CockroachDB Cloud,MTO,false,true
+Cognos TM1,IBM Cognos TM1,MTO,false,true
+Cognos TM1 database,IBM Cognos TM1,MTO,false,true
+Command Line Interface,CLI,INTERNAL,false,true
+Computerized Maintenance Management System,CMMS,INTERNAL,false,true
+Content Delivery Network,CDN,INTERNAL,false,true
+Content Management System,CMS,INTERNAL,false,true
+CoreML,Core ML,MTO,false,true
+Couchbase,Couchbase Server,MTO,false,true
+Couchbase Cloud,Couchbase Capella,MTO,false,true
+Couchbase Managed Cloud,Couchbase Capella,MTO,false,true
+Couchbase NoSQL database,Couchbase Server,MTO,false,true
+Couchbase Query Language,N1QL (Couchbase),MTO,false,true
+Couchbase database,Couchbase Server,MTO,false,true
+Couchbase managed service,Couchbase Capella,MTO,false,true
+Crate DB,CrateDB,MTO,false,true
+CrateCloud,CrateDB Cloud,MTO,false,true
+CrateDB Cloud Database,CrateDB Cloud,MTO,false,true
+CrateDB Managed,CrateDB Cloud,MTO,false,true
+CrateDB Query Language,CrateDB SQL,MTO,false,true
+CrateDB SQL database,CrateDB,MTO,false,true
+CrateDB database,CrateDB,MTO,false,true
+CrateDB managed cloud,CrateDB Cloud,MTO,false,true
+Csharp,C#,MTO,false,false
+Customer Relationship Management,CRM,INTERNAL,false,true
+Cypher,Cypher (Neo4j),MTO,false,true
+D365,Microsoft Dynamics,INTERNAL,false,true
+DAX,DAX (Data Analysis Expressions),MTO,true,true
+DB/2,IBM Db2,MTO,true,true
+DB2,IBM Db2,MTO,true,true
+DBUnit for PHP,PHP DBUnit,MTO,false,true
+DMX,DMX (Data Mining Extensions),MTO,true,true
+DSE Graph,DataStax Enterprise Graph,MTO,false,true
+Daphne/ASGI,Daphne,MTO,false,true
+Data Analysis Expressions,DAX (Data Analysis Expressions),MTO,false,true
+Data Analysis eXpressions,DAX (Data Analysis Expressions),MTO,false,true
+Data Hub Service,MarkLogic Data Hub Service,MTO,false,true
+Data Mining Extensions,DMX (Data Mining Extensions),MTO,false,true
+Data Mining eXtensions,DMX (Data Mining Extensions),MTO,false,true
+Data Warehouse Cloud,SAP Data Warehouse Cloud,MTO,false,true
+DataFrames,DataFrames.jl,MTO,false,true
+DataStax Astra,Cassandra Astra,MTO,false,true
+DataStax Astra Cloud,Cassandra Astra,MTO,false,true
+DataStax Enterprise Graph database,DataStax Enterprise Graph,MTO,false,true
+DataStax Graph,DataStax Enterprise Graph,MTO,false,true
+Db2 Cloud,IBM Db2 on Cloud,MTO,false,true
+Db2 database,IBM Db2,MTO,false,true
+Db2 on Cloud,IBM Db2 on Cloud,MTO,false,true
+Derby,Apache Derby,MTO,false,true
+Derby database,Apache Derby,MTO,false,true
+Dgraph Cloud Database,Dgraph Cloud,MTO,false,true
+Dgraph GraphQL database,Dgraph,MTO,false,true
+Dgraph Managed,Dgraph Cloud,MTO,false,true
+Dgraph database,Dgraph,MTO,false,true
+Dgraph managed cloud,Dgraph Cloud,MTO,false,true
+DgraphCloud,Dgraph Cloud,MTO,false,true
+Distributed Memory Cache,memcached,MTO,false,true
+Docker SDK,Docker SDK for Python,MTO,false,true
+DocumentDB,Amazon DocumentDB,MTO,false,true
+Documentum XML database,EMC Documentum xDB,MTO,false,true
+Documentum xDB,EMC Documentum xDB,MTO,false,true
+DotNet testcontainers,Testcontainers,MTO,false,true
+DotNet.testcontainers,Testcontainers,MTO,false,true
+Drill,Apache Drill,MTO,false,true
+Drill SQL,Drill SQL (Apache Drill),MTO,false,true
+Drill database,Apache Drill,MTO,false,true
+Druid,Apache Druid,MTO,false,true
+Druid Query Language,Druid SQL,MTO,false,true
+Druid database,Apache Druid,MTO,false,true
+Dynamic Host Configuration Protocol,DHCP,INTERNAL,false,true
+Dynamics 365,Microsoft Dynamics,INTERNAL,false,true
+Dynamics AX,Microsoft Dynamics,INTERNAL,false,true
+Dynamics NAV,Microsoft Dynamics,INTERNAL,false,true
+DynamoDB,AWS DynamoDB,MTO,false,true
+ECMAScript,JavaScript,MTO,false,false
+EDB Postgres,EnterpriseDB Postgres Advanced Server,MTO,false,true
+EDB Postgres Advanced Server,EnterpriseDB Postgres Advanced Server,MTO,false,true
+EMC xDB,EMC Documentum xDB,MTO,false,true
+EMR,Amazon EMR,MTO,true,true
+EMR Druid,Amazon EMR (with Apache Druid),MTO,false,true
+EQL,EQL (Event Query Language),MTO,true,true
+ES vector,Elasticsearch (with dense vector support),MTO,false,true
+Eclipse RDF4J framework,Eclipse RDF4J,MTO,false,true
+EdgeCloud,EdgeDB Cloud,MTO,false,true
+EdgeDB Cloud Database,EdgeDB Cloud,MTO,false,true
+EdgeDB Managed,EdgeDB Cloud,MTO,false,true
+EdgeDB managed cloud,EdgeDB Cloud,MTO,false,true
+ElastiCache for Memcached,Amazon ElastiCache for Memcached,MTO,false,true
+ElastiCache for Redis,Amazon ElastiCache for Redis,MTO,false,true
+Elastic Cloud,Elasticsearch Service,MTO,false,true
+Elastic Cloud ES,Elasticsearch Service,MTO,false,true
+Elastic Cloud Elasticsearch,Elasticsearch Service,MTO,false,true
+Elastic Compute Service,ECS,INTERNAL,false,true
+Elastic Query Language,EQL (Event Query Language),MTO,false,true
+Elasticsearch Cloud,Elasticsearch Service,MTO,false,true
+Elasticsearch vector database,Elasticsearch (with dense vector support),MTO,false,true
+Elixir Axon,Axon (Elixir),MTO,false,true
+Endpoint Detection and Response,EDR,INTERNAL,false,true
+Enterprise Resource Planning,ERP,INTERNAL,false,true
+EnterpriseDB,EnterpriseDB Postgres Advanced Server,MTO,false,true
+Esper CEP,Esper (Complex Event Processing engine),MTO,false,true
+Esper complex event processing,Esper (Complex Event Processing engine),MTO,false,true
+Esper engine,Esper (Complex Event Processing engine),MTO,false,true
+Essbase,Oracle Essbase,MTO,false,true
+Event Query Language,EQL (Event Query Language),MTO,false,true
+EventStoreCloud,EventStoreDB Cloud,MTO,false,true
+EventStoreDB Cloud Database,EventStoreDB Cloud,MTO,false,true
+EventStoreDB Managed,EventStoreDB Cloud,MTO,false,true
+EventStoreDB managed cloud,EventStoreDB Cloud,MTO,false,true
+Exasol Cloud Database,Exasol Cloud,MTO,false,true
+Exasol Managed,Exasol Cloud,MTO,false,true
+Exasol managed cloud,Exasol Cloud,MTO,false,true
+ExasolCloud,Exasol Cloud,MTO,false,true
+Excel PowerPivot,Excel Power Pivot,MTO,false,true
+Explorer,Elixir Explorer,MTO,false,true
+Extract Load Transform,ELT,INTERNAL,false,true
+FAISS vector database,FAISS,MTO,false,true
+FAN,Fast Android Networking,MTO,true,true
+FICO,SAP FICO,INTERNAL,false,true
+FQL,FQL (Facebook Query Language),MTO,true,true
+Facebook FAISS,FAISS,MTO,false,true
+Facebook Query Language,FQL (Facebook Query Language),MTO,false,true
+Fauna Cloud,Fauna,MTO,false,true
+Fauna cloud,Fauna,MTO,false,true
+Fauna database,Fauna,MTO,false,true
+FaunaDB,Fauna,MTO,false,true
+Firebase Realtime,Firebase Realtime Database,MTO,false,true
+Firebird RDMS,Firebird,MTO,false,true
+Firebird SQL,Firebird,MTO,false,true
+Firebird database,Firebird,MTO,false,true
+FirebirdSQL,Firebird,MTO,false,true
+Firebolt Cloud,Firebolt,MTO,false,true
+Firebolt Database,Firebolt,MTO,false,true
+Firebolt cloud data warehouse,Firebolt,MTO,false,true
+Firestore,Cloud Firestore,MTO,false,true
+Flux (Julia),Flux.jl,MTO,false,true
+Fuseki,Apache Jena Fuseki,MTO,false,true
+Fuseki server,Apache Jena Fuseki,MTO,false,true
+GCP BigQuery,Google BigQuery,MTO,false,true
+GCP Bigtable,Cloud Bigtable,MTO,false,true
+GCP Cloud SQL,Google Cloud SQL,MTO,false,true
+GCP Cloud Spanner,Cloud Spanner,MTO,false,true
+GCP Dataproc,Dataproc,MTO,false,true
+GCP Firebase,Firebase,MTO,false,false
+GCP Firebase Realtime Database,Firebase Realtime Database,MTO,false,true
+GCP Firestore,Cloud Firestore,MTO,false,true
+GCP Managed Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+GCP Memorystore,Cloud Memorystore,MTO,false,true
+GCP Vertex Matching Engine,Vertex AI Matching Engine,MTO,false,true
+GPU dataframe,cuDF,MTO,false,true
+GSQL,GSQL (TigerGraph),MTO,true,true
+GaussDB,Huawei Cloud GaussDB,MTO,false,true
+GemStone,GemStone/S,MTO,false,true
+GemStone database,GemStone/S,MTO,false,true
+Gemstone,GemStone/S,MTO,false,true
+General Data Protection Regulation,GDPR,INTERNAL,false,true
+Generative AI,GenAI,INTERNAL,false,true
+Geographic Information System,GIS,INTERNAL,false,true
+GitOps Flux,Flux CD,MTO,false,true
+Glue,AWS Glue,MTO,true,false
+Golang,Go,INTERNAL,false,true
+Google BQ,Google BigQuery,MTO,false,true
+Google Big Table,Cloud Bigtable,MTO,false,true
+Google Cloud Bigtable,Cloud Bigtable,MTO,false,true
+Google Cloud Dataproc,Dataproc,MTO,false,true
+Google Cloud Firestore,Cloud Firestore,MTO,false,true
+Google Cloud Memorystore,Cloud Memorystore,MTO,false,true
+Google Cloud Spanner,Cloud Spanner,MTO,false,true
+Google Dataproc Hadoop,Dataproc,MTO,false,true
+Google Firebase,Firebase,MTO,false,false
+Google Firebase Database,Firebase,MTO,false,false
+Google Firebase Realtime Database,Firebase Realtime Database,MTO,false,true
+Google Firestore,Cloud Firestore,MTO,false,true
+Google Managed Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+Google Memorystore Redis,Cloud Memorystore,MTO,false,true
+Google SQL,Google Cloud SQL,MTO,false,true
+Google Spanner,Cloud Spanner,MTO,false,true
+Google Vertex Matching Engine,Vertex AI Matching Engine,MTO,false,true
+Graph QL,GraphQL,MTO,false,false
+GraphDB,Ontotext GraphDB,MTO,false,true
+GraphDB database,Ontotext GraphDB,MTO,false,true
+GraphQL Query Language,GraphQL,MTO,false,false
+Graphics Processing Unit,GPU,INTERNAL,false,true
+Greenplum,Greenplum Database,MTO,false,true
+Greenplum DB,Greenplum Database,MTO,false,true
+Greenplum database system,Greenplum Database,MTO,false,true
+GridDB Cloud Database,GridDB Cloud,MTO,false,true
+GridDB Managed,GridDB Cloud,MTO,false,true
+GridDB managed cloud,GridDB Cloud,MTO,false,true
+GridDBCloud,GridDB Cloud,MTO,false,true
+Group Policy Object,GPO,INTERNAL,false,true
+H2 Database,H2 Database Engine,MTO,false,true
+H2 SQL database,H2 Database Engine,MTO,false,true
+H2 engine,H2 Database Engine,MTO,false,true
+HANA,SAP S/4HANA,INTERNAL,false,true
+HANA Cloud,SAP HANA Cloud,MTO,false,true
+HANA Graph,SAP HANA Graph,MTO,false,true
+HANA database,SAP HANA,MTO,false,true
+HANA graph database,SAP HANA Graph,MTO,false,true
+HBase Phoenix,Apache Phoenix (over Apache HBase),MTO,false,true
+HQL,HiveQL (Hive Query Language),MTO,true,true
+HSQL DB,HSQLDB,MTO,false,true
+HSQL database,HSQLDB,MTO,false,true
+HSQLDB database,HSQLDB,MTO,false,true
+HTML 5,HTML,MTO,false,false
+HTML5,HTML,INTERNAL,false,true
+Hadoop Ecosystem,Hadoop,MTO,false,true
+Hadoop Framework,Hadoop,MTO,false,true
+Hadoop Hive,Apache Hive,MTO,false,true
+Hadoop Pig,Apache Pig,MTO,false,true
+HarperDB Cloud Database,HarperDB Cloud,MTO,false,true
+HarperDB Managed,HarperDB Cloud,MTO,false,true
+HarperDB managed cloud,HarperDB Cloud,MTO,false,true
+HarperDBCloud,HarperDB Cloud,MTO,false,true
+HashiCorp Vault Client,hvac,MTO,false,true
+Haskell Chart,Chart,MTO,false,true
+Haskell statistics,statistics Haskell,MTO,false,true
+Hive,Apache Hive,MTO,true,true
+Hive Query Language,HiveQL (Hive Query Language),MTO,false,true
+Hive database,Apache Hive,MTO,false,true
+HiveQL,HiveQL (Hive Query Language),MTO,false,true
+Huawei Cloud Database,Huawei Cloud GaussDB,MTO,false,true
+Huawei GaussDB,Huawei Cloud GaussDB,MTO,false,true
+Huawei cloud database,Huawei Cloud GaussDB,MTO,false,true
+Hyper Text Markup Language,HTML,MTO,false,false
+HyperSQL,HSQLDB,MTO,false,true
+Hyperion Essbase,Oracle Essbase,MTO,false,true
+HypersonicSQL,HSQLDB,MTO,false,true
+Hypertext Preprocessor,PHP,MTO,false,false
+IBM Cloud DB,IBM Cloud Databases,MTO,false,true
+IBM Cloud Database Service,IBM Cloud Databases,MTO,false,true
+IBM Cloud managed databases,IBM Cloud Databases,MTO,false,true
+IBM DB2 Cloud,IBM Db2 on Cloud,MTO,false,true
+IBM DB2 database,IBM Db2,MTO,false,true
+IBM Db/2,IBM Db2,MTO,false,true
+IBM Db2 managed cloud,IBM Db2 on Cloud,MTO,false,true
+IBM Informix,Informix,MTO,false,true
+IBM TM1,IBM Cognos TM1,MTO,false,true
+IRIS Cloud,InterSystems IRIS Cloud,MTO,false,true
+IT Service Management,ITSM,INTERNAL,false,true
+Identity and Access Management,IAM,INTERNAL,false,true
+Images,Images.jl,MTO,false,false
+Influx DB,InfluxDB,MTO,false,true
+Influx SQL,InfluxQL (InfluxDB),MTO,false,true
+InfluxCloud,InfluxDB Cloud,MTO,false,true
+InfluxDB Cloud Database,InfluxDB Cloud,MTO,false,true
+InfluxDB Flux,Flux (InfluxDB),MTO,false,true
+InfluxDB Managed,InfluxDB Cloud,MTO,false,true
+InfluxDB Query Language,InfluxQL (InfluxDB),MTO,false,true
+InfluxDB database,InfluxDB,MTO,false,true
+InfluxDB managed cloud,InfluxDB Cloud,MTO,false,true
+InfluxDB v2,InfluxDB,MTO,false,true
+InfluxQL,InfluxQL (InfluxDB),MTO,false,true
+Information Technology Infrastructure Library,ITIL,INTERNAL,false,true
+Informix Dynamic Server,Informix,MTO,false,true
+Informix IDS,Informix,MTO,false,true
+Informix database,Informix,MTO,false,true
+Ingres RDBMS,Ingres,MTO,false,true
+Ingres RDMS,Ingres,MTO,false,true
+Ingres database,Ingres,MTO,false,true
+InterBase SQL,InterBase,MTO,false,true
+InterSystems Cloud,InterSystems IRIS Cloud,MTO,false,true
+InterSystems IRIS,InterSystems IRIS Cloud,MTO,false,true
+InterSystems IRIS managed cloud,InterSystems IRIS Cloud,MTO,false,true
+Interbase SQL Server,InterBase,MTO,false,true
+Interbase database,InterBase,MTO,false,true
+IronPython,Python,MTO,false,false
+JDK,Java,MTO,true,false
+JRE,Java,MTO,true,false
+JS,JavaScript,INTERNAL,false,true
+JSON Query Language,JSONiq,MTO,false,true
+JSON-iq,JSONiq,MTO,false,true
+Janus Graph,JanusGraph,MTO,false,true
+JanusGraph database,JanusGraph,MTO,false,true
+JanusGraph graph database,JanusGraph,MTO,false,true
+Java DB,Apache Derby,MTO,false,true
+Java SE,Java,MTO,false,false
+Java Spring,Spring Framework,MTO,false,true
+Java8,Java,MTO,false,false
+JavaScript (Node.js),JavaScript,MTO,false,false
+JavaScript(Node.js),JavaScript,MTO,false,false
+JavaScript/Node.js,JavaScript,MTO,false,false
+JavaServer Pages,JSP,INTERNAL,false,true
+Jena Fuseki,Apache Jena Fuseki,MTO,false,true
+Julia Deep Learning Library,Flux.jl,MTO,false,true
+Julia statsmodels,StatsModels.jl,MTO,false,true
+JuliaFlux,Flux.jl,MTO,false,true
+Jython,Python,MTO,false,false
+KQL,KQL (Kusto Query Language),MTO,true,true
+Kendra,Amazon Kendra,MTO,false,true
+Keyspaces,Amazon Keyspaces,MTO,false,true
+Kubernetes GitOps Flux,Flux CD,MTO,false,true
+Kubernetes Python Client,kubernetes-client,MTO,false,true
+Kusto,Azure Data Explorer,MTO,false,true
+Kusto Query Language,KQL (Kusto Query Language),MTO,false,true
+LIME (Local Interpretable Model-agnostic Explanations),lime,MTO,false,true
+LINQ,LINQ (Language Integrated Query),MTO,true,true
+Lake Formation,AWS Lake Formation,MTO,false,true
+Language Integrated Query,LINQ (Language Integrated Query),MTO,false,true
+Large Language Model,LLM,INTERNAL,false,true
+Local Area Network,LAN,INTERNAL,false,true
+MDC,Material Components for Android,MTO,true,true
+MDM,Mobile Device Management,INTERNAL,false,true
+MDX,MDX (Multidimensional Expressions),MTO,true,true
+MES,Manufacturing Execution System,INTERNAL,false,true
+ML,Machine Learning,INTERNAL,false,true
+ML Flux,Flux.jl,MTO,false,true
+MLJ,MLJ.jl,MTO,true,true
+MS Dynamics,Microsoft Dynamics,INTERNAL,false,true
+MS SQL Server,Microsoft SQL Server,MTO,false,true
+MSSQL,Microsoft SQL Server,MTO,false,true
+Mac,macOS,INTERNAL,true,true
+Managed Blockchain,Amazon Managed Blockchain,MTO,false,true
+Managed Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+Managed Service for Prometheus,Amazon Managed Service for Prometheus,MTO,false,true
+Maria DB,MariaDB,MTO,false,true
+Maria-DB,MariaDB,MTO,false,true
+MariaDB Cloud,MariaDB SkySQL,MTO,false,true
+MariaDB Sky SQL,MariaDB SkySQL,MTO,false,true
+MariaDB managed cloud,MariaDB SkySQL,MTO,false,true
+Mariadb database,MariaDB,MTO,false,true
+Mark Logic,MarkLogic,MTO,false,true
+MarkLogic Data Hub,MarkLogic Data Hub Service,MTO,false,true
+MarkLogic Hub,MarkLogic Data Hub Service,MTO,false,true
+MarkLogic NoSQL database,MarkLogic,MTO,false,true
+MarkLogic database,MarkLogic,MTO,false,true
+MarkLogic managed data hub,MarkLogic Data Hub Service,MTO,false,true
+Memcache,memcached,MTO,false,true
+Memcached Cache,memcached,MTO,false,true
+Memgraph Cloud Database,Memgraph Cloud,MTO,false,true
+Memgraph DB,Memgraph,MTO,false,true
+Memgraph Managed,Memgraph Cloud,MTO,false,true
+Memgraph database,Memgraph,MTO,false,true
+Memgraph graph database,Memgraph,MTO,false,true
+Memgraph managed cloud,Memgraph Cloud,MTO,false,true
+MemgraphCloud,Memgraph Cloud,MTO,false,true
+Memory Cache,memcached,MTO,false,true
+MemoryDB for Redis,Amazon MemoryDB for Redis,MTO,false,true
+Memorystore,Cloud Memorystore,MTO,false,true
+MicroPython,Python,MTO,false,false
+Microsoft Azure Cache for Redis,Azure Cache,MTO,false,true
+Microsoft Azure Cognitive Search,Azure Cognitive Search,MTO,false,true
+Microsoft Azure Cosmos DB,Azure Cosmos DB,MTO,false,true
+Microsoft Azure Cosmos DB for Gremlin,Azure Cosmos DB for Gremlin,MTO,false,true
+Microsoft Azure Data Explorer,Azure Data Explorer,MTO,false,true
+Microsoft Azure HDInsight,Azure HDInsight,MTO,false,true
+Microsoft Azure Monitor,Azure Monitor,MTO,false,true
+Microsoft Azure OpenAI Embeddings,Azure OpenAI Embeddings,MTO,false,true
+Microsoft Azure SQL Database,Azure SQL Database,MTO,false,true
+Microsoft Azure SQL Managed Instance,Azure SQL Managed Instance,MTO,false,true
+Microsoft Azure Synapse Analytics,Azure Synapse,MTO,false,true
+Microsoft Azure Table Storage,Azure Table Storage,MTO,false,true
+Microsoft SQL,Microsoft SQL Server,MTO,false,true
+Microsoft SSAS,Microsoft SQL Server Analysis Services (SSAS),MTO,false,true
+Milvus Vector Database,Milvus Cloud,MTO,false,true
+Milvus database,Milvus Cloud,MTO,false,true
+Milvus vector database,Milvus Cloud,MTO,false,true
+MindsCloud,MindsDB Cloud,MTO,false,true
+MindsDB Cloud Database,MindsDB Cloud,MTO,false,true
+MindsDB Managed,MindsDB Cloud,MTO,false,true
+MindsDB managed cloud,MindsDB Cloud,MTO,false,true
+Model View Controller,MVC,INTERNAL,false,true
+Monet DB,MonetDB,MTO,false,true
+MonetDB SQL,MonetDB,MTO,false,true
+MonetDB XML,MonetDB/XQuery,MTO,false,true
+MonetDB database,MonetDB,MTO,false,true
+MonetDB with XQuery,MonetDB/XQuery,MTO,false,true
+Mongo,MongoDB,MTO,false,false
+Mongo Atlas,MongoDB Atlas,MTO,false,true
+Mongo Atlas Cloud,MongoDB Atlas,MTO,false,true
+Mongo DB,MongoDB,MTO,false,false
+Mongo Query Language,MongoDB Query Language,MTO,false,true
+Mongo database,MongoDB,MTO,false,false
+MongoDB Cloud,MongoDB Atlas,MTO,false,true
+MongoDB Query API,MongoDB Query Language,MTO,false,true
+MongoDB database,MongoDB,MTO,false,false
+Multi-Dimensional eXpressions,MDX (Multidimensional Expressions),MTO,false,true
+Multi-Factor Authentication,MFA,INTERNAL,false,true
+Multidimensional Expressions,MDX (Multidimensional Expressions),MTO,false,true
+My SQL,MySQL,MTO,false,false
+MySQL QL,MySQL Query Language,MTO,false,true
+MySQL SQL,MySQL Query Language,MTO,false,true
+MySQL database system,MySQL,MTO,false,false
+N1QL,N1QL (Couchbase),MTO,true,true
+NIST Cybersecurity Framework,NIST,INTERNAL,false,true
+Neo4j Aura,Neo4j AuraDB,MTO,false,true
+Neo4j Cloud,Neo4j AuraDB,MTO,false,true
+Neo4j Cypher,Cypher (Neo4j),MTO,false,true
+Neo4j DB,Neo4j,MTO,false,true
+Neo4j database,Neo4j,MTO,false,true
+Neo4j graph database,Neo4j,MTO,false,true
+Neo4j managed cloud,Neo4j AuraDB,MTO,false,true
+Neptune,Amazon Neptune,MTO,false,true
+Network Attached Storage,NAS,INTERNAL,false,true
+Node,Node.js,INTERNAL,false,true
+NodeJS,Node.js,INTERNAL,false,true
+Nuo DB,NuoDB,MTO,false,true
+NuoCloud,NuoDB Cloud,MTO,false,true
+NuoDB Cloud Database,NuoDB Cloud,MTO,false,true
+NuoDB Managed,NuoDB Cloud,MTO,false,true
+NuoDB SQL,NuoDB,MTO,false,true
+NuoDB database,NuoDB,MTO,false,true
+NuoDB managed cloud,NuoDB Cloud,MTO,false,true
+ONNX Runtime,ONNX,MTO,false,true
+OOP,Object-Oriented Programming,INTERNAL,false,true
+OQL,OQL (Object Query Language),MTO,true,true
+Object DB,ObjectDB,MTO,false,true
+Object Query Language,OQL (Object Query Language),MTO,false,true
+ObjectDB OODBMS,ObjectDB,MTO,false,true
+ObjectDB database,ObjectDB,MTO,false,true
+OceanBase Cloud Database,OceanBase Cloud,MTO,false,true
+OceanBase Managed,OceanBase Cloud,MTO,false,true
+OceanBase managed cloud,OceanBase Cloud,MTO,false,true
+OceanBaseCloud,OceanBase Cloud,MTO,false,true
+Onsen UI CLI,Onsen UI,MTO,false,true
+Ontotext Graph Database,Ontotext GraphDB,MTO,false,true
+Ontotext GraphDB database,Ontotext GraphDB,MTO,false,true
+Open Cypher,OpenCypher,MTO,false,true
+Open Shortest Path First,OSPF,INTERNAL,false,true
+OpenJDK,Java,MTO,false,false
+OpenLink Virtuoso database,OpenLink Virtuoso,MTO,false,true
+OpenSearch,Amazon OpenSearch,MTO,false,true
+Oracle ADB,Oracle Autonomous Database,MTO,false,true
+Oracle Autonomous DB,Oracle Autonomous Database,MTO,false,true
+Oracle Cloud Autonomous Database,Oracle Autonomous Database,MTO,false,true
+Oracle Essbase database,Oracle Essbase,MTO,false,true
+Oracle Java,Java,MTO,false,false
+Oracle NetSuite,NetSuite,INTERNAL,false,true
+Oracle NoSQL Cloud,Oracle NoSQL Database Cloud,MTO,false,true
+Oracle NoSQL DB Cloud,Oracle NoSQL Database Cloud,MTO,false,true
+Oracle NoSQL managed cloud,Oracle NoSQL Database Cloud,MTO,false,true
+Oracle RDMS,Oracle,MTO,false,false
+Oracle SQL database,Oracle,MTO,false,false
+Oracle database system,Oracle,MTO,false,false
+OracleDB,Oracle,MTO,false,false
+Orient DB,OrientDB,MTO,false,true
+OrientDB NoSQL database,OrientDB,MTO,false,true
+OrientDB database,OrientDB,MTO,false,true
+PCI-DSS,PCI DSS,INTERNAL,false,true
+PGSQL,PostgreSQL,MTO,false,false
+PIL,Pillow,MTO,true,true
+PLSQL,PL/SQL,MTO,false,true
+Partial Query Language,PartiQL,MTO,false,true
+Percona MySQL,Percona Server for MySQL,MTO,false,true
+Percona Server,Percona Server for MySQL,MTO,false,true
+Percona Server database,Percona Server for MySQL,MTO,false,true
+Phoenix SQL,Apache Phoenix (over Apache HBase),MTO,false,true
+Phoenix database,Apache Phoenix (over Apache HBase),MTO,false,true
+Pig,Apache Pig,MTO,true,true
+Pig Latin,Pig Latin (Apache Pig),MTO,false,true
+Pig database,Apache Pig,MTO,false,true
+Pinecone Vector Database,Pinecone,MTO,false,true
+Pinecone database,Pinecone,MTO,false,true
+Pivotal Greenplum,Greenplum Database,MTO,false,true
+Planet Scale,PlanetScale,MTO,false,true
+Planet Scale DB,PlanetScale,MTO,false,true
+PlanetScale database,PlanetScale,MTO,false,true
+Planetscale cloud,PlanetScale,MTO,false,true
+Postgre SQL,PostgreSQL,MTO,false,false
+PostgreSQL QL,PostgreSQL SQL,MTO,false,true
+PostgreSQL vector extension,pgvector,MTO,false,true
+Postgres,PostgreSQL,INTERNAL,false,true
+Postgres Advanced Server,EnterpriseDB Postgres Advanced Server,MTO,false,true
+Postgres database,PostgreSQL,MTO,false,false
+Postgress,PostgreSQL,MTO,false,false
+Power BI Desktop,Power BI Desktop (on-premises version),MTO,false,true
+Power BI on-premises,Power BI Desktop (on-premises version),MTO,false,true
+Power Pivot,Excel Power Pivot,MTO,false,true
+PowerBI Desktop,Power BI Desktop (on-premises version),MTO,false,true
+PowerPivot for Excel,Excel Power Pivot,MTO,false,true
+Procedural Language/SQL,PL/SQL,MTO,false,true
+Programmable Logic Controller,PLC,INTERNAL,false,true
+Project Management Professional,PMP,INTERNAL,false,true
+PromQL,PromQL (Prometheus Query Language),MTO,false,true
+Prometheus Query Language,PromQL (Prometheus Query Language),MTO,false,true
+Prometheus TSDB,Prometheus,MTO,false,true
+Prometheus monitoring,Prometheus,MTO,false,true
+Prometheus time series database,Prometheus,MTO,false,true
+Protobuf gPRC,gRPC,MTO,false,true
+Protobuf/gRPC,gRPC,MTO,false,true
+Protocol Buffers (Protobuf Java),Protobuf,MTO,false,false
+Py2,Python,MTO,true,false
+Py3,Python,MTO,true,false
+Python Django,Django,MTO,false,false
+Python Django REST Framework,Django REST Framework,MTO,false,false
+Python Memcached,memcached,MTO,false,true
+Python drf,Django REST Framework,MTO,false,false
+QLDB,Amazon QLDB,MTO,true,true
+Qdrant Vector Database,Qdrant,MTO,false,true
+Qdrant database,Qdrant,MTO,false,true
+Qdrant vector database,Qdrant,MTO,false,true
+QuestCloud,QuestDB Cloud,MTO,false,true
+QuestDB Cloud Database,QuestDB Cloud,MTO,false,true
+QuestDB Managed,QuestDB Cloud,MTO,false,true
+QuestDB managed cloud,QuestDB Cloud,MTO,false,true
+RDF Data Query Language,RDQL (RDF Data Query Language),MTO,false,true
+RDF Query Language,RQL (RDF Query Language),MTO,false,true
+RDF4J,Eclipse RDF4J,MTO,false,true
+RDF4J (formerly Sesame),Eclipse RDF4J,MTO,false,true
+RDF4J framework,Eclipse RDF4J,MTO,false,true
+RDQL,RDQL (RDF Data Query Language),MTO,true,true
+RDS,AWS RDS,MTO,true,true
+RDS for MySQL,Amazon RDS for MySQL,MTO,false,true
+RDS for Oracle,Amazon RDS for Oracle,MTO,false,true
+RDS for PostgreSQL,Amazon RDS for PostgreSQL,MTO,false,true
+RDS for SQL Server,Amazon RDS for SQL Server,MTO,false,true
+REST,REST API,INTERNAL,false,true
+REST (Representational State Transfer),REST API,MTO,false,false
+REST APIs,REST API,INTERNAL,false,true
+RESTful API,REST API,MTO,false,false
+RESTful APIs,REST API,MTO,false,false
+RQL,RQL (RDF Query Language),MTO,true,true
+RavenCloud,RavenDB Cloud,MTO,false,true
+RavenDB Cloud Database,RavenDB Cloud,MTO,false,true
+RavenDB Managed,RavenDB Cloud,MTO,false,true
+RavenDB managed cloud,RavenDB Cloud,MTO,false,true
+React.js,React,INTERNAL,false,true
+ReactJS,React,INTERNAL,false,true
+Red Hat Enterprise Linux,RHEL,INTERNAL,false,true
+Redis DB,Redis,MTO,false,false
+Redis Ent Cloud,Redis Enterprise Cloud,MTO,false,true
+Redis Enterprise,Redis Enterprise Cloud,MTO,false,true
+Redis Enterprise Cloud Database,Redis Enterprise Cloud,MTO,false,true
+Redis Graph,RedisGraph,MTO,false,true
+Redis Vector,Redis (with RediSearch module),MTO,false,true
+Redis Vector Search,Redis (with RediSearch module),MTO,false,true
+Redis data store,Redis,MTO,false,false
+Redis enterprise managed cloud,Redis Enterprise Cloud,MTO,false,true
+Redis graph database,RedisGraph,MTO,false,true
+Redis similarity search,Redis (with RediSearch module),MTO,false,true
+Redis vector database,Redis (with RediSearch module),MTO,false,true
+Redis with RediSearch,Redis (with RediSearch module),MTO,false,true
+RedisGraph database,RedisGraph,MTO,false,true
+RedisSearch,Redis (with RediSearch module),MTO,false,true
+Redisearch,Redis (with RediSearch module),MTO,false,true
+Redshift,Amazon Redshift,MTO,false,true
+Relational Database Management System,RDBMS,INTERNAL,false,true
+Remote Dictionary Server,Redis,MTO,false,false
+Retrieval Augmented Generation,RAG,INTERNAL,false,true
+Robotic Process Automation,RPA,INTERNAL,false,true
+Rockset Cloud,Rockset,MTO,false,true
+Rockset Database,Rockset,MTO,false,true
+Rockset cloud database,Rockset,MTO,false,true
+Role-Based Access Control,RBAC,INTERNAL,false,true
+Root Cause Analysis,RCA,INTERNAL,false,true
+RubixML,Rubix ML,MTO,false,true
+Ruby a11y,a11y Ruby,MTO,false,true
+Rumble DB,RumbleDB,MTO,false,true
+RumbleDB database,RumbleDB,MTO,false,true
+RxPY,ReactiveX,MTO,true,true
+S/4 HANA,SAP S/4HANA,INTERNAL,false,true
+S/4HANA,SAP S/4HANA,INTERNAL,false,true
+S3 Select,Amazon S3 Select,MTO,false,true
+S4HANA,SAP S/4HANA,INTERNAL,false,true
+SAP B1,SAP,INTERNAL,false,true
+SAP BW,SAP Business Warehouse (SAP BW),MTO,false,true
+SAP BW database,SAP Business Warehouse (SAP BW),MTO,false,true
+SAP Business One,SAP,INTERNAL,false,true
+SAP Business Warehouse,SAP Business Warehouse (SAP BW),MTO,false,true
+SAP Cloud HANA,SAP HANA Cloud,MTO,false,true
+SAP DWC,SAP Data Warehouse Cloud,MTO,false,true
+SAP DWC Cloud,SAP Data Warehouse Cloud,MTO,false,true
+SAP ERP,SAP,INTERNAL,false,true
+SAP FI CO,SAP FICO,INTERNAL,false,true
+SAP FI/CO,SAP FICO,INTERNAL,false,true
+SAP HANA Graph database,SAP HANA Graph,MTO,false,true
+SAP HANA database,SAP HANA,MTO,false,true
+SAP HANA managed cloud,SAP HANA Cloud,MTO,false,true
+SAP Materials Management,SAP MM,INTERNAL,false,true
+SAP Production Planning,SAP PP,INTERNAL,false,true
+SAP Sales and Distribution,SAP SD,INTERNAL,false,true
+SAP data warehouse managed cloud,SAP Data Warehouse Cloud,MTO,false,true
+SAP in-memory database,SAP HANA,MTO,false,true
+SDLC,Software Development Life Cycle,INTERNAL,false,true
+SHAP (SHapley Additive exPlanations),SHAP,MTO,false,true
+SHapley Additive exPlanations,SHAP,MTO,false,true
+SOAP (simple object access protocol),SOAP,MTO,false,true
+SOC,Security Operations Center,INTERNAL,true,true
+SPARQL Inferencing Notation,SPIN (SPARQL Inferencing Notation),MTO,false,true
+SPARQL Protocol and RDF Query Language,SPARQL,MTO,false,true
+SPIN,SPIN (SPARQL Inferencing Notation),MTO,true,true
+SQL Plus Plus,SQL++,MTO,false,true
+SQL Server,Microsoft SQL Server,MTO,false,true
+SQL Server Analysis Services,Microsoft SQL Server Analysis Services (SSAS),MTO,false,true
+SQL Server Analysis Services Tabular,Microsoft SQL Server Analysis Services (Tabular Mode),MTO,false,true
+SQL Server cube,Microsoft SQL Server Analysis Services (SSAS),MTO,false,true
+SQL database Microsoft,Microsoft SQL Server,MTO,false,true
+SQL++ for JSON,N1QL (Couchbase),MTO,false,true
+SQLServer,Microsoft SQL Server,MTO,false,true
+SQLite database,SQLite,MTO,false,false
+SQLpp,SQL++,MTO,false,true
+SSAS,Microsoft SQL Server Analysis Services (SSAS),MTO,true,true
+SSAS Tabular,Microsoft SQL Server Analysis Services (Tabular Mode),MTO,false,true
+SSAS Tabular Mode,Microsoft SQL Server Analysis Services (Tabular Mode),MTO,false,true
+SampledSignals,SampledSignals.jl,MTO,false,true
+Saxon,Saxon XQuery Processor,MTO,false,true
+Saxon XQuery,Saxon XQuery Processor,MTO,false,true
+Saxon XSLT processor,Saxon XQuery Processor,MTO,false,true
+Saxon processor,Saxon XQuery Processor,MTO,false,true
+Scylla,ScyllaDB,MTO,false,true
+Scylla DB,ScyllaDB,MTO,false,true
+Scylla Managed Cloud,Scylla Cloud,MTO,false,true
+Scylla database,ScyllaDB,MTO,false,true
+Scylla managed cloud,Scylla Cloud,MTO,false,true
+ScyllaCloud,Scylla Cloud,MTO,false,true
+ScyllaDB Cloud,Scylla Cloud,MTO,false,true
+SeRQL,SeRQL (Sesame RDF Query Language),MTO,false,true
+Search Engine Optimization,SEO,INTERNAL,false,true
+Secure Sockets Layer,SSL,INTERNAL,false,true
+Sedna XML database,Sedna,MTO,false,true
+Sedna database,Sedna,MTO,false,true
+Selenium-WebDriver,Selenium,MTO,false,false
+Sesame (old name),Eclipse RDF4J,MTO,false,true
+Sesame RDF Query Language,SeRQL (Sesame RDF Query Language),MTO,false,true
+Sesame framework (old name),Eclipse RDF4J,MTO,false,true
+SimpleDB,Amazon SimpleDB,MTO,false,true
+Single Sign-On,SSO,INTERNAL,false,true
+SingleStore Cloud,SingleStore Managed Service,MTO,false,true
+SingleStore DB Cloud,SingleStore Managed Service,MTO,false,true
+SingleStore Managed,SingleStore Managed Service,MTO,false,true
+Singlestore cloud,SingleStore Managed Service,MTO,false,true
+Site Reliability Engineering,SRE,INTERNAL,false,true
+SkySQL,MariaDB SkySQL,MTO,false,true
+Snowflake Cloud,Snowflake,MTO,false,true
+Snowflake Data Warehouse,Snowflake,MTO,false,true
+Snowflake cloud data warehouse,Snowflake,MTO,false,true
+SoQL,SoQL (Socrata Query Language),MTO,true,false
+Socrata Query Language,SoQL (Socrata Query Language),MTO,false,true
+Software AG Apama,Apama (Software AG),MTO,false,true
+Software Defined Networking,SDN,INTERNAL,false,true
+Software Development Kit,SDK,INTERNAL,false,true
+Spanner,Cloud Spanner,MTO,false,true
+Sqlite DB,SQLite,MTO,false,false
+Sqlite engine,SQLite,MTO,false,false
+StarRocks Cloud Database,StarRocks Cloud,MTO,false,true
+StarRocks Managed,StarRocks Cloud,MTO,false,true
+StarRocks managed cloud,StarRocks Cloud,MTO,false,true
+StarRocksCloud,StarRocks Cloud,MTO,false,true
+Stardog RDF database,Stardog,MTO,false,true
+Stardog database,Stardog,MTO,false,true
+Stardog graph database,Stardog,MTO,false,true
+Storage Area Network,SAN,INTERNAL,false,true
+Structured Query Language,SQL,MTO,false,false
+SuccessFactors,SAP SuccessFactors,INTERNAL,false,true
+Supervisory Control and Data Acquisition,SCADA,INTERNAL,false,true
+Supply Chain,Supply Chain Management,INTERNAL,false,true
+SurrealCloud,SurrealDB Cloud,MTO,false,true
+SurrealDB Cloud Database,SurrealDB Cloud,MTO,false,true
+SurrealDB Managed,SurrealDB Cloud,MTO,false,true
+SurrealDB managed cloud,SurrealDB Cloud,MTO,false,true
+Sybase Adaptive Server Enterprise,Sybase ASE,MTO,false,true
+Sybase database,Sybase ASE,MTO,false,true
+System Center Configuration Manager,SCCM,INTERNAL,false,true
+TF Swift,TensorFlow Swift,MTO,false,true
+TM1 database,IBM Cognos TM1,MTO,false,true
+TS,TypeScript,INTERNAL,false,true
+Tailwind,Tailwind CSS,INTERNAL,false,true
+Tencent Cloud DB,Tencent Cloud Database Services,MTO,false,true
+Tencent Cloud Databases,Tencent Cloud Database Services,MTO,false,true
+Tencent Database,Tencent Cloud Database Services,MTO,false,true
+Tencent cloud database,Tencent Cloud Database Services,MTO,false,true
+Teradata DW,Teradata,MTO,false,true
+Teradata Data Warehouse,Teradata,MTO,false,true
+Teradata database,Teradata,MTO,false,true
+TerminusCloud,TerminusDB Cloud,MTO,false,true
+TerminusDB Cloud Database,TerminusDB Cloud,MTO,false,true
+TerminusDB Managed,TerminusDB Cloud,MTO,false,true
+TerminusDB managed cloud,TerminusDB Cloud,MTO,false,true
+TextAnalysis,TextAnalysis.jl,MTO,false,true
+TiDB Cloud Database,TiDB Cloud,MTO,false,true
+TiDB Managed,TiDB Cloud,MTO,false,true
+TiDB managed cloud,TiDB Cloud,MTO,false,true
+TiDBCloud,TiDB Cloud,MTO,false,true
+Tiger Graph,TigerGraph,MTO,false,true
+TigerGraph Cloud Database,TigerGraph Cloud,MTO,false,true
+TigerGraph Managed,TigerGraph Cloud,MTO,false,true
+TigerGraph Query Language,GSQL (TigerGraph),MTO,false,true
+TigerGraph database,TigerGraph,MTO,false,true
+TigerGraph graph database,TigerGraph,MTO,false,true
+TigerGraph managed cloud,TigerGraph Cloud,MTO,false,true
+TigerGraphCloud,TigerGraph Cloud,MTO,false,true
+TimeSeries CQL,CQL for TimeSeries,MTO,false,true
+TimeSeries Julia,TimeSeries.jl,MTO,false,true
+Timescale,TimescaleDB,MTO,false,true
+Timescale DB,TimescaleDB,MTO,false,true
+Timescale Managed,Timescale Cloud,MTO,false,true
+Timescale database,TimescaleDB,MTO,false,true
+Timescale managed cloud,Timescale Cloud,MTO,false,true
+TimescaleCloud,Timescale Cloud,MTO,false,true
+TimescaleDB Cloud,Timescale Cloud,MTO,false,true
+Timestream,Amazon Timestream,MTO,false,true
+TinkerGraph,Apache TinkerGraph,MTO,false,true
+TinkerGraph database,Apache TinkerGraph,MTO,false,true
+TopBraid,TopBraid Composer,MTO,false,true
+TopBraid Composer database,TopBraid Composer,MTO,false,true
+Topbraid,TopBraid Composer,MTO,false,true
+Trafodion,Apache Trafodion,MTO,false,true
+Trafodion database,Apache Trafodion,MTO,false,true
+Transact SQL,T-SQL,MTO,false,true
+Transact-SQL,T-SQL,MTO,false,true
+Transformers,Hugging Face Transformers,MTO,false,true
+Type Script,TypeScript,MTO,false,false
+UnQL,UnQL (Unstructured Query Language),MTO,true,true
+Unstructured Query Language,UnQL (Unstructured Query Language),MTO,false,true
+User Acceptance Testing,UAT,INTERNAL,false,true
+Vald database,Vald,MTO,false,true
+Vald vector database,Vald,MTO,false,true
+Vectara Cloud,Vectara,MTO,false,true
+Vectara Vector Database,Vectara,MTO,false,true
+Vectara vector cloud database,Vectara,MTO,false,true
+Versant,Versant Object Database,MTO,false,true
+Versant DB,Versant Object Database,MTO,false,true
+Versant ODBMS,Versant Object Database,MTO,false,true
+Versant database,Versant Object Database,MTO,false,true
+Vertex Matching Engine,Vertex AI Matching Engine,MTO,false,true
+Vertica Accelerator Cloud,Vertica Accelerator,MTO,false,true
+Vertica Cloud,Vertica Accelerator,MTO,false,true
+Vertica in the Cloud,Vertica Accelerator,MTO,false,true
+Vertica managed cloud,Vertica Accelerator,MTO,false,true
+Vespa database,Vespa,MTO,false,true
+Vespa search engine,Vespa,MTO,false,true
+Vespa vector database,Vespa,MTO,false,true
+VideoIO,VideoIO.jl,MTO,false,true
+Virtual LAN,VLAN,INTERNAL,false,true
+Virtual Private Cloud,VPC,INTERNAL,false,true
+Virtuoso,OpenLink Virtuoso,MTO,false,true
+Virtuoso RDF,OpenLink Virtuoso,MTO,false,true
+Virtuoso database,OpenLink Virtuoso,MTO,false,true
+Visual Basic for Applications,VBA,INTERNAL,false,true
+Volt DB,VoltDB,MTO,false,true
+VoltDB SQL,VoltDB,MTO,false,true
+VoltDB database,VoltDB,MTO,false,true
+VoltDB in-memory database,VoltDB,MTO,false,true
+WMS,Warehouse Management System,INTERNAL,false,true
+WandB,Weights & Biases,MTO,false,true
+Weaveworks Flux,Flux CD,MTO,false,true
+Weaviate Vector Database,Weaviate,MTO,false,true
+Weaviate database,Weaviate,MTO,false,true
+Weaviate vector database,Weaviate,MTO,false,true
+Web Application Firewall,WAF,INTERNAL,false,true
+Wi-Fi,WiFi,INTERNAL,false,true
+Wide Area Network,WAN,INTERNAL,false,true
+Windows Communication Foundation,WCF,INTERNAL,false,true
+Windows Presentation Foundation,WPF,INTERNAL,false,true
+Wireless LAN,WLAN,INTERNAL,false,true
+X-Path,XPath,MTO,false,true
+X-Query,XQuery,MTO,false,true
+XCTest,XCUITest,MTO,false,true
+XML Path Language,XPath,MTO,false,true
+XML Query Language,XQuery,MTO,false,true
+Yugabyte Cloud,YugabyteDB Managed,MTO,false,true
+Yugabyte Managed,YugabyteDB Managed,MTO,false,true
+Yugabyte managed cloud,YugabyteDB Managed,MTO,false,true
+YugabyteDB Cloud Managed,YugabyteDB Managed,MTO,false,true
+Zilliz,Zilliz Cloud,MTO,false,true
+Zilliz Cloud database,Zilliz Cloud,MTO,false,true
+Zilliz Vector Database,Zilliz Cloud,MTO,false,true
+a11y snapshot,AccessibilitySnapshot,MTO,false,true
+abstract syntax notation one,ASN.1,MTO,false,true
+abstract window toolkit,AWT,MTO,false,true
+abtasty,AB Tasty,MTO,false,true
+abyss,Abyss Web Server,MTO,false,true
+accelerated linear algebra,XLA,MTO,false,true
+accessibility axe,Axe.Windows,MTO,false,true
+accessibility snapshot,AccessibilitySnapshot,MTO,false,true
+accord,Accord.NET,MTO,false,true
+acm,Apache Commons Math,MTO,true,true
+acme protocol,ACME,MTO,false,true
+acme tool,ACME,MTO,false,true
+action hero,ActionHero,MTO,false,true
+actionhero.js,ActionHero,MTO,false,true
+active support,ActiveSupport,MTO,false,true
+activemq artemis,ActiveMQ Artemis Core,MTO,false,true
+activesupport gem,ActiveSupport,MTO,false,true
+actixweb,Actix Web,MTO,false,true
+actuator,Spring Boot Actuator,MTO,false,true
+ada lang,Ada,MTO,false,true
+adapter hub,AdapterHub,MTO,false,true
+adapterhub library,AdapterHub,MTO,false,true
+adf,Azure Data Factory,MTO,true,true
+adobe experience design,Adobe XD,MTO,false,true
+adobe phonegap,Apache Cordova,MTO,false,true
+adobe rtmp,RTMP,MTO,false,true
+adonis js,AdonisJS,MTO,false,true
+adonis.js,AdonisJS,MTO,false,true
+advanced business application programming,ABAP,MTO,false,false
+adversarial-toolbox,Adversarial Robustness Toolbox,MTO,false,true
+aeh,Azure Event Hubs,MTO,true,true
+after,After.js,MTO,false,false
+afterjs,After.js,MTO,false,true
+agenda.js,agenda,MTO,false,true
+agent communications,AgentComms,MTO,false,true
+agent gpt,AgentGPT,MTO,false,true
+agent integrator,AgentIntegrator,MTO,false,true
+agent logger,AgentLogger,MTO,false,true
+agent orchestrator,AgentOrchestrator,MTO,false,true
+agent prompt,AgentPrompt,MTO,false,true
+agent script,AgentScript,MTO,false,true
+agent state management,AgentState,MTO,false,true
+ago uti,Agouti,MTO,false,true
+agouti testing,Agouti,MTO,false,true
+ai fairness 360,AIF360,MTO,false,true
+ai sdk,Vercel AI SDK,MTO,false,true
+aif 360,AIF360,MTO,false,true
+aio http,aiohttp,MTO,false,true
+aio-http,aiohttp,MTO,false,true
+airborne ruby,Airborne,MTO,false,true
+airflow,Apache Airflow,MTO,false,true
+akka toolkit,akka,MTO,false,true
+akkahttp,Akka HTTP,MTO,false,true
+al-tair,altair,MTO,false,true
+alert manager,Alertmanager,MTO,false,true
+alibi,Alibi Detect,MTO,false,true
+alice middleware,Alice,MTO,false,true
+allure,allure-pytest,MTO,false,true
+allure report,allure-pytest,MTO,false,true
+alpine js,Alpine.js,MTO,false,true
+alpinejs,Alpine.js,MTO,false,true
+alt air,altair,MTO,false,true
+alt beacon,AltBeacon Android,MTO,false,true
+altbeacon,AltBeacon Android,MTO,false,true
+alteryx designer,Alteryx,MTO,false,true
+amazon aws,AWS,MTO,false,false
+amazon cdk,AWS CDK,MTO,false,true
+amazon cloudformation,CloudFormation,MTO,false,true
+amazon deequ,Deequ,MTO,false,true
+amazon device farm,AWS Device Farm,MTO,false,true
+amazon dynamodb,AWS DynamoDB,MTO,false,true
+amazon lake formation,AWS Lake Formation,MTO,false,true
+amazon rds,AWS RDS,MTO,false,true
+amazon sagemaker studio,Amazon SageMaker,MTO,false,true
+amazon secrets manager,AWS Secrets Manager,MTO,false,true
+amazon web services,AWS,MTO,false,false
+amplitude analytics,Amplitude,MTO,false,true
+amplitude.js,Amplitude,MTO,false,true
+amqp lib,amqplib,MTO,false,true
+anaconda,Anaconda Navigator,MTO,false,true
+analytics mobile,Google Analytics for Mobile,MTO,false,true
+android,Android (Native),MTO,false,true
+android altbeacon,AltBeacon Android,MTO,false,true
+android auth0,Auth0 Android,MTO,false,true
+android battery historian,Battery Historian,MTO,false,true
+android compose,Jetpack Compose,MTO,false,true
+android constraint layout,ConstraintLayout,MTO,false,true
+android emulator,Genymotion,MTO,false,true
+android espresso,Espresso,MTO,false,true
+android exoplayer,ExoPlayer,MTO,false,true
+android fused location,Fused Location Provider,MTO,false,true
+android leakcanary,LeakCanary,MTO,false,true
+android network profiler,Network Profiler,MTO,false,true
+android room,Room Persistence Library,MTO,false,true
+android sdk,Android (Native),MTO,false,true
+android support appcompat,AndroidX AppCompat,MTO,false,true
+android timber,Timber,MTO,false,true
+android ui automator,UI Automator,MTO,false,true
+android volley,Volley,MTO,false,true
+angular 1,Angular,MTO,false,false
+angular 1.x,Angular,MTO,false,false
+angular 2+,Angular,MTO,false,false
+angular js,Angular,MTO,false,false
+angular modern,Angular,MTO,false,false
+angular.io,Angular,MTO,false,false
+angular2+,Angular,MTO,false,false
+angularjs,Angular,MTO,false,false
+anime,Anime.js,MTO,false,true
+annoy library,Annoy,MTO,false,true
+ansi c,C,MTO,false,false
+ansible automation,Ansible,MTO,false,true
+ansible awx,AWX,MTO,false,true
+ansible config management,Ansible,MTO,false,true
+ansible configuration,Ansible,MTO,false,true
+ansible tower,Tower,MTO,false,true
+ansible-playbook,Ansible,MTO,false,true
+ant-mobile,Ant Design Mobile,MTO,false,true
+antd,Ant Design,MTO,true,true
+antd-mobile,Ant Design Mobile,MTO,false,true
+antdesign,Ant Design,MTO,false,true
+anthos platform,Anthos,MTO,false,true
+anthos service,Anthos,MTO,false,true
+apache,Apache,MTO,false,false
+apache 2.2,Apache,MTO,false,false
+apache 2.4,Apache,MTO,false,false
+apache echarts,ECharts,MTO,false,true
+apache groovy,Groovy,MTO,false,true
+apache hadoop,Hadoop,MTO,false,true
+apache jmeter,JMeter,MTO,false,true
+apache kafka streams,Kafka Streams,MTO,false,true
+apache nms,Apache.NMS,MTO,false,true
+apache qpid,Apache Qpid JMS Client,MTO,false,true
+apache servlet container,Apache Tomcat,MTO,false,true
+apache subversion,Subversion,MTO,false,true
+apex code,Salesforce Apex,MTO,false,true
+api moya,Moya,MTO,false,true
+api testing airborne,Airborne,MTO,false,true
+api testing karate,Karate DSL,MTO,false,true
+apm-node,elastic-apm-node,MTO,false,true
+apollo,Apollo Client,MTO,false,true
+app auth,React Native App Auth,MTO,false,true
+app auth ios,AppAuth-iOS,MTO,false,true
+app go,Go-app,MTO,false,true
+appauth,AppAuth-iOS,MTO,false,true
+appcenter analytics,Microsoft.AppCenter.Analytics,MTO,false,true
+appcompat,AndroidX AppCompat,MTO,false,true
+appium android,Appium,MTO,false,true
+appium automation,Appium,MTO,false,true
+appium c#,Appium,MTO,false,true
+appium for android,Appium,MTO,false,true
+appium ios,Appium,MTO,false,true
+appium java,Appium,MTO,false,true
+appium python client,Appium,MTO,false,true
+appium-python-client,Appium,MTO,false,true
+appium.js,Appium,MTO,false,true
+appium.webdriver,Appium,MTO,false,true
+appiumclient,Appium,MTO,false,true
+apple core ml,Core ML,MTO,false,true
+apple swift,Swift,MTO,false,false
+application service,App Service,MTO,false,true
+applitools,Applitools Eyes,MTO,false,true
+approval tests,ApprovalTests,MTO,false,true
+approval-tests,ApprovalTests,MTO,false,true
+approximate nearest neighbors,Annoy,MTO,false,true
+apsched,APScheduler,MTO,false,true
+arc,Azure Arc,MTO,true,true
+arc gis,ArcGIS,MTO,false,true
+arch gdal,ArchGDAL.jl,MTO,false,true
+argo,ArgoCD,MTO,true,true
+argo cd,ArgoCD,MTO,false,true
+argo continuous delivery,ArgoCD,MTO,false,true
+argo gitops,ArgoCD,MTO,false,true
+argon2,argon2-cffi,MTO,false,true
+arm,ARM Templates,MTO,true,false
+artemis,ActiveMQ Artemis Core,MTO,false,true
+artifactory,JFrog,MTO,false,true
+artifactory repository,JFrog,MTO,false,true
+artillery.io,artillery,MTO,false,true
+asa,Azure Stream Analytics,MTO,true,true
+asm,Assembly Language,MTO,true,true
+asp net,ASP.NET,MTO,false,true
+asp net core,ASP.NET Core,MTO,false,true
+asp net mvc,ASP.NET MVC,MTO,false,true
+asp.net signalr,SignalR,MTO,false,true
+aspnet,ASP.NET,MTO,false,true
+aspnet core,ASP.NET Core,MTO,false,true
+aspnet mvc,ASP.NET MVC,MTO,false,true
+assertj assertions,AssertJ,MTO,false,true
+assertjswing,AssertJ-Swing,MTO,false,true
+astra,Cassandra Astra,MTO,false,true
+astra db,Cassandra Astra,MTO,false,true
+asynchronous server gateway interface,ASGI,MTO,false,true
+atlas,MongoDB Atlas,MTO,false,true
+auradb,Neo4j AuraDB,MTO,false,true
+auralia,Aurelia,MTO,false,true
+aurelia framework,Aurelia,MTO,false,true
+auto cannon,autocannon,MTO,false,true
+auto gpt,AutoGPT,MTO,false,true
+auto-arima,pmdarima,MTO,false,true
+auto-gpt,AutoGPT,MTO,false,true
+auto-sklearn library,Auto-sklearn,MTO,false,true
+autocad lisp,AutoLISP,MTO,false,true
+automated certificate management environment,ACME,MTO,false,true
+autosklearn,Auto-sklearn,MTO,false,true
+ava.js,ava,MTO,false,true
+aws cloudformation,CloudFormation,MTO,false,true
+aws kinesis,Amazon Kinesis,MTO,false,true
+aws landing,AWS Landing Zone,MTO,false,true
+aws lz,AWS Landing Zone,MTO,false,true
+aws org,AWS Organizations,MTO,false,true
+aws organisations,AWS Organizations,MTO,false,true
+aws organization,AWS Organizations,MTO,false,true
+aws orgs,AWS Organizations,MTO,false,true
+aws private link,AWS PrivateLink,MTO,false,true
+aws sagemaker,Amazon SageMaker,MTO,false,true
+aws ssm,node-ssm,MTO,false,true
+aws step,AWS Step Functions,MTO,false,true
+aws tg,AWS Transit Gateway,MTO,false,true
+aws tower,AWS Control Tower,MTO,false,true
+awx tool,AWX,MTO,false,true
+awx tower,AWX,MTO,false,true
+axe,axe-core,MTO,true,true
+axe for java,axe-selenium-java,MTO,false,true
+axe js,axe-core,MTO,false,true
+axe python,axe-core,MTO,false,true
+axe selenium,axe-core,MTO,false,true
+axe selenium python,axe-core,MTO,false,true
+axe windows,Axe.Windows,MTO,false,true
+axe-core java,axe-selenium-java,MTO,false,true
+axe-selenium,axe-core,MTO,false,true
+axe-selenium-python,axe-core,MTO,false,true
+axios.js,Axios,MTO,false,true
+axious,Axios,MTO,false,true
+azure,Azure,MTO,false,false
+azure app service,App Service,MTO,false,true
+azure arc management,Azure Arc,MTO,false,true
+azure arm templates,ARM Templates,MTO,false,true
+azure cloud,Azure,MTO,false,false
+azure databricks,Databricks for Retail,MTO,false,true
+azure resource manager templates,ARM Templates,MTO,false,true
+azure sql,Azure SQL Database,MTO,false,true
+azure synapse analytics,Azure Synapse,MTO,false,true
+azurearc,Azure Arc,MTO,false,true
+backbone,Backbone.js,MTO,false,true
+backbone js,Backbone.js,MTO,false,true
+backstop js,BackstopJS,MTO,false,true
+bandit security,bandit,MTO,false,true
+barista testing,Barista,MTO,false,true
+bash scripting,Bash,MTO,false,false
+bash shell,Bash,MTO,false,false
+battery analysis tool,Battery Historian,MTO,false,true
+bcrypt net next,bcrypt,MTO,false,true
+bcrypt-nodejs,bcrypt,MTO,false,true
+bcrypt.net,bcrypt,MTO,false,true
+bcryptjs,bcrypt,MTO,false,true
+bdd cucumber,Cucumber,MTO,false,true
+bdd specflow,SpecFlow,MTO,false,true
+beam,Apache Beam,MTO,true,true
+beam virtual machine,beam vm,MTO,false,true
+behat php,Behat,MTO,false,true
+behave BDD,behave,MTO,false,true
+behave framework,behave,MTO,false,true
+bench php,PHPBench,MTO,false,true
+bench swift,SwiftBench,MTO,false,true
+benchmark,Benchmark.js,MTO,false,false
+benchmarkjs,Benchmark.js,MTO,false,true
+bento,BentoML for Agents,MTO,false,true
+bento ml,BentoML for Agents,MTO,false,true
+bento ml for agents,BentoML for Agents,MTO,false,true
+bentoml,BentoML for Agents,MTO,false,true
+bentoml agents,BentoML for Agents,MTO,false,true
+big cache,bigcache,MTO,false,true
+big-cache,bigcache,MTO,false,true
+bigquery,Google BigQuery,MTO,false,true
+binary JSON,BSON,MTO,false,true
+bindata,go-bindata,MTO,false,true
+bindgen,wasm-bindgen,MTO,false,true
+bit bucket,Bitbucket,MTO,false,true
+bit component hub,Bit,MTO,false,true
+bit torrent,BitTorrent Protocol,MTO,false,true
+bit.dev,Bit,MTO,false,true
+bitbucket.org,Bitbucket,MTO,false,true
+bittorrent,BitTorrent Protocol,MTO,false,true
+blazor unit testing,Bunit,MTO,false,true
+blazor wasm,Blazor,MTO,false,true
+blazor webassembly,Blazor,MTO,false,true
+blazored local storage,Blazored.LocalStorage,MTO,false,true
+blazored localstorage,Blazored.LocalStorage,MTO,false,true
+blazored modal,Blazored.Modal,MTO,false,true
+blazored toast,Blazored.Toast,MTO,false,true
+blitz,Blitz.js,MTO,false,true
+blitzjs,Blitz.js,MTO,false,true
+blockstack clarity,Clarity,MTO,false,true
+blueprint,BlueprintJS,MTO,false,true
+blueprint framework,BlueprintJS,MTO,false,true
+blueprint js,BlueprintJS,MTO,false,true
+blueprint.js,BlueprintJS,MTO,false,true
+bok,bokeh,MTO,true,true
+boke,bokeh,MTO,true,true
+bon mot,BonMot,MTO,false,true
+bonmot swift,BonMot,MTO,false,true
+boof cv,BoofCV,MTO,false,true
+bookshelf.js,Bookshelf,MTO,false,true
+boomerang.js,Boomerang,MTO,false,true
+boot strap,Bootstrap,MTO,false,false
+bot framework,Microsoft Bot Framework,MTO,false,true
+boto core,botocore,MTO,false,true
+boto-core,botocore,MTO,false,true
+brain,Brain.js,MTO,false,true
+braintree android,Braintree Android SDK,MTO,false,true
+bravado-client,bravado,MTO,false,true
+bridge,Bridge.NET,MTO,false,false
+brooklyn,Apache Brooklyn,MTO,false,true
+brooklyn management,Apache Brooklyn,MTO,false,true
+browser stack,BrowserStack,MTO,false,true
+browsers list,Browserslist,MTO,false,true
+bt protocol,BitTorrent Protocol,MTO,false,true
+btc,bitcoin,MTO,true,true
+btop monitor,btop,MTO,false,true
+btop++,btop,MTO,false,true
+buffalo framework,Buffalo,MTO,false,true
+bull queue,bull,MTO,false,true
+bulma css,Bulma,MTO,false,true
+bulmacss,Bulma,MTO,false,true
+bundle,Bundler,MTO,false,true
+burp,Burp Suite,MTO,true,true
+burpsuite,Burp Suite,MTO,false,true
+butterknife,Butter Knife,MTO,false,true
+butterknife library,Butter Knife,MTO,false,true
+c language,C,MTO,false,false
+c plus plus,C++,MTO,false,false
+c# cake,Cake,MTO,false,true
+c# to javascript,Bridge.NET,MTO,false,true
+c#2js,Bridge.NET,MTO,false,true
+c7n,Cloud Custodian,MTO,true,true
+cURL command line,cURL,MTO,false,true
+cache swift,Swift Cache,MTO,false,true
+cache tools,cachetools,MTO,false,true
+cached crate,rust cached,MTO,false,true
+cached rust,rust cached,MTO,false,true
+caddy web server,Caddy,MTO,false,true
+cake php,CakePHP,MTO,false,true
+camel,Apache Camel,MTO,false,true
+can framework,CanJS,MTO,false,true
+can js,CanJS,MTO,false,true
+capella,Couchbase Capella,MTO,false,true
+cappybara,Capybara,MTO,false,true
+capy bar a,Capybara,MTO,false,true
+capybara ruby,Capybara,MTO,false,true
+carbon design,Carbon Design System,MTO,false,true
+carbon ds,Carbon Design System,MTO,false,true
+caret package,caret,MTO,false,true
+cargo rust,Cargo,MTO,false,true
+carto platform,Carto,MTO,false,true
+cascading style sheets,CSS,MTO,false,false
+cbor,cbor2,MTO,true,false
+cbor-2,cbor2,MTO,false,false
+cdk,AWS CDK,MTO,true,true
+celery flower,Flower,MTO,false,true
+celery task queue,Celery,MTO,false,true
+celerybeat,Celery,MTO,false,true
+ceptrion,Codeception,MTO,false,true
+certificate manager,cert-manager,MTO,false,true
+certmanager,cert-manager,MTO,false,true
+chai.js,chai,MTO,false,true
+chakra,Chakra UI,MTO,false,true
+chakraui,Chakra UI,MTO,false,true
+change sets,Changesets,MTO,false,true
+changeset,Changesets,MTO,false,true
+charles,Charles Proxy,MTO,false,true
+chart php,pChart,MTO,false,true
+chartjs,Chart.js,MTO,false,true
+charts,Chart.js,MTO,false,true
+charts swift,iOS Charts,MTO,false,true
+chatgpt,ChatGPT.js,MTO,false,true
+chatgpt-node,ChatGPT.js,MTO,false,true
+chef automation,Chef,MTO,false,true
+chef configuration,Chef,MTO,false,true
+cherokee web server,Cherokee,MTO,false,true
+cherry py,CherryPy,MTO,false,true
+cherry-py,CherryPy,MTO,false,true
+chi framework,Chi,MTO,false,true
+chi router,Chi,MTO,false,true
+chicagoboss,Chicago Boss,MTO,false,true
+chroma,ChromaDB,MTO,false,true
+chroma database,ChromaDB,MTO,false,true
+chroma db,ChromaDB,MTO,false,true
+chrome developer tools,Chrome DevTools,MTO,false,true
+chrome dp,chromedp,MTO,false,true
+chrome lighthouse,Lighthouse,MTO,false,true
+chromed p,chromedp,MTO,false,true
+circle ci,CircleCI,MTO,false,true
+circle continuous integration,CircleCI,MTO,false,true
+classic vb,Visual Basic,MTO,false,true
+clear ml,ClearML,MTO,false,true
+clearml ops,ClearML,MTO,false,true
+clinic,Clinic.js,MTO,false,true
+clinicjs,Clinic.js,MTO,false,true
+clisp,Lisp,MTO,false,true
+clojure lang,Clojure,MTO,false,true
+cloud composer,Composer,MTO,false,true
+cloud config,Spring Cloud Config,MTO,false,true
+cloud health,CloudHealth,MTO,false,true
+cloud sql,Google Cloud SQL,MTO,false,true
+cloudhealth by vmware,CloudHealth,MTO,false,true
+cmake build system,cmake,MTO,false,true
+cobol 2002,COBOL,MTO,false,true
+cobol 85,COBOL,MTO,false,true
+cocoa pods,cocoapods,MTO,false,true
+cocoa touch,iOS (Native),MTO,false,true
+codahale metrics,Dropwizard Metrics,MTO,false,true
+code ception,Codeception,MTO,false,true
+code climate analytics,Code Climate,MTO,false,true
+codeclimate,Code Climate,MTO,false,true
+coffee script,CoffeeScript,MTO,false,true
+colab,Google Colab,MTO,false,true
+comma-separated values,CSV,MTO,false,true
+common lisp,Lisp,MTO,false,true
+commons dbcp,Apache Commons DBCP,MTO,false,true
+commons email,Apache Commons Email,MTO,false,true
+commons math,Apache Commons Math,MTO,false,true
+component explorer,Storybook,MTO,false,true
+compose,Jetpack Compose,MTO,false,true
+compression middleware,compression,MTO,false,true
+compromise.js,compromise,MTO,false,true
+concise binary object representation,cbor2,MTO,false,false
+confusion matrix,ml-confusion-matrix,MTO,false,true
+connect,Kafka Connect,MTO,false,false
+console,Symfony Console,MTO,false,true
+console component,Symfony Console,MTO,false,true
+constrained application protocol,CoAP,MTO,false,true
+constraint layout,ConstraintLayout,MTO,false,true
+context-aware toolkit,Context Toolkit,MTO,false,true
+control tower,AWS Control Tower,MTO,false,true
+controls fx,ControlsFX,MTO,false,true
+controlsfx library,ControlsFX,MTO,false,true
+controltower,AWS Control Tower,MTO,false,true
+convnet.js,ConvNetJS,MTO,false,true
+cordova,Apache Cordova,MTO,false,true
+corenlp,Stanford NLP,MTO,false,true
+corona,Corona SDK (Solar2D),MTO,false,true
+corona sdk,Corona SDK (Solar2D),MTO,false,true
+cosmos db,Azure Cosmos DB,MTO,false,true
+cost estimation,Infracost,MTO,false,true
+couchbase cloud,Couchbase Capella,MTO,false,true
+countly analytics,Countly,MTO,false,true
+cpp,C++,MTO,true,false
+cpp cms,CppCMS,MTO,false,true
+cron,robfig/cron,MTO,true,true
+cron 4j,cron4j,MTO,false,true
+cron crate,cron rust,MTO,false,true
+cron swift,SwiftCron,MTO,false,true
+cron tab ui,Crontab UI,MTO,false,true
+cron.js,robfig/cron,MTO,false,true
+crontabui,Crontab UI,MTO,false,true
+cross browser testing,CrossBrowserTesting,MTO,false,true
+cross-origin resource sharing,cors,MTO,false,true
+crunch,Apache Crunch,MTO,false,true
+crystal lang,Crystal,MTO,false,true
+crystal shards,shards,MTO,false,true
+csb,CodeSandbox,MTO,true,true
+csharp cake build,Cake,MTO,false,true
+csharp kubernetes client,kubernetes-client,MTO,false,true
+css columns,CSS Multi-Column Layout,MTO,false,true
+css grid layout,CSS Grid,MTO,false,true
+css multi-column,CSS Multi-Column Layout,MTO,false,true
+ctools,cachetools,MTO,false,true
+cuckoo swift,Cuckoo,MTO,false,true
+cucumber bdd,Cucumber,MTO,false,true
+cucumber-java,Cucumber,MTO,false,true
+cucumber.js,Cucumber,MTO,false,true
+cucumberjs,Cucumber,MTO,false,true
+cuda toolkit,CUDA,MTO,false,true
+cuke,Cucumber,MTO,true,true
+custodian,Cloud Custodian,MTO,false,true
+cv2,OpenCV,MTO,true,false
+cyber ark,CyberArk,MTO,false,true
+cyberark iam,CyberArk,MTO,false,true
+cyberark pam,CyberArk,MTO,false,true
+cypress component,Cypress Component Testing,MTO,false,true
+cypress testing,Cypress,MTO,false,false
+cypress.io,Cypress,MTO,false,false
+d beaver,DBeaver,MTO,false,true
+d lang,D,MTO,false,true
+d language,D,MTO,false,true
+d-checks,deepchecks,MTO,false,true
+d-lib,dlib,MTO,false,true
+d3js,D3.js,MTO,true,true
+dagger,Dagger 2,MTO,false,true
+dagger android,Dagger 2,MTO,false,true
+dalli cache,Dalli,MTO,false,true
+dally,Dalli,MTO,false,true
+danfo,Danfo.js,MTO,false,true
+danfojs,Danfo.js,MTO,false,true
+dartlang,Dart,MTO,false,false
+daru data analysis,Daru,MTO,false,true
+daru library,Daru,MTO,false,true
+darwin information typing architecture,DITA,MTO,false,true
+dask arrays,Dask,MTO,false,true
+dask dataframe,Dask,MTO,false,true
+daskml,Dask-ML,MTO,false,true
+data build tool,dbt,MTO,false,true
+data dog,Datadog,MTO,false,true
+data factory,Azure Data Factory,MTO,false,true
+data fusion,DataFusion,MTO,false,true
+data grip,DataGrip,MTO,false,true
+data robot,DataRobot,MTO,false,true
+data snap,DataSnap,MTO,false,true
+data table,data.table,MTO,false,true
+data vec,DataVec,MTO,false,true
+data version control,DVC,MTO,false,true
+database respawn,Respawn,MTO,false,true
+databasecleaner,Database Cleaner,MTO,false,true
+databricks,Databricks for Retail,MTO,false,true
+databricks ai,Databricks for Retail,MTO,false,true
+databricks ai platform,Databricks for Retail,MTO,false,true
+databricks platform,Databricks for Retail,MTO,false,true
+databricks query,Databricks for Retail,MTO,false,true
+databricks retail,Databricks for Retail,MTO,false,true
+databricks sql,Databricks for Retail,MTO,false,true
+databricks unified analytics,Databricks for Retail,MTO,false,true
+datadog monitoring,Datadog,MTO,false,true
+datadog observability,Datadog,MTO,false,true
+dataforge,Data-Forge,MTO,false,true
+dataframe for .net,Deedle,MTO,false,true
+dataframes,DataFrames.jl,MTO,false,true
+datafusion rust,DataFusion,MTO,false,true
+datarobot platform,DataRobot,MTO,false,true
+datatable,data.table,MTO,false,true
+dav,WebDAV,MTO,true,true
+db browser,DB Browser for SQLite,MTO,false,true
+db cleaner,Database Cleaner,MTO,false,true
+db eaver,DBeaver,MTO,false,true
+db flow,DBFlow,MTO,false,true
+db testing swift,SwiftDBTesting,MTO,false,true
+db unit,DBUnit,MTO,false,true
+dbcp,Apache Commons DBCP,MTO,true,true
+dbeaver community,DBeaver,MTO,false,true
+dbg,Debug,MTO,true,true
+dbsql,Databricks for Retail,MTO,false,true
+dbt tool,dbt,MTO,false,true
+dbunit php,PHP DBUnit,MTO,false,true
+dear py gui,Dear PyGui,MTO,false,true
+dearpygui,Dear PyGui,MTO,false,true
+debug.js,Debug,MTO,false,true
+deedle.net,Deedle,MTO,false,true
+deep checks,deepchecks,MTO,false,true
+deep java library,Deep Java Library (DJL),MTO,false,true
+deep speed,DeepSpeed,MTO,false,true
+deeplearning4j datavec,DataVec,MTO,false,true
+deeplearning4j nd4j,ND4J,MTO,false,true
+deepspeed library,DeepSpeed,MTO,false,true
+deequ data quality,Deequ,MTO,false,true
+delphi pascal,Delphi,MTO,false,true
+delta-v,WebDAV,MTO,false,true
+detox testing,Detox,MTO,false,true
+dev extreme,DevExtreme,MTO,false,true
+devextreme ui,DevExtreme,MTO,false,true
+device farm,AWS Device Farm,MTO,false,true
+device info kit,DeviceKit,MTO,false,true
+device kit,DeviceKit,MTO,false,true
+diesel orm,Diesel,MTO,false,true
+diesel rust,Diesel,MTO,false,true
+djl,Deep Java Library (DJL),MTO,true,true
+dl4j,Deeplearning4j,MTO,true,true
+dl4j arbiter,Arbiter,MTO,false,true
+docker cli,Docker,MTO,false,false
+docker client,docker-java,MTO,false,true
+docker container,Docker,MTO,false,false
+docker dotnet,Docker.DotNet,MTO,false,true
+docker engine,Docker,MTO,false,false
+docker java client,docker-java,MTO,false,true
+docker ode,Dockerode,MTO,false,true
+docker python sdk,Docker SDK for Python,MTO,false,true
+docker-ode,Dockerode,MTO,false,true
+docker-py,Docker SDK for Python,MTO,false,true
+doctrin orm,Doctrine ORM,MTO,false,true
+doctrine,Doctrine ORM,MTO,false,true
+dog pile cache,dogpile.cache,MTO,false,true
+dogpilecache,dogpile.cache,MTO,false,true
+doit automation,doit,MTO,false,true
+doit task runner,doit,MTO,false,true
+dojo toolkit,Dojo,MTO,false,true
+dojo.js,Dojo,MTO,false,true
+dojotoolkit,Dojo,MTO,false,true
+domain name server,DNS,MTO,false,false
+domain name system,DNS,MTO,false,false
+dotnet command-line,dotnet cli,MTO,false,true
+dpg,Dear PyGui,MTO,true,true
+dplyer,dplyr,MTO,false,true
+dplyr library,dplyr,MTO,false,true
+dplyr package,dplyr,MTO,false,true
+dr watson,DrWatson.jl,MTO,false,true
+dramatic,Dramatiq,MTO,false,true
+dramatique,Dramatiq,MTO,false,true
+drawing exchange format,DXF,MTO,false,true
+drf,Django REST Framework,MTO,true,false
+drone ci,Drone,MTO,false,true
+drone ci/cd,Drone,MTO,false,true
+drone continuous integration,Drone,MTO,false,true
+drop wizard,Dropwizard,MTO,false,true
+druid,Apache Druid,MTO,false,true
+druid analytics,Apache Druid,MTO,false,true
+druid database,Apache Druid,MTO,false,true
+dub package manager,dub,MTO,false,true
+dynamodb,AWS DynamoDB,MTO,false,true
+e charts,ECharts,MTO,false,true
+eXist database,eXist-db,MTO,false,true
+eXist-db database,eXist-db,MTO,false,true
+easy caching,EasyCaching,MTO,false,true
+easy net q,EasyNetQ,MTO,false,true
+echarts go,go-echarts,MTO,false,true
+echarts library,ECharts,MTO,false,true
+eclipse jetty,Jetty,MTO,false,true
+eclipse jubula,Jubula,MTO,false,true
+eclipse rich client platform,Eclipse RCP,MTO,false,true
+eclipse swt,SWT,MTO,false,true
+eel library,Eel,MTO,false,true
+ef core,Entity Framework Core,MTO,false,true
+efcore,Entity Framework Core,MTO,false,true
+efficient java matrix library,EJML,MTO,false,true
+eggplant functional testing,Eggplant,MTO,false,true
+egit jgit,JGit,MTO,false,true
+eh cache,Ehcache,MTO,false,true
+eiffel lang,Eiffel,MTO,false,true
+ej2,Syncfusion Essential JS 2,MTO,true,true
+elastic apm,elastic-apm-node,MTO,false,true
+elastic beanstalk,AWS Elastic Beanstalk,MTO,false,true
+elastic cloud,Elasticsearch Service,MTO,false,true
+elastic go,olivere/elastic,MTO,false,true
+elastic hq,ElasticHQ,MTO,false,true
+elastic lunr,elasticlunr,MTO,false,true
+elastic search,elasticsearch,MTO,false,true
+elastic swift,ElasticSwift,MTO,false,true
+elasticsearch client,Elasticsearch Java API Client,MTO,false,true
+elasticsearch java,Elasticsearch Java API Client,MTO,false,true
+elasticsearch management,ElasticHQ,MTO,false,true
+elasticsearch nest,Nest,MTO,false,true
+elasticsearch php client,Elasticsearch-PHP,MTO,false,true
+elasticsearch-py,Elasticsearch Java API Client,MTO,false,true
+electron js,electron,MTO,false,true
+electron.js,electron,MTO,false,true
+element,Element UI,MTO,false,false
+elementui,Element UI,MTO,false,true
+eli5 library,Eli5,MTO,false,true
+elixir lang,Elixir,MTO,false,true
+elk,ELK Stack,MTO,true,true
+elm lang,Elm,MTO,false,true
+elm language,Elm,MTO,false,true
+elm-lang,Elm,MTO,false,true
+eloquent,eloquent orm,MTO,false,true
+email library,emails,MTO,false,true
+ember,Ember.js,MTO,false,true
+ember js,Ember.js,MTO,false,true
+engine io,engine.io,MTO,false,true
+engine x,Nginx,MTO,false,false
+enzyme.js,Enzyme,MTO,false,true
+epicor,Epicor,MTO,false,false
+erlang lang,Erlang,MTO,false,true
+es lint,ESLint,MTO,false,false
+es net,Elasticsearch.Net,MTO,false,true
+es php,Elasticsearch-PHP,MTO,false,true
+es ruby,elasticsearch-ruby,MTO,false,true
+es service,Elasticsearch Service,MTO,false,true
+es-lint,ESLint,MTO,false,false
+es-py,Elasticsearch Java API Client,MTO,false,true
+es6,JavaScript,MTO,true,false
+esapi,OWASP ESAPI,MTO,false,true
+espresso testing,Espresso,MTO,false,true
+esri arcgis,ArcGIS,MTO,false,true
+essentia,Essentia.js,MTO,false,true
+essential js 2,Syncfusion Essential JS 2,MTO,false,true
+essentials,Xamarin.Essentials,MTO,false,true
+estimote,Estimote SDK,MTO,false,true
+estimote beacons,Estimote SDK,MTO,false,true
+estimote kotlin,Estimote SDK,MTO,false,true
+eth,ethereum,MTO,true,true
+ethereum virtual machine,evm,MTO,false,true
+eureka,Netflix Eureka,MTO,false,true
+evals,OpenAI Evals,MTO,false,true
+evaluation harness,LM Evaluation Harness,MTO,false,true
+event hubs,Azure Event Hubs,MTO,false,true
+evergreen framework,Evergreen,MTO,false,true
+evergreen ui,Evergreen,MTO,false,true
+evergreenui,Evergreen,MTO,false,true
+evidently ai,Evidently,MTO,false,true
+evidentlyAI,Evidently,MTO,false,true
+exo player,ExoPlayer,MTO,false,true
+explain like I'm 5,Eli5,MTO,false,true
+explorer,Elixir Explorer,MTO,false,true
+explorer elixir,Elixir Explorer,MTO,false,true
+express js,Express.js,MTO,false,false
+expressjs,Express.js,MTO,false,false
+ext js framework,Ext JS,MTO,false,true
+extended backus-naur form,EBNF,MTO,false,true
+extensible application markup language,XAML,MTO,false,true
+extensible business reporting language,XBRL,MTO,false,true
+extensible markup language,lxml,MTO,false,false
+extensible messaging and presence protocol,XMPP,MTO,false,true
+extjs,Ext JS,MTO,false,true
+f sharp,F#,MTO,false,true
+fabric8,Fabric8 Kubernetes Client,MTO,false,true
+fabric8 client,Fabric8 Kubernetes Client,MTO,false,true
+face api,face-api.js,MTO,false,true
+faceapi,face-api.js,MTO,false,true
+facebook faiss,FAISS,MTO,false,true
+facebook prophet,Prophet,MTO,false,true
+facebook stetho,Stetho,MTO,false,true
+fair learn,Fairlearn,MTO,false,true
+fair learning,Fairlearn,MTO,false,true
+fair models,fairmodels,MTO,false,true
+fairmodels package,fairmodels,MTO,false,true
+faiss library,FAISS,MTO,false,true
+fast api,FastAPI,MTO,false,false
+fast chat,FastChat,MTO,false,true
+fast lane,Fastlane,MTO,false,true
+fast networking,Fast Android Networking,MTO,false,true
+fast-chat,FastChat,MTO,false,true
+fastcache,phpfastcache,MTO,false,true
+fastcheck,fast-check,MTO,false,true
+fauna database,Fauna,MTO,false,true
+fauna db,Fauna,MTO,false,true
+faye messaging,Faye,MTO,false,true
+faye ruby,Faye,MTO,false,true
+fbprophet,Prophet,MTO,false,true
+fcm,Firebase Cloud Messaging,MTO,true,true
+feathers,FeathersJS,MTO,false,true
+feathers js,FeathersJS,MTO,false,true
+feature tools,Featuretools,MTO,false,true
+fenzo,Netflix Fenzo,MTO,false,true
+fenzo scheduler,Netflix Fenzo,MTO,false,true
+fetch,node-fetch,MTO,false,true
+ff image loading,FFImageLoading,MTO,false,true
+ffmpeg wasm,ffmpeg.wasm,MTO,false,true
+ffmpeg.wasm.js,ffmpeg.wasm,MTO,false,true
+fiddler,Fiddler AI,MTO,false,true
+figma collaboration,Figma,MTO,false,false
+figma design,Figma,MTO,false,false
+file transfer protocol,FTP,MTO,false,true
+firebase analytics sdk,Firebase Analytics,MTO,false,true
+firebase auth,Firebase Authentication,MTO,false,true
+firebase command line,Firebase CLI,MTO,false,true
+firebase messaging,Firebase Cloud Messaging,MTO,false,true
+firebase testing,Firebase Test Lab,MTO,false,true
+firebolt data warehouse,Firebolt,MTO,false,true
+firefox devtools,Firefox Developer Tools,MTO,false,true
+fit nesse,FitNesse,MTO,false,true
+flanker email,flanker,MTO,false,true
+flanker library,flanker,MTO,false,true
+flat laf,FlatLaf,MTO,false,true
+flat look and feel,FlatLaf,MTO,false,true
+flax library,Flax,MTO,false,true
+flax.linen,Flax,MTO,false,true
+flex layout,CSS Flexbox,MTO,false,true
+flexbox,CSS Flexbox,MTO,false,true
+fluent assertions,FluentAssertions,MTO,false,true
+fluent email,FluentEmail,MTO,false,true
+fluent ribbon,Fluent.Ribbon,MTO,false,true
+fluent scheduler,FluentScheduler,MTO,false,true
+flurl http,Flurl,MTO,false,true
+flurl.http,Flurl,MTO,false,true
+flurry analytics,Flurry,MTO,false,true
+flutter framework,Flutter,MTO,false,false
+flutter sdk,Flutter,MTO,false,false
+flux,Flux CD,MTO,true,true
+flux (machine learning),Flux.jl,MTO,false,true
+flux continuous delivery,Flux CD,MTO,false,true
+flux gitops,Flux CD,MTO,false,true
+fluxcd,Flux CD,MTO,false,true
+folium maps,folium,MTO,false,true
+fomantic,Fomantic UI,MTO,false,true
+fomanticui,Fomantic UI,MTO,false,true
+forecast package,forecast,MTO,false,true
+forms swift,SwiftForms,MTO,false,true
+forth lang,Forth,MTO,false,true
+fortran 2003,Fortran,MTO,false,true
+fortran 2018,Fortran,MTO,false,true
+fortran 77,Fortran,MTO,false,true
+fortran 90,Fortran,MTO,false,true
+fortran 95,Fortran,MTO,false,true
+foundation css,Foundation,MTO,false,true
+fractal.js,Fractal,MTO,false,true
+frames library,frames,MTO,false,true
+framework 7,Framework7,MTO,false,true
+free marker,FreeMarker,MTO,false,true
+friend of a friend,FOAF,MTO,false,true
+frisby,Frisby.js,MTO,false,true
+fsharp,F#,MTO,false,true
+ftp-ssl,FTP,MTO,false,true
+ftps,FTP,MTO,true,true
+fuel php,FuelPHP,MTO,false,true
+fx router,FXRouter,MTO,false,true
+fxyz 3d,FXyz,MTO,false,true
+fxyz3d,FXyz,MTO,false,true
+fyne go,Fyne,MTO,false,true
+fyne toolkit,Fyne,MTO,false,true
+gRPC Protobuf,gRPC,MTO,false,true
+gRPC/Protobuff,gRPC,MTO,false,true
+ga bridge,React Native Google Analytics Bridge,MTO,false,true
+ga mobile,Google Analytics for Mobile,MTO,false,true
+gadfly library,Gadfly,MTO,false,true
+gadfly plotting,Gadfly,MTO,false,true
+gama platform,GAMA,MTO,false,true
+gapi client,google-api-python-client,MTO,false,true
+gatling load testing,Gatling,MTO,false,true
+gatling tool,Gatling,MTO,false,true
+gatsby js,Gatsby,MTO,false,true
+gatsby.js,Gatsby,MTO,false,true
+gatsbyjs,Gatsby,MTO,false,true
+gawk,AWK,MTO,true,true
+gcp,Google Cloud Platform,MTO,true,false
+gcp bigquery,Google BigQuery,MTO,false,true
+gcp cloud sql,Google Cloud SQL,MTO,false,true
+gcp composer,Composer,MTO,false,true
+gcp pub/sub,Google Pub/Sub,MTO,false,true
+gcp pubsub,Google Pub/Sub,MTO,false,true
+gcp vertex ai,Google Vertex AI,MTO,false,true
+gdal julia,ArchGDAL.jl,MTO,false,true
+gen-sim,Gensim,MTO,false,true
+generalized linear models,GLM.jl,MTO,false,true
+geo,rust geo,MTO,true,true
+geo pandas,geopandas,MTO,false,true
+geo rust,rust geo,MTO,false,true
+geo tools,GeoTools,MTO,false,true
+geography markup language,GML,MTO,false,true
+geolib.js,Geolib,MTO,false,true
+geolocation service,React Native Geolocation Service,MTO,false,true
+geometry haskell,hgeometry,MTO,false,true
+geospatial rust,rust geo,MTO,false,true
+ggplot,ggplot2,MTO,false,true
+ggplot2 library,ggplot2,MTO,false,true
+gh actions,GitHub Actions,MTO,false,false
+ghc haskell,Haskell,MTO,false,true
+ginkgo go,Ginkgo,MTO,false,true
+git hub,GitHub,MTO,false,false
+git hub actions,GitHub Actions,MTO,false,false
+git lab,GitLab,MTO,false,false
+git python,GitPython,MTO,false,true
+github package registry,GitHub Packages,MTO,false,true
+github workflows,GitHub Actions,MTO,false,false
+github.com,GitHub,MTO,false,false
+gitlab continuous integration,GitLab CI,MTO,false,true
+gitlab pipelines,GitLab CI,MTO,false,true
+gitlab.com,GitLab,MTO,false,false
+glide image loader,Glide,MTO,false,true
+glm,GLM.jl,MTO,true,true
+gnu compiler collection,gcc,MTO,false,true
+gnu octave,Octave,MTO,false,true
+go ahead web server,GoAhead Web Server,MTO,false,true
+go alice,Alice,MTO,false,true
+go craft work,gocraft/work,MTO,false,true
+go ginkgo,Ginkgo,MTO,false,true
+go httpexpect,httpexpect,MTO,false,true
+go learn,Golearn,MTO,false,true
+go logrus,logrus,MTO,false,true
+go mail,Gomail,MTO,false,true
+go mock,gomock,MTO,false,true
+go mod,Go Modules,MTO,false,true
+go nosurf,nosurf,MTO,false,true
+go orm,GORM,MTO,false,true
+go pq,pq,MTO,false,true
+go resty,Resty,MTO,false,true
+go sql driver,go-sql-driver/mysql,MTO,false,true
+go sqlmock,sqlmock,MTO,false,true
+go testify,testify,MTO,false,true
+go watermill,Watermill,MTO,false,true
+goahead,GoAhead Web Server,MTO,false,true
+golang,Go,MTO,false,false
+gomail library,Gomail,MTO,false,true
+gomock library,gomock,MTO,false,true
+gomod,Go Modules,MTO,false,true
+gonum library,Gonum,MTO,false,true
+gonum package,Gonum,MTO,false,true
+gonumplot,Gonum/plot,MTO,false,true
+google ai platform,Google Vertex AI,MTO,false,true
+google anthos,Anthos,MTO,false,true
+google apps script,gas,MTO,false,true
+google cloud,Google Cloud Platform,MTO,false,false
+google colab notebook,Google Colab,MTO,false,true
+google composer,Composer,MTO,false,true
+google dataflow,GCP Dataflow,MTO,false,true
+google firebase analytics,Firebase Analytics,MTO,false,true
+google lighthouse,Lighthouse,MTO,false,true
+google location,Fused Location Provider,MTO,false,true
+google location services,Fused Location Provider,MTO,false,true
+google looker,Looker,MTO,false,true
+google pay,Google Pay API,MTO,false,true
+google protobuf,Protobuf,MTO,false,false
+google pubsub,Google Pub/Sub,MTO,false,true
+google quic,QUIC,MTO,false,true
+google remote procedure call,gRPC,MTO,false,true
+google vertex,Google Vertex AI,MTO,false,true
+google vertex ai with gemini models,Google Vertex AI,MTO,false,true
+google vertex gemini,Google Vertex AI,MTO,false,true
+google web toolkit,Google Web Toolkit (GWT),MTO,false,true
+googleapiclient,google-api-python-client,MTO,false,true
+goose rust,Goose,MTO,false,true
+gorgonia library,Gorgonia,MTO,false,true
+gorm golang,GORM,MTO,false,true
+got.js,got,MTO,false,true
+gota dataframe,Gota,MTO,false,true
+gota library,Gota,MTO,false,true
+gpay,Google Pay API,MTO,true,true
+gpd,geopandas,MTO,true,true
+gpg,GnuPG,MTO,true,true
+gpt index,LlamaIndex,MTO,false,true
+gpt3 encoder,GPT-3-Encoder,MTO,false,true
+graal vm,graalvm,MTO,false,true
+gradle build,Gradle,MTO,false,true
+gradle build tool,Gradle,MTO,false,true
+grafana cloud,Grafana,MTO,false,true
+grafana cloud monitoring,Grafana,MTO,false,true
+grafana dashboard,Grafana,MTO,false,true
+grafana monitoring,Grafana,MTO,false,true
+grails framework,Grails,MTO,false,true
+graph markup language,GraphML,MTO,false,true
+graph query language,GraphQL,MTO,false,false
+graphql client,Apollo Client,MTO,false,true
+gray log,Graylog Cloud,MTO,false,false
+gray log cloud,Graylog Cloud,MTO,false,false
+graylog,Graylog Cloud,MTO,false,false
+graylog server,Graylog Cloud,MTO,false,false
+grdb,GRDB.swift,MTO,true,true
+grdb swift,GRDB.swift,MTO,false,true
+great exp,Great Expectations,MTO,false,true
+great expectations framework,Great Expectations,MTO,false,true
+great expectations library,Great Expectations,MTO,false,true
+green dao,GreenDAO,MTO,false,true
+green unicorn,Gunicorn,MTO,false,true
+greenrobot eventbus,EventBus,MTO,false,true
+greensock,GSAP,MTO,false,true
+grid layout,CSS Grid,MTO,false,true
+griffon framework,Griffon,MTO,false,true
+grizzly http server,Grizzly,MTO,false,true
+grommet framework,Grommet,MTO,false,true
+grommet ui,Grommet,MTO,false,true
+gruff chart,Gruff,MTO,false,true
+gruff graph,Gruff,MTO,false,true
+gulp.js,gulp,MTO,false,true
+guzzle client,Guzzle,MTO,false,true
+guzzlehttp,Guzzle,MTO,false,true
+gwan,G-WAN,MTO,true,true
+gwt,Google Web Toolkit (GWT),MTO,true,true
+gwt toolkit,Google Web Toolkit (GWT),MTO,false,true
+gyro,Gyro.js,MTO,true,true
+h geometry,hgeometry,MTO,false,true
+h2o3,H2O-3,MTO,true,true
+hammer,Hammer.js,MTO,false,true
+hang fire,Hangfire,MTO,false,true
+hapi js,Hapi.js,MTO,false,true
+hapijs,Hapi.js,MTO,false,true
+harness cd,Harness,MTO,false,true
+harness continuous delivery,Harness,MTO,false,true
+harness.io,Harness,MTO,false,true
+hashicorp nomad,Nomad,MTO,false,true
+hashicorp secret manager,Vault,MTO,false,true
+hashicorp vault,Vault,MTO,false,true
+hask torch,Hasktorch,MTO,false,true
+haskell cabal,cabal,MTO,false,true
+haxe lang,Haxe,MTO,false,true
+haxe lib,haxelib,MTO,false,true
+hay stack,Haystack,MTO,false,true
+hay-stack,Haystack,MTO,false,true
+hcvault,Vault,MTO,false,true
+health insurance portability and accountability,HIPAA Compliance,MTO,false,true
+heidi sql,HeidiSQL,MTO,false,true
+helmet.js,helmet,MTO,false,true
+hey load,hey,MTO,false,true
+hey tool,hey,MTO,false,true
+hf transformers,Hugging Face Transformers,MTO,false,true
+hiawatha web server,Hiawatha,MTO,false,true
+hibernate,Hibernate ORM,MTO,false,true
+high charts,Highcharts,MTO,false,true
+hikari cp,HikariCP,MTO,false,true
+hipaa,HIPAA Compliance,MTO,false,true
+hipaa regulation,HIPAA Compliance,MTO,false,true
+hot jar,Hotjar,MTO,false,true
+hotjar analytics,Hotjar,MTO,false,true
+hp loadrunner,LoadRunner,MTO,false,true
+ht party,HTTParty,MTO,false,true
+html abstraction markup language,HAML,MTO,false,true
+http 2,HTTP,MTO,false,false
+http 3,HTTP,MTO,false,false
+http expect,httpexpect,MTO,false,true
+http mock,httpmock,MTO,false,true
+http nock,nock,MTO,false,true
+http party,HTTParty,MTO,false,true
+http pretty,HTTPretty,MTO,false,true
+http stubs,OHHTTPStubs,MTO,false,true
+http stubs swift,OHHTTPStubs,MTO,false,true
+http tower,tower-http,MTO,false,true
+http/1.0,HTTP,MTO,false,false
+http/1.1,HTTP,MTO,false,false
+http/2,HTTP,MTO,false,false
+http/3,HTTP,MTO,false,false
+http2,HTTP,MTO,false,false
+http3,HTTP,MTO,false,false
+httpd,Apache,MTO,false,false
+httpie cli,HTTPie,MTO,false,true
+httpie tool,HTTPie,MTO,false,true
+huey queue,Huey,MTO,false,true
+huggingface optimum,Optimum,MTO,false,true
+huggingface transformers,Hugging Face Transformers,MTO,false,true
+huntframework,Hunt Framework,MTO,false,true
+hvac python,hvac,MTO,false,true
+hyey,Huey,MTO,true,true
+hyper app,Hyperapp,MTO,false,true
+hyper optimization,Hyperopt,MTO,false,true
+hyper-opt,Hyperopt,MTO,false,true
+hyperoslo cache,Swift Cache,MTO,false,true
+hypertext markup language,HTML,MTO,false,false
+hypertext transfer protocol,HTTP,MTO,false,false
+hypo,hypothesis,MTO,true,true
+ibatis,MyBatis,MTO,false,true
+ibm carbon,Carbon Design System,MTO,false,true
+ibm carbon ds,Carbon Design System,MTO,false,true
+ibm rpg,RPG,MTO,false,true
+ibmiseriesbackenddevelopment,IBM iSeries Backend Development,MTO,false,true
+ibmmainframesystems,IBM Mainframe Systems,MTO,false,true
+icCube MDX server,icCube,MTO,false,true
+icCube OLAP server,icCube,MTO,false,true
+icCube server,icCube,MTO,false,true
+iced gui,Iced,MTO,false,true
+iced rust,Iced,MTO,false,true
+icmp protocol,ICMP,MTO,false,true
+identity model,IdentityModel,MTO,false,true
+idris lang,Idris,MTO,false,true
+ihs,IBM HTTP Server,MTO,true,true
+iis,Microsoft IIS,MTO,true,true
+iis 10,Microsoft IIS,MTO,false,true
+iis 7,Microsoft IIS,MTO,false,true
+iis 8,Microsoft IIS,MTO,false,true
+illustrator,Adobe Illustrator,MTO,false,true
+image io,imageio,MTO,false,true
+imager package,imager,MTO,false,true
+images,Images.jl,MTO,false,false
+imap4,IMAP,MTO,false,true
+imgio,imageio,MTO,false,true
+immutable js,Immutable.js,MTO,false,true
+immutablejs,Immutable.js,MTO,false,true
+in vision,InVision,MTO,false,true
+in-memory mongodb,mongodb-memory-server,MTO,false,true
+inferno js,Inferno,MTO,false,true
+inferno.js,Inferno,MTO,false,true
+infernoj,Inferno,MTO,false,true
+influx,InfluxDB,MTO,false,true
+influx db,InfluxDB,MTO,false,true
+infor,Infor,MTO,false,false
+informatica etl,Informatica,MTO,false,true
+informatica powercenter,Informatica,MTO,false,true
+infra cost,Infracost,MTO,false,true
+initial graphics exchange specification,IGES,MTO,false,true
+insomnia rest client,Insomnia,MTO,false,true
+insomnia tool,Insomnia,MTO,false,true
+integration capybara,Capybara,MTO,false,true
+intern.js,Intern,MTO,false,true
+internet control message protocol,ICMP,MTO,false,true
+internet information services,Microsoft IIS,MTO,false,true
+internet message access protocol,IMAP,MTO,false,true
+inv,invoke,MTO,true,true
+invision app,InVision,MTO,false,true
+invisionapp,InVision,MTO,false,true
+ionic app builder,Ionic Studio,MTO,false,true
+ionic framework,Ionic,MTO,false,true
+ios,iOS (Native),MTO,true,true
+ios sdk,iOS (Native),MTO,false,true
+ios stripe,Stripe iOS,MTO,false,true
+ios testing framework,XCUITest,MTO,false,true
+ipynb,Jupyter Notebook,MTO,false,true
+ipython notebook,Jupyter Notebook,MTO,false,true
+iris framework,Iris,MTO,false,true
+iso c,C,MTO,false,false
+iso-git,isomorphic-git,MTO,false,true
+isogit,isomorphic-git,MTO,false,true
+its dangerous,itsdangerous,MTO,false,true
+itsdangeros,itsdangerous,MTO,false,true
+ivy,Apache Ivy,MTO,true,true
+ivy dependency manager,Apache Ivy,MTO,false,true
+j behave,JBehave,MTO,false,true
+j given,JGiven,MTO,false,true
+j hipster,JHipster,MTO,false,true
+j meter,JMeter,MTO,false,true
+j o o q,jOOQ,MTO,false,true
+j query,jquery,MTO,false,true
+j tatto,JTattoo,MTO,false,true
+j unit,JUnit,MTO,false,true
+jabber,XMPP,MTO,false,true
+jade framework,JADE,MTO,false,true
+jadex agent,Jadex,MTO,false,true
+jakarta enterprise edition,Jakarta EE,MTO,false,true
+jakarta mail,JavaMail API,MTO,false,true
+jakartaee,Jakarta EE,MTO,false,true
+janitor,pyjanitor,MTO,false,true
+jasmine.js,Jasmine,MTO,false,true
+java awt,AWT,MTO,false,true
+java cv,JavaCV,MTO,false,true
+java fx,JavaFX,MTO,false,true
+java git,JGit,MTO,false,true
+java machine learning,Java-ML,MTO,false,true
+java microbenchmark harness,JMH,MTO,false,true
+java persistence,Java Persistence API (JPA),MTO,false,true
+java persistence api,Java Persistence API (JPA),MTO,false,true
+java realm,Realm Java,MTO,false,true
+java script,JavaScript,MTO,false,false
+java spring boot,Spring Boot,MTO,false,false
+java spring framework,Spring Framework,MTO,false,true
+java time series,JTimeSeries,MTO,false,true
+java velocity,Apache Velocity,MTO,false,true
+java virtual machine,jvm,MTO,false,true
+java-script,JavaScript,MTO,false,false
+javafx router,FXRouter,MTO,false,true
+javamail,JavaMail API,MTO,false,true
+javascript object notation,JSON,MTO,false,true
+javax swing,Swing,MTO,false,true
+jax lib,JAX,MTO,false,true
+jaxlib,JAX,MTO,false,true
+jboss drools,Drools,MTO,false,true
+jenkins automation,Jenkins,MTO,false,false
+jenkins ci,Jenkins,MTO,false,false
+jenkins pipeline,Jenkins,MTO,false,false
+jenkins server,Jenkins,MTO,false,false
+jestjs,Jest,MTO,false,false
+jet go,Jet,MTO,false,true
+jet template,Jet,MTO,false,true
+jetbrains datagrip,DataGrip,MTO,false,true
+jetbrains teamcity,TeamCity,MTO,false,true
+jetpack accompanist,Accompanist,MTO,false,true
+jetty server,Jetty,MTO,false,true
+jfree,JFreeChart,MTO,false,true
+jfree chart,JFreeChart,MTO,false,true
+jfrog artifactory,JFrog,MTO,false,true
+jfrog platform,JFrog,MTO,false,true
+jgoodies binder,JGoodies Binding,MTO,false,true
+jgoodies layout,JGoodies Forms,MTO,false,true
+jhipster generator,JHipster,MTO,false,true
+jide common,JIDE,MTO,false,true
+jide components,JIDE,MTO,false,true
+jjwt,Java JWT,MTO,true,true
+jmeter load testing,JMeter,MTO,false,true
+jmeter ruby,ruby-jmeter,MTO,false,true
+jmh benchmark,JMH,MTO,false,true
+jml,Java-ML,MTO,true,true
+jpa,Java Persistence API (JPA),MTO,true,true
+jpa eclipselink,EclipseLink,MTO,false,true
+jruby,Ruby,MTO,false,false
+jscript,JavaScript,MTO,false,false
+json schema form,React JSON Schema Form,MTO,false,true
+jss styling,JSS,MTO,false,true
+jtattoo look and feel,JTattoo,MTO,false,true
+jts,JTS Topology Suite,MTO,true,true
+julia db,JuliaDB,MTO,false,true
+julia lang,Julia,MTO,false,true
+junit framework,JUnit,MTO,false,true
+jupyter,Jupyter Notebook,MTO,false,true
+jupyter lab,JupyterLab,MTO,false,true
+k sql,KSQL,MTO,false,true
+k-sql,KSQL,MTO,false,true
+k6 load testing,k6,MTO,false,true
+k6 performance,k6,MTO,false,true
+k6.io,k6,MTO,false,true
+k8s,Kubernetes,INTERNAL,false,true
+k8s client,kubernetes-client,MTO,false,true
+k8s java client,Kubernetes Java Client,MTO,false,true
+k8s-client,kubernetes-client,MTO,false,true
+kafka,Apache Kafka,MTO,false,true
+kafka connector,Kafka Connect,MTO,false,true
+kafka gui,Apache Kafka,MTO,false,true
+kafka manager,Apache Kafka,MTO,false,true
+kafka streaming,Apache Kafka,MTO,false,true
+kafka tool,Apache Kafka,MTO,false,true
+kafka_py,kafka-python,MTO,false,true
+karate,Karate DSL,MTO,false,true
+karate api testing,Karate DSL,MTO,false,true
+karate framework,Karate DSL,MTO,false,true
+karma test runner,Karma,MTO,false,true
+kaspresso ui testing,Kaspresso,MTO,false,true
+katalon,Katalon Studio,MTO,false,true
+katalon automation,Katalon Studio,MTO,false,true
+keanu probabilistic programming,Keanu,MTO,false,true
+kedro pipeline,Kedro,MTO,false,true
+kedro.io,Kedro,MTO,false,true
+keep it functional,KIF,MTO,false,true
+kendo,Kendo UI,MTO,false,true
+kendoui,Kendo UI,MTO,false,true
+keras.io,Keras,MTO,false,false
+keras.js,KerasJS,MTO,false,true
+kestrel web server,Kestrel,MTO,false,true
+key clock,Keycloak,MTO,false,true
+key vault,Azure Key Vault,MTO,false,true
+keyclok,Keycloak,MTO,false,true
+keyhole markup language,KML,MTO,false,true
+keystone,KeystoneJS,MTO,false,true
+keystone.js,KeystoneJS,MTO,false,true
+kf pipelines,Kubeflow Pipelines,MTO,false,true
+kif ios,KIF,MTO,false,true
+kinesis,Amazon Kinesis,MTO,false,true
+king fisher,Kingfisher,MTO,false,true
+kingfisher swift,Kingfisher,MTO,false,true
+kivy framework,Kivy,MTO,false,true
+kmm,Kotlin Multiplatform Mobile,MTO,true,true
+knime analytics,KNIME,MTO,false,true
+knime analytics platform,KNIME,MTO,false,true
+knime platform,KNIME,MTO,false,true
+koa js,Koa.js,MTO,false,true
+koajs,Koa.js,MTO,false,true
+kodein dependency injection,Kodein,MTO,false,true
+kodein di,Kodein,MTO,false,true
+koin dependency injection,Koin,MTO,false,true
+koin di,Koin,MTO,false,true
+kombo,kombu,MTO,false,true
+kotlin mpp,Kotlin Multiplatform Mobile,MTO,false,true
+kotlin realm,Realm Kotlin,MTO,false,true
+kserve,KFServing,MTO,false,true
+ksqldb,KSQL,MTO,false,true
+kube,Kubernetes,MTO,true,false
+kube cost,Kubecost,MTO,false,true
+kubecost management,Kubecost,MTO,false,true
+kubecost tool,Kubecost,MTO,false,true
+kubectl,Kubernetes,MTO,false,false
+kubernetes client for .net,kubernetes-client,MTO,false,true
+kubernetes client node,kubernetes-client,MTO,false,true
+kubernetesclient,kubernetes-client,MTO,false,true
+kumbu,kombu,MTO,false,true
+ky.js,Ky,MTO,false,true
+l-chain,LangChain,MTO,false,true
+label img,LabelImg,MTO,false,true
+labview lang,LabVIEW,MTO,false,true
+lagom framework,Lagom,MTO,false,true
+lagom microservices,Lagom,MTO,false,true
+lake formation,AWS Lake Formation,MTO,false,true
+landing zone,AWS Landing Zone,MTO,false,true
+lang chain,LangChain,MTO,false,true
+lang smith,LangSmith,MTO,false,true
+lang-chain,LangChain,MTO,false,true
+lang-smith,LangSmith,MTO,false,true
+langchain js,LangChain.js,MTO,false,true
+langsmith platform,LangSmith,MTO,false,true
+lapin rabbitmq,lapin,MTO,false,true
+launch darkly,LaunchDarkly,MTO,false,true
+lazy cache,LazyCache,MTO,false,true
+lazyload,React Lazyload,MTO,false,true
+ldap protocol,LDAP,MTO,false,true
+leaflet folium,folium,MTO,false,true
+leak canary,LeakCanary,MTO,false,true
+lein,leiningen,MTO,true,true
+lerna.js,Lerna,MTO,false,true
+lettre rust,lettre,MTO,false,true
+lib git2sharp,LibGit2Sharp,MTO,false,true
+lib microhttpd,libmicrohttpd,MTO,false,true
+librosa audio,librosa,MTO,false,true
+librsa,librosa,MTO,false,true
+lightweight chart library,XChart,MTO,false,true
+lightweight directory access protocol,LDAP,MTO,false,true
+lighty,Lighttpd,MTO,false,true
+lime explainability,lime,MTO,false,true
+lime explainer,lime,MTO,false,true
+lime package,lime,MTO,false,true
+linaria.js,Linaria,MTO,false,true
+linfa crate,linfa,MTO,false,true
+linfa rust,linfa,MTO,false,true
+lit element,Lit,MTO,false,true
+lit html,Lit,MTO,false,true
+lit-element,Lit,MTO,false,true
+lit-html,Lit,MTO,false,true
+live charts,LiveCharts,MTO,false,true
+livescript lang,LiveScript,MTO,false,true
+llama index,LlamaIndex,MTO,false,true
+llama indexer,LlamaIndex,MTO,false,true
+llama-index,LlamaIndex,MTO,false,true
+load test,loadtest,MTO,false,true
+loadable,Loadable Components,MTO,false,true
+local forage,LocalForage,MTO,false,true
+local interpretable model-agnostic explanations,lime,MTO,false,true
+location swift,SwiftLocation,MTO,false,true
+locust load testing,locust,MTO,false,true
+locust.io,locust,MTO,false,true
+locustio,locust,MTO,false,true
+log rus,logrus,MTO,false,true
+log swift,SwiftLog,MTO,false,true
+logo lang,Logo,MTO,false,true
+logrus go,logrus,MTO,false,true
+logrus logger,logrus,MTO,false,true
+loki.js,Loki,MTO,false,true
+looker studio,Looker,MTO,false,true
+loop back,LoopBack,MTO,false,true
+loopback.io,LoopBack,MTO,false,true
+lottie,Lottie-iOS,MTO,false,true
+low rank adaptation,LoRA,MTO,false,true
+low-rank adaptation,LoRA,MTO,false,true
+lua lang,Lua,MTO,false,true
+lucene,Apache Lucene,MTO,false,true
+lucene.net,Apache Lucene,MTO,false,true
+lunr.js,lunr,MTO,false,true
+lxml library,lxml,MTO,false,false
+m-x-net,MXNet,MTO,false,true
+machine learning go,Golearn,MTO,false,true
+magenta,Magenta.js,MTO,false,true
+mahapps metro,MahApps.Metro,MTO,false,true
+mahout,Apache Mahout,MTO,false,true
+mail api,JavaMail API,MTO,false,true
+mail core,MailCore,MTO,false,true
+mail gem,Ruby Mail,MTO,false,true
+mail hog,MailHog,MTO,false,true
+mail kit,MailKit,MTO,false,true
+mailcore swift,MailCore,MTO,false,true
+mailer,nodemailer,MTO,false,true
+mailer php,PHPMailer,MTO,false,true
+mapbox,Mapbox Android SDK,MTO,false,true
+mapbox android,Mapbox Android SDK,MTO,false,true
+mapbox sdk,Mapbox Android SDK,MTO,false,true
+mapinfo pro,MapInfo,MTO,false,true
+marko js,Marko,MTO,false,true
+marko.js,Marko,MTO,false,true
+mass transit,MassTransit,MTO,false,true
+massive online analysis,MOA,MTO,false,true
+mat plot lib,Matplotlib,MTO,false,false
+material android,Material Components for Android,MTO,false,true
+material components,Material Components for Android,MTO,false,true
+material components for ios,MaterialComponents for iOS,MTO,false,true
+material design bootstrap,MDBootstrap,MTO,false,true
+material design components,Material Components for Android,MTO,false,true
+material design for android,Material Components for Android,MTO,false,true
+material design for ios,MaterialComponents for iOS,MTO,false,true
+material design in xaml toolkit,MaterialDesignInXamlToolkit,MTO,false,true
+material design ui,MUI,MTO,false,true
+material design xaml,MaterialDesignInXamlToolkit,MTO,false,true
+material ios,MaterialComponents for iOS,MTO,false,true
+material ui,MUI,MTO,false,true
+material-ui,MUI,MTO,false,true
+materializecss,Materialize css,MTO,false,true
+math numerics,Math.NET Numerics,MTO,false,true
+math php,MathPHP,MTO,false,true
+math.net,Math.NET Numerics,MTO,false,true
+mathematica,Wolfram Language,MTO,false,true
+mathematical markup language,MathML,MTO,false,true
+mathphp library,MathPHP,MTO,false,true
+matlab language,MATLAB,MTO,false,true
+matlab scripting,MATLAB,MTO,false,true
+matplotlib testing,pytest-mpl,MTO,false,true
+maven,Apache Maven,MTO,false,true
+mawk,AWK,MTO,true,true
+md bootstrap,MDBootstrap,MTO,false,true
+mdb,MDBootstrap,MTO,true,true
+mdc android,Material Components for Android,MTO,false,true
+mdc ios,MaterialComponents for iOS,MTO,false,true
+mdc web,Material Components Web,MTO,false,true
+mean,MEAN.js,MTO,true,false
+meanjs,MEAN.js,MTO,false,true
+mediatr library,MediatR,MTO,false,true
+mem lab,memlab,MTO,false,true
+memory leak detection leakcanary,LeakCanary,MTO,false,true
+mercury lang,Mercury,MTO,false,true
+message queue telemetry transport,MQTT,MTO,false,true
+meteor,Meteor.js,MTO,false,true
+meteor js,Meteor.js,MTO,false,true
+meteorjs,Meteor.js,MTO,false,true
+metrics,Dropwizard Metrics,MTO,false,false
+metro,MahApps.Metro,MTO,false,true
+meyda.js,Meyda,MTO,false,true
+mflow,MLflow,MTO,false,true
+micro orm dapper,Dapper,MTO,false,true
+micro.js,Micro,MTO,false,true
+microfocus loadrunner,LoadRunner,MTO,false,true
+microframework,Micro,MTO,false,true
+micrometer library,Micrometer,MTO,false,true
+micrometer metrics,Micrometer,MTO,false,true
+microsoft azure key vault,Azure Key Vault,MTO,false,true
+microsoft azure monitor,Azure Monitor,MTO,false,true
+microsoft azure sql,Azure SQL Database,MTO,false,true
+microsoft cosmos db,Azure Cosmos DB,MTO,false,true
+microsoft deepspeed,DeepSpeed,MTO,false,true
+microsoft key vault,Azure Key Vault,MTO,false,true
+microsoft macro assembler,masm,MTO,false,true
+microsoft playwright,Playwright,MTO,false,true
+microsoft power bi,Power BI,MTO,false,false
+microsoft test,MSTest,MTO,false,true
+microsoft.playwright,Playwright,MTO,false,true
+middleware swift,SwiftMiddleware,MTO,false,true
+mig layout,MigLayout,MTO,false,true
+migl,MigLayout,MTO,true,true
+milligram css,Milligram,MTO,false,true
+milligramcss,Milligram,MTO,false,true
+milvus,Milvus Cloud,MTO,false,true
+milvus cloud service,Milvus Cloud,MTO,false,true
+mini test,Minitest,MTO,false,true
+minitest gem,Minitest,MTO,false,true
+mink php,Mink,MTO,false,true
+mink testing,Mink,MTO,false,true
+missigno,missingno,MTO,false,true
+missing no,missingno,MTO,false,true
+mithril,Mithril.js,MTO,false,true
+mithril js,Mithril.js,MTO,false,true
+mix panel,Mixpanel,MTO,false,true
+mixpanel analytics,Mixpanel,MTO,false,true
+mixpanel ios,Mixpanel-swift,MTO,false,true
+ml flow,MLflow,MTO,false,true
+ml run,MLRun,MTO,false,true
+ml5,ml5.js,MTO,true,true
+ml5js,ml5.js,MTO,false,true
+mlj,MLJ.jl,MTO,true,true
+mlnet,ML.NET,MTO,false,true
+mobile security framework,MobSF,MTO,false,true
+mobsf security,MobSF,MTO,false,true
+mobx developer tools,MobX DevTools,MTO,false,true
+mocha.js,mocha,MTO,false,true
+mock,Moq,MTO,true,true
+mockery php,Mockery,MTO,false,true
+mockery.js,Mockery,MTO,false,true
+mockito for rust,mockito rust,MTO,false,true
+mockito framework,Mockito,MTO,false,true
+mode analytics,Mode,MTO,false,true
+model op,ModelOp,MTO,false,true
+modin library,Modin,MTO,false,true
+module bundler,Webpack,MTO,false,true
+module cost,cost-of-modules,MTO,false,true
+mongo db driver,MongoDB.Driver,MTO,false,true
+mongo driver,MongoDB.Driver,MTO,false,true
+mongo memory server,mongodb-memory-server,MTO,false,true
+mongo mock,mongomock,MTO,false,true
+mongodb cloud atlas,MongoDB Atlas,MTO,false,true
+mongomock library,mongomock,MTO,false,true
+mongoose c,Mongoose,MTO,false,true
+monkey cache,MonkeyCache,MTO,false,true
+mormot framework,mORMot,MTO,false,true
+moshi json,Moshi,MTO,false,true
+motion,Framer Motion,MTO,false,false
+motion kit,MotionKit,MTO,false,true
+motionkit swift,MotionKit,MTO,false,true
+moto library,moto,MTO,false,true
+movie py,moviepy,MTO,false,true
+movie-py,moviepy,MTO,false,true
+moya swift,Moya,MTO,false,true
+mpl,Matplotlib,MTO,true,false
+mpl-test,pytest-mpl,MTO,false,true
+mq swift,SwiftMQ,MTO,false,true
+mqtt 3.1,MQTT,MTO,false,true
+mqtt 3.1.1,MQTT,MTO,false,true
+mqtt 5.0,MQTT,MTO,false,true
+ms appcenter analytics,Microsoft.AppCenter.Analytics,MTO,false,true
+ms build,msbuild,MTO,false,true
+ms build system,msbuild,MTO,false,true
+ms playwright,Playwright,MTO,false,true
+ms spark,Microsoft.Spark,MTO,false,true
+ms sql client,Microsoft.Data.SqlClient,MTO,false,true
+ms test,MSTest,MTO,false,true
+mud blazor,MudBlazor,MTO,false,true
+multi-column layout,CSS Multi-Column Layout,MTO,false,true
+mvn,Apache Maven,MTO,true,true
+mx net,MXNet,MTO,false,true
+my-sql,MySQL,MTO,false,false
+mysql 2,mysql2,MTO,false,true
+mysql data,MySql.Data,MTO,false,true
+mysql database,MySQL,MTO,false,false
+mysql driver,go-sql-driver/mysql,MTO,false,true
+mysql jdbc,MySQL Connector/J,MTO,false,true
+mysql2 gem,mysql2,MTO,false,true
+mysql2.js,mysql2,MTO,false,true
+n bomber,NBomber,MTO,false,true
+n g i n x,Nginx,MTO,false,false
+n-d4j,ND4J,MTO,false,true
+n-dimensional array,ndarray,MTO,false,true
+n-hibernate,NHibernate,MTO,false,true
+n-l-t-k,NLTK,MTO,false,true
+nagios core,Nagios,MTO,false,false
+nagios monitoring,Nagios,MTO,false,false
+nancy fx,NancyFX,MTO,false,true
+native base,NativeBase,MTO,false,true
+native script,NativeScript,MTO,false,true
+native-base,NativeBase,MTO,false,true
+natural language,Natural,MTO,false,true
+natural.js,Natural,MTO,false,true
+navi server,NaviServer,MTO,false,true
+navicat for mysql,Navicat,MTO,false,true
+navicat for postgres,Navicat,MTO,false,true
+navicat premium,Navicat,MTO,false,true
+navigator,URLNavigator,MTO,false,true
+nawk,AWK,MTO,true,true
+nb platform,NetBeans Platform,MTO,false,true
+nb val,nbval,MTO,false,true
+nbomber load testing,NBomber,MTO,false,true
+ncache,node-cache,MTO,false,true
+ncl,Network Link Conditioner,MTO,true,true
+ncu,npm-check-updates,MTO,true,true
+ndarray crate,ndarray,MTO,false,true
+needle testing,needle,MTO,false,true
+neo4j aura,Neo4j AuraDB,MTO,false,true
+neptune ai,Neptune.ai,MTO,false,true
+neptune-ai,Neptune.ai,MTO,false,true
+nest js,NestJS,MTO,false,true
+nest.js,NestJS,MTO,false,true
+net mq,NetMQ,MTO,false,true
+net suite,NetSuite,MTO,false,false
+net topology suite,NetTopologySuite,MTO,false,true
+netflix hystrix,Hystrix,MTO,false,true
+netflix metaflow,Metaflow,MTO,false,true
+netflix zuul,Zuul,MTO,false,true
+netsim,network-simulator,MTO,false,true
+netsuite cloud,NetSuite,MTO,false,false
+netsuite inventory,NetSuite,MTO,false,false
+netwide assembler,nasm,MTO,false,true
+network time protocol,NTP,MTO,false,true
+network-sim,network-simulator,MTO,false,true
+new relic monitoring,New Relic,MTO,false,true
+newman cli,Newman,MTO,false,true
+newrelic,New Relic,MTO,false,true
+next,Next.js,MTO,true,false
+next js,Next.js,MTO,false,false
+nextjs,Next.js,MTO,false,false
+nexus,Nexus Repository Manager,MTO,false,true
+nexus infor,Infor,MTO,false,false
+nexus repository,Nexus Repository Manager,MTO,false,true
+nginx load balancer,Nginx,MTO,false,false
+nginx plus,Nginx,MTO,false,false
+nginx proxy,Nginx,MTO,false,false
+nginx web server,Nginx,MTO,false,false
+ngrok tunnel,ngrok,MTO,false,true
+nifi,Apache NiFi,MTO,true,true
+nightwatch,Nightwatch.js,MTO,false,true
+nim lang,Nim,MTO,false,true
+nim package manager,nimble,MTO,false,true
+nivo charts,Nivo,MTO,false,true
+nlp compromise,compromise,MTO,false,true
+nltk toolkit,NLTK,MTO,false,true
+nms,Apache.NMS,MTO,true,true
+no surf,nosurf,MTO,false,true
+nockjs,nock,MTO,false,true
+node,Node.js,MTO,true,false
+node git,NodeGit,MTO,false,true
+node js,Node.js,MTO,false,false
+node mailer,nodemailer,MTO,false,true
+node monitor,nodemon,MTO,false,true
+node package manager,npm,MTO,false,true
+node-js,Node.js,MTO,false,false
+node-nlp,nlp.js,MTO,false,true
+node-postgres,pg,MTO,false,true
+node-vault,Vault,MTO,false,true
+nodefetch,node-fetch,MTO,false,true
+nodejs,Node.js,MTO,false,false
+nodered,Node-RED,MTO,false,true
+nomad orchestrator,Nomad,MTO,false,true
+nose,nose2,MTO,true,true
+nose 2,nose2,MTO,false,true
+nose two,nose2,MTO,false,true
+nose-2,nose2,MTO,false,true
+notebook validator,nbval,MTO,false,true
+nox automation,Nox,MTO,false,true
+npg sql,Npgsql,MTO,false,true
+nsq,go-nsq,MTO,true,true
+nsq go,go-nsq,MTO,false,true
+nsub,NSubstitute,MTO,true,true
+ntp protocol,NTP,MTO,false,true
+ntpv4,NTP,MTO,false,true
+nts,NetTopologySuite,MTO,true,true
+nuget package manager,nuget,MTO,false,true
+nuget protocol,NuGet.Protocol,MTO,false,true
+nuke,Nuke.Build,MTO,true,true
+nuke build,Nuke.Build,MTO,false,true
+num.js,NumJS,MTO,false,true
+numerical computing elixir,Nx,MTO,false,true
+numerics swift,Swift Numerics,MTO,false,true
+numpi,NumPy,MTO,false,false
+nunit framework,NUnit,MTO,false,true
+nuxt,Nuxt.js,MTO,true,true
+nuxt js,Nuxt.js,MTO,false,true
+nuxtjs,Nuxt.js,MTO,false,true
+nvidia cuda,CUDA,MTO,false,true
+nvidia tensorrt,TensorRT,MTO,false,true
+nx library,Nx,MTO,false,true
+oat plus plus,Oat++,MTO,false,true
+oatpp,Oat++,MTO,false,true
+obj-c,Objective-C,MTO,false,true
+objc,Objective-C,MTO,true,true
+object box,ObjectBox,MTO,false,true
+object pascal,Delphi,MTO,false,true
+objection,Objection.js,MTO,false,true
+ocaml lang,OCaml,MTO,false,true
+octave language,Octave,MTO,false,true
+octokit,Octokit.net,MTO,false,true
+odoo erp,Odoo,MTO,false,false
+offline,Offline.js,MTO,false,true
+oh http stubs,OHHTTPStubs,MTO,false,true
+ohs,Oracle HTTP Server,MTO,true,true
+ok http,OkHttp,MTO,false,true
+okhttp3,OkHttp,MTO,false,true
+ols,OpenLiteSpeed,MTO,true,true
+one signal,OneSignal,MTO,false,true
+onesignal Android,OneSignal,MTO,false,true
+onesignal command line,OneSignal CLI,MTO,false,true
+onesignal ios,OneSignal,MTO,false,true
+onnx java,ONNX Runtime Java,MTO,false,true
+onnx runtime,ONNX,MTO,false,true
+onnx-runtime,ONNX,MTO,false,true
+onnxjs,ONNX.js,MTO,false,true
+onnxruntime,ONNX,MTO,false,true
+onsen,Onsen UI,MTO,false,true
+onsenui,Onsen UI,MTO,false,true
+opal compiler,Opal,MTO,false,true
+opal ruby,Opal,MTO,false,true
+open ai api,OpenAI API,MTO,false,true
+open api,Swagger/OpenAPI,MTO,false,true
+open cv,OpenCV,MTO,false,false
+open lite speed,OpenLiteSpeed,MTO,false,true
+open neural network exchange,ONNX,MTO,false,true
+open nlp,Apache OpenNLP,MTO,false,true
+open shift,OpenShift,MTO,false,true
+open web interface for .net,owin,MTO,false,true
+openai,OpenAI API,MTO,false,true
+openai evaluations,OpenAI Evals,MTO,false,true
+openai java,OpenAI Java SDK,MTO,false,true
+openai-node,OpenAI Node.js,MTO,false,true
+openapi,Swagger/OpenAPI,MTO,false,true
+openapi codegen,Swagger/OpenAPI,MTO,false,true
+openapi editor,Swagger/OpenAPI,MTO,false,true
+opencl c,OpenCL,MTO,false,true
+opencl lang,OpenCL,MTO,false,true
+opencv.js,OpenCV,MTO,false,false
+openjfx,JavaFX,MTO,false,true
+opennlp,Apache OpenNLP,MTO,false,true
+openshift container platform,OpenShift,MTO,false,true
+openssl,pyOpenSSL,MTO,false,true
+opentelemetry-js,OpenTelemetry,MTO,false,true
+opsgenie javascript sdk,opsgenie js,MTO,false,true
+opsgenie js sdk,opsgenie js,MTO,false,true
+opsgenie sdk,OpsGenie Java SDK,MTO,false,true
+optimizely cms,Optimizely,MTO,false,true
+optimizely experiment,Optimizely,MTO,false,true
+optimizely optimization,Optimizely,MTO,false,true
+optimizely platform,Optimizely,MTO,false,true
+optimizely x,Optimizely,MTO,false,true
+optimizely.com,Optimizely,MTO,false,true
+optimizer for spark,SparkOptimizer,MTO,false,true
+optly,Optimizely,MTO,false,true
+optuna library,Optuna,MTO,false,true
+optuna tuning,Optuna,MTO,false,true
+oracle data access,Oracle.ManagedDataAccess,MTO,false,true
+oracle driver,Oracle JDBC Driver,MTO,false,true
+oracle jdbc,Oracle JDBC Driver,MTO,false,true
+oracle managed data access,Oracle.ManagedDataAccess,MTO,false,true
+oracle net suite,NetSuite,MTO,false,false
+oracle netsuite,NetSuite,MTO,false,false
+orb geospatial,Orb,MTO,false,true
+orb go,Orb,MTO,false,true
+ormlite,ServiceStack.OrmLite,MTO,false,true
+otel,OpenTelemetry,MTO,true,true
+outline processor markup language,OPML,MTO,false,true
+owasp zed attack proxy,OWASP ZAP,MTO,false,true
+owin nowin,Nowin,MTO,false,true
+oxy plot,OxyPlot,MTO,false,true
+p chart,pChart,MTO,false,true
+pa11y-ci,pa11y,MTO,false,true
+pact.js,pact,MTO,false,true
+page,Page.js,MTO,true,false
+pagejs,Page.js,MTO,false,true
+pager duty,PagerDuty,MTO,false,true
+pager duty sharp,PagerDutySharp,MTO,false,true
+pagerduty client,PagerDuty Java Client,MTO,false,true
+pagerduty python,pygerduty,MTO,false,true
+pagerduty-node,node-pagerduty,MTO,false,true
+pandas schema,pandera,MTO,false,true
+paper,React Native Paper,MTO,false,false
+parallel pandas,Modin,MTO,false,true
+parameter efficient fine tuning,PEFT,MTO,false,true
+parameter-efficient fine tuning,PEFT,MTO,false,true
+parcel bundler,Parcel,MTO,false,true
+pascal language,Pascal,MTO,false,true
+paste library,Paste,MTO,false,true
+paw api client,Paw,MTO,false,true
+paypal mobile,PayPal Mobile SDK,MTO,false,true
+paypal sdk,PayPal Mobile SDK,MTO,false,true
+pd profiling,pandas-profiling,MTO,false,true
+pdo connector,PDO,MTO,false,true
+pduty,pygerduty,MTO,false,true
+peewee orm,Peewee,MTO,false,true
+peft library,PEFT,MTO,false,true
+percy visual testing,Percy,MTO,false,true
+percy.io,Percy,MTO,false,true
+performance plot,perfplot,MTO,false,true
+performance plotting,perfplot,MTO,false,true
+perfume,Perfume.js,MTO,false,true
+perl 5,Perl,MTO,false,true
+perl language,Perl,MTO,false,true
+petl library,petl,MTO,false,true
+pg admin,pgAdmin,MTO,false,true
+pg gem,pg,MTO,false,true
+pg vector,pgvector,MTO,false,true
+pg-admin,pgAdmin,MTO,false,true
+pgadmin4,pgAdmin,MTO,false,true
+pgjdbc,PostgreSQL JDBC Driver,MTO,false,true
+pgtest,pytest-postgresql,MTO,false,true
+pgvector extension,pgvector,MTO,false,true
+ph plot,PHPlot,MTO,false,true
+phonegap,Apache Cordova,MTO,false,true
+photoshop,Adobe Photoshop,MTO,false,true
+php amqp lib,php-amqplib,MTO,false,true
+php behat,Behat,MTO,false,true
+php bench,PHPBench,MTO,false,true
+php cron expression,cron-expression,MTO,false,true
+php fastcache,phpfastcache,MTO,false,true
+php ids,PHPIDS,MTO,false,true
+php intrusion detection,PHPIDS,MTO,false,true
+php machine learning,PHP-ML,MTO,false,true
+php mailer,PHPMailer,MTO,false,true
+php mockery,Mockery,MTO,false,true
+php pdo,PDO,MTO,false,true
+php ratchet,Ratchet,MTO,false,true
+php unit,PHPUnit,MTO,false,true
+phplot library,PHPlot,MTO,false,true
+phpscss,PHP-SCSS,MTO,false,true
+pi ka,pika,MTO,false,true
+picasso image loader,Picasso,MTO,false,true
+pika library,pika,MTO,false,true
+pillow imaging library,Pillow,MTO,false,true
+pine cone,Pinecone,MTO,false,true
+pinecone client,Pinecone,MTO,false,true
+pinecone-js,Pinecone,MTO,false,true
+pingoin,pingouin,MTO,false,true
+piptools,pip-tools,MTO,false,true
+pivot,Apache Pivot,MTO,false,false
+plan out,PlanOut,MTO,false,true
+plan-out,PlanOut,MTO,false,true
+planet scale,PlanetScale,MTO,false,true
+planetscale db,PlanetScale,MTO,false,true
+plates,League/Plates,MTO,false,true
+plates php,League/Plates,MTO,false,true
+play,Play Framework,MTO,true,false
+playframework,Play Framework,MTO,false,true
+playwright js,Playwright.js,MTO,false,true
+playwright testing,Playwright,MTO,false,true
+plot julia,Plots.jl,MTO,false,true
+plot ruby,Rubyplot,MTO,false,true
+plot swift,Plot,MTO,false,true
+plotly graphing,Plotly,MTO,false,true
+plotly js,Plotly.js,MTO,false,true
+plotly net,Plotly.NET,MTO,false,true
+plotly.py,pyplotly,MTO,false,true
+plots,Plots.jl,MTO,false,true
+plotters crate,Plotters,MTO,false,true
+plotters rust,Plotters,MTO,false,true
+pm2 process manager,pm2,MTO,false,true
+pmd arima,pmdarima,MTO,false,true
+poetry dependency,Poetry,MTO,false,true
+polars dataframe,Polars,MTO,false,true
+polars rust,Polars,MTO,false,true
+polymer js,Polymer,MTO,false,true
+polymer.js,Polymer,MTO,false,true
+pony,PonyORM,MTO,true,true
+pony orm,PonyORM,MTO,false,true
+pop 3,POP3,MTO,false,true
+pop motion,Popmotion,MTO,false,true
+pop-3,POP3,MTO,false,true
+post man,Postman,MTO,false,false
+post office protocol 3,POP3,MTO,false,true
+post script,PostScript,MTO,false,true
+postgres crate,rust-postgres,MTO,false,true
+postgres gem,pg,MTO,false,true
+postgres memory,pg-mem,MTO,false,true
+postgres rust,rust-postgres,MTO,false,true
+postgres vector,pgvector,MTO,false,true
+postgresql connector,PostgreSQL JDBC Driver,MTO,false,true
+postgresql jdbc,PostgreSQL JDBC Driver,MTO,false,true
+postman newman,Newman,MTO,false,true
+postman tool,Postman,MTO,false,false
+postscript language,PostScript,MTO,false,true
+postwoman,Hoppscotch,MTO,false,true
+postwoman api client,Hoppscotch,MTO,false,true
+pouch,PouchDB,MTO,false,true
+pouch db,PouchDB,MTO,false,true
+powerbi,Power BI,MTO,false,false
+powermockito,PowerMock,MTO,false,true
+powershell core,PowerShell,MTO,false,false
+pq driver,pq,MTO,false,true
+preact js,Preact,MTO,false,true
+preact.js,Preact,MTO,false,true
+preactjs,Preact,MTO,false,true
+prefect.io,Prefect,MTO,false,true
+prime ng,PrimeNG,MTO,false,true
+prime react,PrimeReact,MTO,false,true
+prime vue,PrimeVue,MTO,false,true
+prime-ng,PrimeNG,MTO,false,true
+prime-react,PrimeReact,MTO,false,true
+prime-vue,PrimeVue,MTO,false,true
+primer,Primer CSS,MTO,false,true
+primer framework,Primer CSS,MTO,false,true
+primercss,Primer CSS,MTO,false,true
+private link,AWS PrivateLink,MTO,false,true
+privatelink,AWS PrivateLink,MTO,false,true
+profiling,pandas-profiling,MTO,false,true
+project reactor,Reactor Core,MTO,false,true
+prolog language,Prolog,MTO,false,true
+prom,Prometheus,MTO,true,true
+promclient,prom-client,MTO,false,true
+promclient.js,prom-client,MTO,false,true
+prometheus alertmanager,Alertmanager,MTO,false,true
+prometheus client,Prometheus Java Client,MTO,false,true
+prometheus db,Prometheus,MTO,false,true
+prometheus metrics,Prometheus,MTO,false,true
+prometheus monitoring,Prometheus,MTO,false,true
+prometheus py,Prometheus Client Python,MTO,false,true
+prometheus python,Prometheus Client Python,MTO,false,true
+prompt layer,PromptLayer,MTO,false,true
+property list,PLIST,MTO,false,true
+property-based testing,hypothesis,MTO,false,true
+protobuff,Protobuf,MTO,false,false
+protocol buffer,Protobuf,MTO,false,false
+protocol buffers,Protobuf,MTO,false,false
+psg,PySimpleGUI,MTO,true,true
+psycopg 2,psycopg2,MTO,false,true
+psycopg2-binary,psycopg2,MTO,false,true
+pulumi .net,Pulumi.net,MTO,false,true
+pulumi c#,Pulumi.net,MTO,false,true
+pulumi framework,Pulumi,MTO,false,true
+pulumi infrastructure,Pulumi,MTO,false,true
+pulumi infrastructure as code,Pulumi,MTO,false,true
+pulumi python,Pulumi,MTO,false,true
+pulumi.js,Pulumi,MTO,false,true
+puma web server,Puma,MTO,false,true
+puppeteer automation,Puppeteer,MTO,false,true
+puppeteer js,Puppeteer.js,MTO,false,true
+puppeteer sharp,PuppeteerSharp,MTO,false,true
+pure css,Pure.css,MTO,false,true
+purecss,Pure.css,MTO,false,true
+purescript lang,PureScript,MTO,false,true
+push notification,React Native Push Notification,MTO,false,true
+pushy android,Pushy,MTO,false,true
+pwsh,PowerShell,MTO,true,false
+py audio analysis,PyAudioAnalysis,MTO,false,true
+py auto gui,PyAutoGUI,MTO,false,true
+py benchmark,pytest-benchmark,MTO,false,true
+py dub,PyDub,MTO,false,true
+py openssl,pyOpenSSL,MTO,false,true
+py plotly,pyplotly,MTO,false,true
+py prometheus,Prometheus Client Python,MTO,false,true
+py test,Pytest,MTO,false,false
+py torch,PyTorch,MTO,false,false
+py webview,pywebview,MTO,false,true
+py-benchmark,pytest-benchmark,MTO,false,true
+py-eel,Eel,MTO,false,true
+py-infra,PyInfra,MTO,false,true
+py-janitor,pyjanitor,MTO,false,true
+py-libmc,pylibmc,MTO,false,true
+py-memcached,memcached,MTO,false,true
+py-mysql,PyMySQL,MTO,false,true
+py-odbc,pyodbc,MTO,false,true
+py-prometheus,Prometheus Client Python,MTO,false,true
+py-simple-gui,PySimpleGUI,MTO,false,true
+py-xdist,pytest-xdist,MTO,false,true
+py-zeromq,pyzmq,MTO,false,true
+py.test,Pytest,MTO,false,false
+pyautog,PyAutoGUI,MTO,false,true
+pybandit,bandit,MTO,false,true
+pyemails,emails,MTO,false,true
+pygit,GitPython,MTO,false,true
+pyinfra automation,PyInfra,MTO,false,true
+pyinvoke,invoke,MTO,false,true
+pylib-mc,pylibmc,MTO,false,true
+pymock,pytest-mock,MTO,false,true
+pymysl,PyMySQL,MTO,false,true
+pyodbc connector,pyodbc,MTO,false,true
+pyprometheus,Prometheus Client Python,MTO,false,true
+pytbl,PyTables,MTO,false,true
+pytesqt,pytest-qt,MTO,false,true
+pytest framework,Pytest,MTO,false,false
+pytest-mock library,pytest-mock,MTO,false,true
+pytest_pg,pytest-postgresql,MTO,false,true
+pytestasyncio,pytest-asyncio,MTO,false,true
+pytestqt,pytest-qt,MTO,false,true
+pytestselenium,pytest-selenium,MTO,false,true
+python daphne,Daphne,MTO,false,true
+python eel,Eel,MTO,false,true
+python flower,Flower,MTO,false,true
+python kubernetes,kubernetes-client,MTO,false,true
+python package installer,pip,MTO,false,true
+python poetry,Poetry,MTO,false,true
+python remi,Remi,MTO,false,true
+python webview,pywebview,MTO,false,true
+python-memcached,memcached,MTO,false,true
+python-tenacity,Tenacity,MTO,false,true
+pywee,Peewee,MTO,false,true
+q gis,QGIS,MTO,false,true
+q lora,QLoRA,MTO,false,true
+q-drant,Qdrant,MTO,false,true
+q-lora,QLoRA,MTO,false,true
+qpid jms,Apache Qpid JMS Client,MTO,false,true
+qsharp,Q#,MTO,false,true
+qt framework,Qt for Mobile,MTO,false,true
+qt mobile,Qt for Mobile,MTO,false,true
+quanteda package,quanteda,MTO,false,true
+quantized lora,QLoRA,MTO,false,true
+quantum gis,QGIS,MTO,false,true
+quartz,Quartz Scheduler,MTO,false,true
+quartznet,Quartz.NET,MTO,false,true
+quasar framework,Quasar,MTO,false,true
+quasar js,Quasar,MTO,false,true
+quasarjs,Quasar,MTO,false,true
+query,Query.jl,MTO,false,false
+query julia,Query.jl,MTO,false,true
+queue rust,rust-queue,MTO,false,true
+queue swift,SwiftQueue,MTO,false,true
+quic protocol,QUIC,MTO,false,true
+quick android review kit,QARK,MTO,false,true
+quick swift,Quick,MTO,false,true
+quick udp internet connections,QUIC,MTO,false,true
+qunit.js,QUnit,MTO,false,true
+qwik js,Qwik,MTO,false,true
+qwik.js,Qwik,MTO,false,true
+r geo,RGeo,MTO,false,true
+r lang,R,MTO,false,false
+r language,R,MTO,false,false
+r studio,RStudio,MTO,false,true
+r syntax text area,RSyntaxTextArea,MTO,false,true
+r.q.,React Query,MTO,true,true
+rabbit message queue,RabbitMQ,MTO,false,true
+rabbit mq,RabbitMQ,MTO,false,true
+rabbit mq client,RabbitMQ,MTO,false,true
+rabbitmq bunny,Bunny Ruby,MTO,false,true
+rabbitmq client,RabbitMQ,MTO,false,true
+rabbitmq java client,RabbitMQ,MTO,false,true
+rabbitmq lapin,lapin,MTO,false,true
+rabbitmq.client,RabbitMQ,MTO,false,true
+rack middleware,Rack,MTO,false,true
+racket lang,Racket,MTO,false,true
+rails,Ruby on Rails,MTO,false,true
+rancher container,Rancher,MTO,false,true
+rancher orchestrator,Rancher,MTO,false,true
+rancher platform,Rancher,MTO,false,true
+ranorex,Ranorex Studio,MTO,false,true
+rapid application development studio,rad studio,MTO,false,true
+rapid miner,RapidMiner,MTO,false,true
+rapidminer studio,RapidMiner,MTO,false,true
+rapids-cudf,cuDF,MTO,false,true
+rasa chatbot,Rasa,MTO,false,true
+rasa framework,Rasa,MTO,false,true
+rasa open source,Rasa,MTO,false,true
+ratchet php,Ratchet,MTO,false,true
+rate limit,express-rate-limit,MTO,false,true
+raven,Sentry,MTO,false,true
+ray distributed,Ray,MTO,false,true
+ray library,Ray,MTO,false,true
+ray rllib,RLlib,MTO,false,true
+ray serve module,Ray Serve,MTO,false,true
+rayserve,Ray Serve,MTO,false,true
+raytune,Ray Tune,MTO,false,true
+razzle.js,Razzle,MTO,false,true
+rds,AWS RDS,MTO,true,true
+re charts,Recharts,MTO,false,true
+react .net,ReactJS.NET,MTO,false,true
+react helmet,helmet,MTO,false,true
+react js,React,MTO,false,false
+react loadable,Loadable Components,MTO,false,true
+react net,ReactJS.NET,MTO,false,true
+react.js,React,MTO,false,false
+reactbootstrap,React-Bootstrap,MTO,false,true
+reactive android,RxAndroid,MTO,false,true
+reactive extensions,ReactiveX,MTO,false,true
+reactive extensions for javascript,RxJS,MTO,false,true
+reactive ui,ReactiveUI,MTO,false,true
+reactive x,ReactiveX,MTO,false,true
+reactjs,React,MTO,false,false
+reactor kit,ReactorKit,MTO,false,true
+reactquery,React Query,MTO,false,true
+read r,readr,MTO,false,true
+read-eval-print loop,repl,MTO,false,true
+readr package,readr,MTO,false,true
+real time messaging protocol,RTMP,MTO,false,true
+real time streaming protocol,RTSP,MTO,false,true
+realm browser,Realm Studio,MTO,false,true
+realm db,Realm,MTO,false,true
+realm swift,RealmSwift,MTO,false,true
+realm-js,Realm.js,MTO,false,true
+reason language,ReasonML,MTO,false,true
+reason ml,ReasonML,MTO,false,true
+recharts library,Recharts,MTO,false,true
+red hat openshift,OpenShift,MTO,false,true
+redis ec,Redis Enterprise Cloud,MTO,false,true
+redis enterprise,Redis Enterprise Cloud,MTO,false,true
+redis gui,RedisInsight,MTO,false,true
+redis insight,RedisInsight,MTO,false,true
+redis queue,React Query,MTO,false,true
+redis-server,Redis,MTO,false,false
+redis-smq,rsmq,MTO,false,true
+redoc api documentation,Redoc,MTO,false,true
+redocly,Redoc,MTO,false,true
+redshift,Amazon Redshift,MTO,false,true
+redux developer tools,Redux DevTools,MTO,false,true
+redux for blazor,Fluxor,MTO,false,true
+redux toolkit library,Redux Toolkit,MTO,false,true
+redwood,RedwoodJS,MTO,false,true
+redwood js,RedwoodJS,MTO,false,true
+redwood.js,RedwoodJS,MTO,false,true
+reinforce.js,ReinforceJS,MTO,false,true
+relay middleware,PHP Relay,MTO,false,true
+relay modern,Relay,MTO,false,true
+relay php,PHP Relay,MTO,false,true
+relayjs,Relay,MTO,false,true
+releaseit,release-it,MTO,false,true
+remi gui,Remi,MTO,false,true
+render cloud,Render,MTO,false,true
+render platform,Render,MTO,false,true
+render.com,Render,MTO,false,true
+repast,Repast Simphony,MTO,false,true
+representational state transfer,REST API,MTO,false,false
+req was m,reqwasm,MTO,false,true
+request wasm,reqwasm,MTO,false,true
+reqwest client,reqwest,MTO,false,true
+resin server,Resin,MTO,false,true
+resource description framework,RDF,MTO,false,true
+resp,responses,MTO,true,true
+response mocking,responses,MTO,false,true
+resque,PHP-Resque,MTO,false,true
+rest sharp,RestSharp,MTO,false,true
+restful,REST API,MTO,false,false
+resty client,Resty,MTO,false,true
+retire,Retire.js,MTO,false,true
+retrofit android,Retrofit,MTO,false,true
+rgeo library,RGeo,MTO,false,true
+rhf,React Hook Form,MTO,true,true
+rich site summary,RSS,MTO,false,true
+ring lang,Ring,MTO,false,true
+riot,Riot.js,MTO,true,true
+riot js,Riot.js,MTO,false,true
+riotjs,Riot.js,MTO,false,true
+rjsf,React JSON Schema Form,MTO,true,true
+rljs,ReinforceJS,MTO,true,true
+rmq,RabbitMQ,MTO,true,true
+rn config,React Native Config,MTO,false,true
+rn device info,React Native Device Info,MTO,false,true
+rn keychain,React Native Keychain,MTO,false,true
+rn location,React Native Location,MTO,false,true
+rn material kit,React Native Material Kit,MTO,false,true
+rn netinfo,React Native NetInfo,MTO,false,true
+rn offline,React Native Offline,MTO,false,true
+rn paper,React Native Paper,MTO,false,true
+rn payments,React Native Payments,MTO,false,true
+rn sensors,React Native Sensors,MTO,false,true
+rne,React Native Elements,MTO,true,true
+rnelements,React Native Elements,MTO,false,true
+robot,Robot Framework,MTO,false,true
+robotframework,Robot Framework,MTO,false,true
+robotium testing,Robotium,MTO,false,true
+rollup.js,rollup,MTO,false,true
+roo,Spring Roo,MTO,true,true
+room,Room Persistence Library,MTO,true,false
+room persistence,Room Persistence Library,MTO,false,true
+ror,Ruby on Rails,MTO,true,true
+rpg lang,RPG,MTO,false,true
+rpi,raspberry pi,MTO,true,true
+rstest crate,rstest,MTO,false,true
+rtk,Redux Toolkit,MTO,true,true
+rtl,React Testing Library,MTO,true,true
+rtmp protocol,RTMP,MTO,false,true
+ruby bunny,Bunny Ruby,MTO,false,true
+ruby gems,rubygems,MTO,false,true
+ruby plot,Rubyplot,MTO,false,true
+ruby secure_headers,secure_headers,MTO,false,true
+rubylang,Ruby,MTO,false,false
+rufus,rufus-scheduler,MTO,false,true
+rumale gem,Rumale,MTO,false,true
+rush.js,Rush,MTO,false,true
+rust assert_cmd,assert_cmd,MTO,false,true
+rust cron,cron rust,MTO,false,true
+rust goose,Goose,MTO,false,true
+rust httpmock,httpmock,MTO,false,true
+rust lang,Rust,MTO,false,false
+rust lettre,lettre,MTO,false,true
+rust mockito,mockito rust,MTO,false,true
+rust plotters,Plotters,MTO,false,true
+rust reqwest,reqwest,MTO,false,true
+rust rsocket,rsocket-rust,MTO,false,true
+rust sqlmock,rust-sql-mock,MTO,false,true
+rust structopt,structopt,MTO,false,true
+rust stylist,stylist,MTO,false,true
+rust tokio test,tokio-test,MTO,false,true
+rx android,RxAndroid,MTO,false,true
+rx.net,ReactiveX,MTO,false,true
+s.a.s.s,Sass,MTO,false,true
+s4hana,SAP S/4HANA,MTO,false,false
+saga test plan,redux-saga-test-plan,MTO,false,true
+sagemaker,Amazon SageMaker,MTO,false,true
+sagemaker studio,Amazon SageMaker,MTO,false,true
+sails,Sails.js,MTO,false,true
+sails js,Sails.js,MTO,false,true
+sailsjs,Sails.js,MTO,false,true
+salesforceapex,Salesforce Apex,MTO,false,true
+salt,SaltStack,MTO,true,true
+salt stack,SaltStack,MTO,false,true
+sampled signals,SampledSignals.jl,MTO,false,true
+sap abap,ABAP,MTO,false,false
+sap as,sap application server,MTO,false,true
+sap net weaver,SAP NetWeaver,MTO,false,true
+sap s4hana,SAP S/4HANA,MTO,false,false
+sap server,sap application server,MTO,false,true
+sapnetweaver,SAP NetWeaver,MTO,false,true
+sapui5,sap ui5,MTO,false,true
+sas analytics,SAS,MTO,false,true
+sas language,SAS,MTO,false,true
+sassy,Sass,MTO,false,true
+sauce,Sauce Labs,MTO,false,true
+sauce labs testing,Sauce Labs,MTO,false,true
+saucelabs,Sauce Labs,MTO,false,true
+scala 2,Scala,MTO,false,false
+scala 3,Scala,MTO,false,false
+scala build tool,sbt,MTO,false,true
+scala js,scala.js,MTO,false,true
+scalable vector graphics,SVG,MTO,false,true
+scalajs,scala.js,MTO,false,true
+sched,schedule,MTO,false,true
+schema thesis,schemathesis,MTO,false,true
+schema-testing,schemathesis,MTO,false,true
+scheme lang,Scheme,MTO,false,true
+scheme-lisp,Lisp,MTO,false,true
+scikit-learn,Scikit-learn,INTERNAL,false,true
+scikitlearn,Scikit-learn,MTO,false,false
+scott plot,ScottPlot,MTO,false,true
+scratch lang,Scratch,MTO,false,true
+scss php,PHP-SCSS,MTO,false,true
+sctp protocol,SCTP,MTO,false,true
+sea born,Seaborn,MTO,false,false
+secrets manager,AWS Secrets Manager,MTO,false,true
+secure file transfer protocol,SFTP,MTO,false,true
+secure rust,rust-secure,MTO,false,true
+secure shell,SSH,MTO,false,true
+security swift,SwiftySecurity,MTO,false,true
+seldon,Seldon Core,MTO,false,true
+selenide framework,Selenide,MTO,false,true
+selenium automation,Selenium,MTO,false,false
+selenium distributed testing,Selenium Grid,MTO,false,true
+selenium for android,Selendroid,MTO,false,true
+selenium testing,Selenium,MTO,false,false
+selenium webdriver,Selenium,MTO,false,false
+selenium-webdriver,Selenium,MTO,false,false
+seleniumgrid,Selenium Grid,MTO,false,true
+selinium,Selenium,MTO,false,false
+selnium,Selenium,MTO,false,false
+semanticui,Semantic UI,MTO,false,true
+semrel,semantic-release,MTO,false,true
+sencha command-line,sencha cmd,MTO,false,true
+sencha ext,Ext JS,MTO,false,true
+senchatouch,Sencha Touch,MTO,false,true
+send grid,SendGrid,MTO,false,true
+sendgrid email,SendGrid,MTO,false,true
+sendgrid mail,SendGrid,MTO,false,true
+sendgrid-mail,SendGrid,MTO,false,true
+sendgrid-python,SendGrid,MTO,false,true
+sensor kinetics,Sensor Kinetics Pro,MTO,false,true
+sentence tranformers,Sentence Transformers,MTO,false,true
+sentencetransformers,Sentence Transformers,MTO,false,true
+sentry-node,Sentry,MTO,false,true
+sequel gem,Sequel,MTO,false,true
+sequel orm,Sequel,MTO,false,true
+sequel pro app,Sequel Pro,MTO,false,true
+sequelize.js,Sequelize,MTO,false,true
+sequelpro,Sequel Pro,MTO,false,true
+serenity,Serenity BDD,MTO,false,true
+serverless optimize,serverless-plugin-optimize,MTO,false,true
+serverless split stacks,serverless-plugin-split-stacks,MTO,false,true
+service now,ServiceNow,MTO,false,false
+service stack,ServiceStack,MTO,false,true
+service stack ormlite,ServiceStack.OrmLite,MTO,false,true
+servicenow itsm,ServiceNow,MTO,false,false
+servicestack ormlite,ServiceStack.OrmLite,MTO,false,true
+session initiation protocol,SIP,MTO,false,true
+sf library,sf,MTO,false,true
+sf package,sf,MTO,false,true
+sftp protocol,SFTP,MTO,false,true
+shap explanations,SHAP,MTO,false,true
+shapeley,shapely,MTO,false,true
+shapley,SHAP,MTO,false,true
+shapley additive explanations,SHAP,MTO,false,true
+shapley values,SHAP,MTO,false,true
+shaply,shapely,MTO,false,true
+shiny mobile,Shiny,MTO,false,true
+shiny notifications,Shiny,MTO,false,true
+shipit-cli,Shipit,MTO,false,true
+shipitjs,Shipit,MTO,false,true
+sidekiq background,Sidekiq,MTO,false,true
+sidekiq gem,Sidekiq,MTO,false,true
+signal r,SignalR,MTO,false,true
+sikuli,SikuliX,MTO,false,true
+sikuli x,SikuliX,MTO,false,true
+simple features,sf,MTO,false,true
+simple form,SimpleForm,MTO,false,true
+simple gui,PySimpleGUI,MTO,false,true
+simple mail transfer protocol,SMTP,MTO,false,true
+simple network management protocol,SNMP,MTO,false,true
+simple object access protocol,SOAP,MTO,false,true
+simplegit,simple-git,MTO,false,true
+sinon.js,sinon,MTO,false,true
+sip protocol,SIP,MTO,false,true
+sip/2.0,SIP,MTO,false,true
+sjsws,Sun Java System Web Server,MTO,false,true
+sk image,scikit-image,MTO,false,true
+sketch app,Sketch,MTO,false,true
+sketch design,Sketch,MTO,false,true
+skimage,scikit-image,MTO,false,true
+sklearn,Scikit-learn,MTO,false,false
+skpostgres,SwiftKueryPostgreSQL,MTO,false,true
+sls,Serverless Framework,MTO,true,true
+sls optimize,serverless-plugin-optimize,MTO,false,true
+sls split stacks,serverless-plugin-split-stacks,MTO,false,true
+smalltalk lang,Smalltalk,MTO,false,true
+smartbear testcomplete,TestComplete,MTO,false,true
+smile machine learning,Smile,MTO,false,true
+smile ml,Smile,MTO,false,true
+smoke test,SmokeTest,MTO,false,true
+smtps,SMTP,MTO,false,true
+snap kit,SnapKit,MTO,false,true
+snap test,SnapshotTesting,MTO,false,true
+snapkit swift,SnapKit,MTO,false,true
+snapshot testing,SnapshotTesting,MTO,false,true
+snmpv1,SNMP,MTO,false,true
+snmpv2c,SNMP,MTO,false,true
+snmpv3,SNMP,MTO,false,true
+snowflake data warehouse,Snowflake,MTO,false,true
+snowflake warehouse,Snowflake,MTO,false,true
+snyk cloud,Snyk,MTO,false,true
+snyk cloud security,Snyk,MTO,false,true
+snyk code,Snyk,MTO,false,true
+snyk security,Snyk,MTO,false,true
+snyk testing,Snyk,MTO,false,true
+snyk vulnerability scanning,Snyk,MTO,false,true
+snyk.io,Snyk,MTO,false,true
+soap 1.1,SOAP,MTO,false,true
+soap 1.2,SOAP,MTO,false,true
+soap ui,SoapUI,MTO,false,true
+soapui testing,SoapUI,MTO,false,true
+socket io,socket.io,MTO,false,true
+socketio,socket.io,MTO,false,true
+solar2d,Corona SDK (Solar2D),MTO,false,true
+solar2d sdk,Corona SDK (Solar2D),MTO,false,true
+solid framework,SolidJS,MTO,false,true
+solid js,SolidJS,MTO,false,true
+solidity lang,Solidity,MTO,false,true
+sonar,SonarQube,MTO,false,true
+sonar q,SonarQube,MTO,false,true
+sonar qbe,SonarQube,MTO,false,true
+sonar qube,SonarQube,MTO,false,true
+sonar scanner,SonarQube,MTO,false,true
+sonarlint,SonarQube,MTO,false,true
+sonatype nexus,Nexus Repository Manager,MTO,false,true
+spacy nlp,spaCy,MTO,false,true
+spacy-nlp,spaCy,MTO,false,true
+spark .net,Microsoft.Spark,MTO,false,true
+spark optimizer,SparkOptimizer,MTO,false,true
+spark-opt,SparkOptimizer,MTO,false,true
+spec flow,SpecFlow,MTO,false,true
+spectre,Spectre.css,MTO,false,true
+spectre css,Spectre.css,MTO,false,true
+spicy,SciPy,MTO,false,true
+spinnaker cd,Spinnaker,MTO,false,true
+spinnaker ci,Spinnaker,MTO,false,true
+spinnaker continuous delivery,Spinnaker,MTO,false,true
+spinnaker release orchestration,Spinnaker,MTO,false,true
+splunk,Splunk Observability,MTO,false,true
+splunk cloud,Splunk Observability,MTO,false,true
+splunk monitoring,Splunk Observability,MTO,false,true
+splunk on-call,VictorOps,MTO,false,true
+spm,Swift Package Manager,MTO,true,true
+spotify luigi,Luigi,MTO,false,true
+spotinst,Spot.io,MTO,false,true
+spring,Spring Framework,MTO,false,false
+spring config,Spring Cloud Config,MTO,false,true
+spring rapid application development,Spring Roo,MTO,false,true
+spring vault,Spring Cloud Vault,MTO,false,true
+springboot,Spring Boot,MTO,false,false
+spyder ide,Spyder,MTO,false,true
+sql alchemy,SQLAlchemy,MTO,false,true
+sql alchemy orm,SQLAlchemy,MTO,false,true
+sql client,Microsoft.Data.SqlClient,MTO,false,true
+sql delight,SQLDelight,MTO,false,true
+sql mock,sqlmock,MTO,false,true
+sql mock rust,rust-sql-mock,MTO,false,true
+sql pro,SQLPro Studio,MTO,false,true
+sqlalchemy orm,SQLAlchemy,MTO,false,true
+sqlalchemy-orm,SQLAlchemy,MTO,false,true
+sqlite,SQLite,MTO,false,false
+sqlite browser,DB Browser for SQLite,MTO,false,true
+sqlite connector,SQLite JDBC,MTO,false,true
+sqlite net pcl,SQLite-net,MTO,false,true
+sqlite swift,SQLite.swift,MTO,false,true
+sqlite3.js,SQLite,MTO,false,false
+sqlpro,SQLPro Studio,MTO,false,true
+square mockwebserver,MockWebServer,MTO,false,true
+square moshi,Moshi,MTO,false,true
+square retrofit,Retrofit,MTO,false,true
+squirrel,Squirrel SQL,MTO,false,true
+squirrel sql client,Squirrel SQL,MTO,false,true
+ssh file transfer protocol,SFTP,MTO,false,true
+ssh protocol,SSH,MTO,false,true
+ssh-1,SSH,MTO,false,true
+ssh-2,SSH,MTO,false,true
+stack blitz,StackBlitz,MTO,false,true
+stacks blockchain,Stacks Blockchain Tools,MTO,false,true
+stacks clarity,Clarity,MTO,false,true
+stacks tools,Stacks Blockchain Tools,MTO,false,true
+stale-while-revalidate,SWR,MTO,false,true
+standard generalized markup language,SGML,MTO,false,true
+standard widget toolkit,SWT,MTO,false,true
+stanford corenlp,Stanford NLP,MTO,false,true
+stanford natural language processing,Stanford NLP,MTO,false,true
+starscream swift,Starscream,MTO,false,true
+stat models,statsmodels,MTO,false,true
+statecharts,XState,MTO,false,true
+statistical analysis system,SAS,MTO,false,true
+statistical machine intelligence and learning engine,Smile,MTO,false,true
+statistics library,statistics Haskell,MTO,false,true
+statrs crate,Statrs,MTO,false,true
+statrs library,Statrs,MTO,false,true
+stats models,statsmodels,MTO,false,true
+statsample library,Statsample,MTO,false,true
+statsample ruby,Statsample,MTO,false,true
+statsd,node-statsd,MTO,false,true
+statsmodels Julia,StatsModels.jl,MTO,false,true
+steel bank common lisp,sbcl,MTO,false,true
+stencil swift,Stencil,MTO,false,true
+step functions,AWS Step Functions,MTO,false,true
+step-funcs,AWS Step Functions,MTO,false,true
+stimulus framework,Stimulus,MTO,false,true
+stimulus js,Stimulus,MTO,false,true
+stimulus.js,Stimulus,MTO,false,true
+stomp,stomp.py,MTO,false,true
+stomppy,stomp.py,MTO,false,true
+storybook chromatic,Chromatic,MTO,false,true
+stream analytics,Azure Stream Analytics,MTO,false,true
+stream control transmission protocol,SCTP,MTO,false,true
+stream lit,Streamlit,MTO,false,true
+stream z,streamz,MTO,false,true
+streamz library,streamz,MTO,false,true
+stripe android,Stripe Android SDK,MTO,false,true
+stripe c#,Stripe.net,MTO,false,true
+stripe command line,Stripe CLI,MTO,false,true
+stripe for ios,Stripe iOS,MTO,false,true
+stripe js,Stripe.js,MTO,false,true
+stripe rn,Stripe React Native,MTO,false,true
+stripe swift,Stripe iOS,MTO,false,true
+stripe-js,Stripe.js,MTO,false,true
+struct opt,structopt,MTO,false,true
+stryker-mutator,Stryker,MTO,false,true
+stryker.js,Stryker,MTO,false,true
+styleguidist,React Styleguidist,MTO,false,true
+stylist rust,stylist,MTO,false,true
+substance look and feel,Substance,MTO,false,true
+successfactors,SAP SuccessFactors,MTO,false,false
+sun web server,Sun Java System Web Server,MTO,false,true
+super test,supertest,MTO,false,true
+surge library,Surge,MTO,false,true
+surge swift,Surge,MTO,false,true
+svelte js,Svelte,MTO,false,true
+svelte kit,SvelteKit,MTO,false,true
+svelte-kit,SvelteKit,MTO,false,true
+svelte.js,Svelte,MTO,false,true
+sviz,sweetviz,MTO,true,true
+svn,Subversion,MTO,true,true
+swagger,Swagger/OpenAPI,MTO,false,true
+swagger api,Swagger/OpenAPI,MTO,false,true
+swagger bravado,bravado,MTO,false,true
+swagger codegen,Swagger/OpenAPI,MTO,false,true
+swagger documentation,Swagger/OpenAPI,MTO,false,true
+swagger editor,Swagger/OpenAPI,MTO,false,true
+swagger ui,Swagger/OpenAPI,MTO,false,true
+swaggereditor,Swagger/OpenAPI,MTO,false,true
+swaggerui,Swagger/OpenAPI,MTO,false,true
+sweet viz,sweetviz,MTO,false,true
+swift bench,SwiftBench,MTO,false,true
+swift charts,iOS Charts,MTO,false,true
+swift cron,SwiftCron,MTO,false,true
+swift cuckoo,Cuckoo,MTO,false,true
+swift db testing,SwiftDBTesting,MTO,false,true
+swift elastic,ElasticSwift,MTO,false,true
+swift forms,SwiftForms,MTO,false,true
+swift kuery postgresql,SwiftKueryPostgreSQL,MTO,false,true
+swift lang,Swift,MTO,false,false
+swift location,SwiftLocation,MTO,false,true
+swift log,SwiftLog,MTO,false,true
+swift middleware,SwiftMiddleware,MTO,false,true
+swift mq,SwiftMQ,MTO,false,true
+swift numerics library,Swift Numerics,MTO,false,true
+swift plot,Plot,MTO,false,true
+swift queue,SwiftQueue,MTO,false,true
+swift realm,RealmSwift,MTO,false,true
+swift security,SwiftySecurity,MTO,false,true
+swift sqlite,SQLite.swift,MTO,false,true
+swift starscream,Starscream,MTO,false,true
+swift stencil,Stencil,MTO,false,true
+swift ui,SwiftUI,MTO,false,true
+swift ui x,SwiftUIX,MTO,false,true
+swiftplot,Plot,MTO,false,true
+swiftplot library,Plot,MTO,false,true
+swiftpm,Swift Package Manager,MTO,false,true
+swiftuix library,SwiftUIX,MTO,false,true
+swing extended,SwingX,MTO,false,true
+swing timing framework,Timing Framework,MTO,false,true
+swing x,SwingX,MTO,false,true
+sycamore rust,Sycamore,MTO,false,true
+sycamore ui,Sycamore,MTO,false,true
+symfony console component,Symfony Console,MTO,false,true
+synapse,Azure Synapse,MTO,false,true
+synaptic.js,Synaptic,MTO,false,true
+syncfusion,Syncfusion Essential Studio for Xamarin,MTO,false,true
+syncfusion ej2,Syncfusion Essential JS 2,MTO,false,true
+syncfusion xamarin,Syncfusion Essential Studio for Xamarin,MTO,false,true
+synchronized multimedia integration language,SMIL,MTO,false,true
+syntactically awesome stylesheets,Sass,MTO,false,true
+syntax text area,RSyntaxTextArea,MTO,false,true
+table saw,Tablesaw,MTO,false,true
+tableau software,Tableau,MTO,false,false
+tables,PyTables,MTO,false,false
+tablesaw dataframe,Tablesaw,MTO,false,true
+tailwind,Tailwind CSS,MTO,false,false
+tailwindcss,Tailwind CSS,MTO,false,false
+talend etl,Talend,MTO,false,true
+talend open studio,Talend,MTO,false,true
+tanstack,React Query,MTO,false,true
+tanstack query,React Query,MTO,false,true
+tantivy rust,Tantivy,MTO,false,true
+tantivy search,Tantivy,MTO,false,true
+tarsos dsp,TarsosDSP,MTO,false,true
+task schedule,schedule,MTO,false,true
+tavern testing,Tavern,MTO,false,true
+tavern-api,Tavern,MTO,false,true
+tblob,TextBlob,MTO,false,true
+tc-python,Testcontainers,MTO,false,true
+tch,tch-rs,MTO,true,true
+tch rust,tch-rs,MTO,false,true
+tcl lang,Tcl,MTO,false,true
+tclwebserver,Tcl Web Server,MTO,false,true
+tcp protocol,TCP,MTO,false,true
+team city,TeamCity,MTO,false,true
+tekton ci/cd,Tekton,MTO,false,true
+tekton pipelines,Tekton,MTO,false,true
+telerik,Kendo UI,MTO,false,true
+telerik kendo ui,Kendo UI,MTO,false,true
+telerik xamarin,Telerik UI for Xamarin,MTO,false,true
+telnet protocol,Telnet,MTO,false,true
+tensor flow,TensorFlow,MTO,false,false
+tensor rt,TensorRT,MTO,false,true
+tensorflow js,TensorFlow.js,MTO,false,true
+tera rust,Tera,MTO,false,true
+tera template,Tera,MTO,false,true
+terra form,Terraform,MTO,false,true
+terraform by hashicorp,Terraform,MTO,false,true
+terraform cli,Terraform,MTO,false,true
+test cafe,TestCafe,MTO,false,true
+test containers,Testcontainers,MTO,false,true
+test containers for .net,Testcontainers,MTO,false,true
+test fx,TestFX,MTO,false,true
+test lab,Firebase Test Lab,MTO,false,true
+test management tool,TestRail,MTO,false,true
+test next generation,TestNG,MTO,false,true
+test ng,TestNG,MTO,false,true
+test project,TestProject,MTO,false,true
+test rail,TestRail,MTO,false,true
+test renderer,React Test Renderer,MTO,false,true
+testcontainers-python,Testcontainers,MTO,false,true
+testify library,testify,MTO,false,true
+testim automation,Testim,MTO,false,true
+testim.io,Testim,MTO,false,true
+text blob,TextBlob,MTO,false,true
+textanalysis,TextAnalysis.jl,MTO,false,true
+tf java,TensorFlow Java,MTO,false,true
+tfjs,TensorFlow.js,MTO,true,true
+tfjs visualization,tfjs-vis,MTO,false,true
+tfjs-vis.js,tfjs-vis,MTO,false,true
+thyme leaf,Thymeleaf,MTO,false,true
+tidy models,tidymodels,MTO,false,true
+tidy r,tidyr,MTO,false,true
+tidymodels framework,tidymodels,MTO,false,true
+tidyr package,tidyr,MTO,false,true
+tilt ruby,Tilt,MTO,false,true
+tilt template,Tilt,MTO,false,true
+timber logging,Timber,MTO,false,true
+timescale database,TimescaleDB,MTO,false,true
+timescale db,TimescaleDB,MTO,false,true
+titanium,Appcelerator Titanium,MTO,false,true
+titanium sdk,Appcelerator Titanium,MTO,false,true
+tls 1.0,TLS,MTO,false,true
+tls 1.1,TLS,MTO,false,true
+tls 1.2,TLS,MTO,false,true
+tls 1.3,TLS,MTO,false,true
+tomcat,Apache Tomcat,MTO,false,true
+tomcat 10,Apache Tomcat,MTO,false,true
+tomcat 7,Apache Tomcat,MTO,false,true
+tomcat 8,Apache Tomcat,MTO,false,true
+tomcat 9,Apache Tomcat,MTO,false,true
+tomcat server,Apache Tomcat,MTO,false,true
+toml library,toml,MTO,false,false
+tomlpy,toml,MTO,false,false
+tool command language,Tcl,MTO,false,true
+torch,PyTorch,MTO,false,false
+torch-rs,tch-rs,MTO,false,true
+tortoise,TortoiseSVN,MTO,false,true
+tortoise svn,TortoiseSVN,MTO,false,true
+total js,Total.js,MTO,false,true
+totaljs,Total.js,MTO,false,true
+touch,Sencha Touch,MTO,false,false
+tower tool,Tower,MTO,false,true
+tox automation,tox,MTO,false,true
+tox testing,tox,MTO,false,true
+tpot library,TPOT,MTO,false,true
+tracking js,tracking.js,MTO,false,true
+tract crate,tract,MTO,false,true
+tract rust,tract,MTO,false,true
+transformers,Hugging Face Transformers,MTO,false,true
+transformers reinforcement learning,TRL,MTO,false,true
+transit gateway,AWS Transit Gateway,MTO,false,true
+transit gw,AWS Transit Gateway,MTO,false,true
+transmission control protocol,TCP,MTO,false,true
+transport layer security,TLS,MTO,false,true
+travis,Travis CI,MTO,false,true
+tree-based pipeline optimization tool,TPOT,MTO,false,true
+tribuo machine learning,Tribuo,MTO,false,true
+tribuo ml,Tribuo,MTO,false,true
+trident animation,Trident,MTO,false,true
+trl library,TRL,MTO,false,true
+trusted advisor,AWS Trusted Advisor,MTO,false,true
+turbo pascal,Pascal,MTO,false,true
+twig engine,Twig,MTO,false,true
+twig templating,Twig,MTO,false,true
+twitter bootstrap,Bootstrap,MTO,false,false
+twitterbootstrap,Bootstrap,MTO,false,false
+type graph ql,TypeGraphQL,MTO,false,true
+type graph-ql,TypeGraphQL,MTO,false,true
+type-graphql,TypeGraphQL,MTO,false,true
+typeorm.js,TypeORM,MTO,false,true
+typesafe,lightbend,MTO,false,true
+udp protocol,UDP,MTO,false,true
+ui automation,TestStack.White,MTO,false,true
+ui dev tool,Storybook,MTO,false,true
+ui kit,UIkit,MTO,false,true
+ui storybook,Storybook,MTO,false,true
+ui test,Xamarin.UITest,MTO,false,true
+uikit css,UIkit,MTO,false,true
+uikit framework,UIkit,MTO,false,true
+uikitten,UI Kitten,MTO,false,true
+uitest,Xamarin.UITest,MTO,false,true
+unfolding,Unfolding Maps,MTO,false,true
+uni gui,uniGUI,MTO,false,true
+unicorn server,Unicorn,MTO,false,true
+unirest,Unirest Java,MTO,false,true
+unit php,PHPUnit,MTO,false,true
+unity 3d,Unity,MTO,false,true
+unity3d,Unity,MTO,false,true
+universal binary JSON,UBJSON,MTO,false,true
+urban airship,Airship,MTO,false,true
+url navigator,URLNavigator,MTO,false,true
+user datagram protocol,UDP,MTO,false,true
+user testing,UserTesting,MTO,false,true
+uwsgi server,uWSGI,MTO,false,true
+v l l m,VLLM,MTO,false,true
+vaadin framework,Vaadin,MTO,false,true
+vaex dataframe,Vaex,MTO,false,true
+vaex library,Vaex,MTO,false,true
+vala lang,Vala,MTO,false,true
+validator fx,ValidatorFX,MTO,false,true
+vant ui,Vant,MTO,false,true
+vant-ui,Vant,MTO,false,true
+vault cli,Vault,MTO,false,true
+vault-node,Vault,MTO,false,true
+vb dotnet,VB.NET,MTO,false,true
+vb6,Visual Basic,MTO,true,true
+vcr,VCRpy,MTO,true,true
+vcr py,VCRpy,MTO,false,true
+vegeta go,vegeta,MTO,false,true
+vegeta load,vegeta,MTO,false,true
+velocity,Velocity.js,MTO,false,false
+velocity engine,Apache Velocity,MTO,false,true
+velocity java,Apache Velocity,MTO,false,true
+velocityjs,Velocity.js,MTO,false,true
+vercel ai,Vercel AI SDK,MTO,false,true
+verilog hdl,Verilog,MTO,false,true
+vert x,Vert.x,MTO,false,true
+vertex ai,Google Vertex AI,MTO,false,true
+vertex ai gemini,Google Vertex AI,MTO,false,true
+vertexai,Google Vertex AI,MTO,false,true
+vertx,Vert.x,MTO,false,true
+vespa engine,Vespa,MTO,false,true
+vespa search,Vespa,MTO,false,true
+vespa.ai,Vespa,MTO,false,true
+vhdl lang,VHDL,MTO,false,true
+vibe d,Vibe.d,MTO,false,true
+vibed,Vibe.d,MTO,false,true
+victor ops,VictorOps,MTO,false,true
+victory.js,Victory,MTO,false,true
+video io,VideoIO.jl,MTO,false,true
+view component,ViewComponent,MTO,false,true
+virtual reality markup language,VRML,MTO,false,true
+visual ai testing,Applitools Eyes,MTO,false,true
+visual basic .net,VB.NET,MTO,false,true
+visual lisp,AutoLISP,MTO,false,true
+visual regression needle,needle,MTO,false,true
+visual website optimizer,VWO,MTO,false,true
+visualstudio,visual studio,MTO,false,true
+visx library,Visx,MTO,false,true
+visxjs,Visx,MTO,false,true
+vite build tool,Vite,MTO,false,false
+vitejs,Vite,MTO,false,false
+vs code,Visual Studio Code,MTO,false,true
+vscode,Visual Studio Code,MTO,false,true
+vue,Vue.js,MTO,true,false
+vue 3,Vue.js,MTO,false,false
+vue js,Vue.js,MTO,false,false
+vue vuetify,Vuetify,MTO,false,true
+vuejs,Vue.js,MTO,false,false
+vuetify js,Vuetify,MTO,false,true
+vuetify.js,Vuetify,MTO,false,true
+vuetifyjs,Vuetify,MTO,false,true
+vugu ui,Vugu,MTO,false,true
+vugu-go,Vugu,MTO,false,true
+vwo testing,VWO,MTO,false,true
+vyper lang,Vyper,MTO,false,true
+w t forms,WTForms,MTO,false,true
+wallaby,Wallaby.js,MTO,false,true
+wandb,Weights & Biases,MTO,false,true
+wandb for llms,Weights & Biases,MTO,false,true
+warp web server,Warp webserver,MTO,false,true
+wasm test,wasm-bindgen-test,MTO,false,true
+watermelon db,WatermelonDB,MTO,false,true
+watermill go,Watermill,MTO,false,true
+watson,DrWatson.jl,MTO,false,true
+wbt,wasm-bindgen-test,MTO,true,true
+wcag 2.1,WCAG,MTO,false,true
+wcag compliance,WCAG,MTO,false,true
+wdio,WebdriverIO,MTO,true,true
+weaviate client,Weaviate,MTO,false,true
+weaviate db,Weaviate,MTO,false,true
+weaviate-js,Weaviate,MTO,false,true
+web 2 py,web2py,MTO,false,true
+web accessibility guidelines,WCAG,MTO,false,true
+web app service,App Service,MTO,false,true
+web content accessibility guidelines,WCAG,MTO,false,true
+web distributed authoring and versioning,WebDAV,MTO,false,true
+web mock,WebMock,MTO,false,true
+web server gateway interface,wsgi,MTO,false,true
+web sharper,WebSharper,MTO,false,true
+web socket,WebSocket,MTO,false,true
+web sockets,WebSocket,MTO,false,true
+webdriver,Selenium,MTO,false,false
+webmock ruby,WebMock,MTO,false,true
+webpack bundler,Webpack,MTO,false,true
+webpack.js,Webpack,MTO,false,true
+websockets,WebSocket,MTO,false,true
+weex framework,Weex,MTO,false,true
+weights & biases for llms,Weights & Biases,MTO,false,true
+weka machine learning,Weka,MTO,false,true
+white,TestStack.White,MTO,false,false
+white noise,WhiteNoise,MTO,false,true
+whitenoise middleware,WhiteNoise,MTO,false,true
+whoosh indexing,Whoosh,MTO,false,true
+whoosh search,Whoosh,MTO,false,true
+wicket,Apache Wicket,MTO,false,true
+wijmo framework,Wijmo,MTO,false,true
+wijmo ui,Wijmo,MTO,false,true
+wiki markup,Wikitext,MTO,false,true
+windows powershell,PowerShell,MTO,false,false
+wire mock,WireMock,MTO,false,true
+wire shark,Wireshark,MTO,false,false
+wiremock server,WireMock,MTO,false,true
+wiremock.net,WireMock,MTO,false,true
+wireshark network analyzer,Wireshark,MTO,false,false
+wolframlang,Wolfram Language,MTO,false,true
+work day,Workday,MTO,false,false
+wpf toolkit,Xceed.Wpf.Toolkit,MTO,false,true
+wpf transitionals,Transitionals,MTO,false,true
+wpt,WebPageTest,MTO,true,true
+wraith gem,Wraith,MTO,false,true
+ws.js,ws,MTO,false,true
+wsgi paste,Paste,MTO,false,true
+wss,WebSocket,MTO,true,true
+wt forms,WTForms,MTO,false,true
+x chart,XChart,MTO,false,true
+x code,Xcode,MTO,false,true
+x state,XState,MTO,false,true
+xamarin auth,Xamarin.Auth,MTO,false,true
+xamarin essentials,Xamarin.Essentials,MTO,false,true
+xamarin native,Xamarin,MTO,false,true
+xamarin ui test,Xamarin.UITest,MTO,false,true
+xamarin.forms,Xamarin,MTO,false,true
+xauth,Xamarin.Auth,MTO,false,true
+xceed wpf toolkit,Xceed.Wpf.Toolkit,MTO,false,true
+xctest,XCUITest,MTO,false,true
+xctest ui,XCUITest,MTO,false,true
+xdist,pytest-xdist,MTO,false,true
+xla compiler,XLA,MTO,false,true
+xug,Xuggler,MTO,true,true
+xunit,xUnit.net,MTO,false,true
+yag mail,yagmail,MTO,false,true
+yagmail library,yagmail,MTO,false,true
+yaml ain't markup language,YAML,MTO,false,true
+yarnpkg,Yarn,MTO,false,true
+zap,OWASP ZAP,MTO,true,true
+zaproxy,OWASP ZAP,MTO,false,true
+zeus,Zeus Web Server,MTO,true,true
+zig lang,Zig,MTO,false,true
+zmq,pyzmq,MTO,true,true
+zurb foundation,Foundation,MTO,false,true
+zurbfoundation,Foundation,MTO,false,true

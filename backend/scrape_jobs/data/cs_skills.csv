@@ -1,139 +1,2104 @@
-skill_name,skill_category
-Python,Programming Language
-Java,Programming Language
-JavaScript,Programming Language
-TypeScript,Programming Language
-C++,Programming Language
-C#,Programming Language
-PHP,Programming Language
-Ruby,Programming Language
-Go,Programming Language
-Kotlin,Programming Language
-Swift,Programming Language
-Dart,Programming Language
-R,Programming Language
-Scala,Programming Language
-Bash,Programming Language
-PowerShell,Programming Language
-HTML,Frontend Development
-CSS,Frontend Development
-React,Frontend Development
-Next.js,Frontend Development
-Vue.js,Frontend Development
-Angular,Frontend Development
-Tailwind CSS,Frontend Development
-Bootstrap,Frontend Development
-Responsive Design,Frontend Development
-Web Accessibility,Frontend Development
-Redux,Frontend Development
-Vite,Frontend Development
-Django,Backend Development
-Django REST Framework,Backend Development
-Flask,Backend Development
-FastAPI,Backend Development
-Node.js,Backend Development
-Express.js,Backend Development
-Spring Boot,Backend Development
-Laravel,Backend Development
-REST API,Backend Development
-GraphQL,Backend Development
-JWT Authentication,Backend Development
-OAuth,Backend Development
-Microservices,Backend Development
-SQL,Database
-PostgreSQL,Database
-MySQL,Database
-SQLite,Database
-MongoDB,Database
-Redis,Database
-Firebase,Database
-Database Design,Database
-Database Normalization,Database
-Stored Procedures,Database
-Query Optimization,Database
-Excel,Data Analytics
-Power BI,Data Analytics
-Tableau,Data Analytics
-Data Analysis,Data Analytics
-Data Visualization,Data Analytics
-Pandas,Data Analytics
-NumPy,Data Analytics
-Matplotlib,Data Analytics
-Seaborn,Data Analytics
-ETL,Data Analytics
-Data Cleaning,Data Analytics
-Business Intelligence,Data Analytics
-Machine Learning,AI and Machine Learning
-Deep Learning,AI and Machine Learning
-Natural Language Processing,AI and Machine Learning
-Computer Vision,AI and Machine Learning
-TensorFlow,AI and Machine Learning
-PyTorch,AI and Machine Learning
-Scikit-learn,AI and Machine Learning
-Keras,AI and Machine Learning
-OpenCV,AI and Machine Learning
-BERT,AI and Machine Learning
-Large Language Models,AI and Machine Learning
-Prompt Engineering,AI and Machine Learning
-Git,DevOps and Tools
-GitHub,DevOps and Tools
-GitLab,DevOps and Tools
-Docker,DevOps and Tools
-Kubernetes,DevOps and Tools
-CI/CD,DevOps and Tools
-Jenkins,DevOps and Tools
-GitHub Actions,DevOps and Tools
-AWS,Cloud Computing
-Azure,Cloud Computing
-Google Cloud Platform,Cloud Computing
-Linux,Operating System
-Nginx,DevOps and Tools
-Apache,DevOps and Tools
-Cybersecurity,Cybersecurity
-Network Security,Cybersecurity
-Penetration Testing,Cybersecurity
-Vulnerability Assessment,Cybersecurity
-SIEM,Cybersecurity
-Firewall,Cybersecurity
-Encryption,Cybersecurity
-Authentication,Cybersecurity
-Authorization,Cybersecurity
-TCP/IP,Networking
-DNS,Networking
-HTTP,Networking
-VPN,Networking
-Android Development,Mobile Development
-iOS Development,Mobile Development
-Flutter,Mobile Development
-React Native,Mobile Development
-Mobile App Development,Mobile Development
-Software Testing,Testing and QA
-Unit Testing,Testing and QA
-Integration Testing,Testing and QA
-Selenium,Testing and QA
-Pytest,Testing and QA
-Jest,Testing and QA
-Cypress,Testing and QA
-Postman,Testing and QA
-Test Automation,Testing and QA
-Object-Oriented Programming,Software Engineering
-Data Structures,Software Engineering
-Algorithms,Software Engineering
-Agile,Software Engineering
-Scrum,Software Engineering
-Software Development Life Cycle,Software Engineering
-API Integration,Software Engineering
-System Design,Software Engineering
-Version Control,Software Engineering
-Debugging,Software Engineering
-UI Design,UI and UX
-UX Design,UI and UX
-Figma,UI and UX
-Wireframing,UI and UX
-Prototyping,UI and UX
-Communication,Soft Skill
-Problem Solving,Soft Skill
-Teamwork,Soft Skill
-Critical Thinking,Soft Skill
-Time Management,Soft Skill
-Project Management,Soft Skill
+skill_name,skill_category,skill_type,technical_domain,catalogue_status,is_active
+.NET,,,,MARKET_EXTENSION,true
+7-Zip,,Tool,,MTO_EXTENSION,true
+AB Tasty,,Service | Library,QA/Testing,MTO_EXTENSION,true
+ABAP,Enterprise Systems,,,ACTIVE_INTERNAL,true
+ACME,,Tool,DevOps,MTO_EXTENSION,true
+AIF360,,Library,MLOps | ML/AI,MTO_EXTENSION,true
+API,,,,MARKET_EXTENSION,true
+API Integration,Software Engineering,,,ACTIVE_INTERNAL,true
+APScheduler,,Library,Backend,MTO_EXTENSION,true
+AQL (ArangoDB Query Language),,QueryLanguage,,MTO_EXTENSION,true
+ARM Templates,,Tool,DevOps,MTO_EXTENSION,true
+ASGI,,Tool,Backend,MTO_EXTENSION,true
+ASN.1,,MarkupLanguage,,MTO_EXTENSION,true
+ASP.NET,,Framework,Backend,MTO_EXTENSION,true
+ASP.NET Core,,Framework,Backend,MTO_EXTENSION,true
+ASP.NET MVC,,Framework,Backend,MTO_EXTENSION,true
+AWK,,ProgrammingLanguage,DevOps,MTO_EXTENSION,true
+AWS,Cloud Computing,,,ACTIVE_INTERNAL,true
+AWS AppSync,,Database,Fullstack | Backend | Mobile,MTO_EXTENSION,true
+AWS CDK,,Service | Library,DevOps,MTO_EXTENSION,true
+AWS Control Tower,,Service,DevOps,MTO_EXTENSION,true
+AWS Device Farm,,Library,Mobile,MTO_EXTENSION,true
+AWS DynamoDB,,Service | Database,Mobile | IoT | Backend,MTO_EXTENSION,true
+AWS Elastic Beanstalk,,Service,DevOps,MTO_EXTENSION,true
+AWS Glue,,Database,Data Engineering,MTO_EXTENSION,true
+AWS Lake Formation,,Service | Database,Data Engineering,MTO_EXTENSION,true
+AWS Landing Zone,,Service,DevOps,MTO_EXTENSION,true
+AWS Organizations,,Service,DevOps,MTO_EXTENSION,true
+AWS PrivateLink,,Service,Networking | DevOps,MTO_EXTENSION,true
+AWS RDS,,Service | Database,Backend | Data Engineering,MTO_EXTENSION,true
+AWS Secrets Manager,,Service | Tool,DevOps,MTO_EXTENSION,true
+AWS Step Functions,,Service,Backend | DevOps,MTO_EXTENSION,true
+AWS Transit Gateway,,Service,Networking | DevOps,MTO_EXTENSION,true
+AWS Trusted Advisor,,Tool,DevOps,MTO_EXTENSION,true
+AWT,,Library,Frontend,MTO_EXTENSION,true
+AWX,,Tool,DevOps,MTO_EXTENSION,true
+Abyss Web Server,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+AccessibilitySnapshot,,Library,Frontend,MTO_EXTENSION,true
+Accompanist,,Library,Mobile,MTO_EXTENSION,true
+Accord.NET,,Library,Data Science,MTO_EXTENSION,true
+Actian Avalanche,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+ActionHero,,Framework | Library,Backend | Frontend | Fullstack,MTO_EXTENSION,true
+ActiveMQ Artemis Core,,Library,Backend,MTO_EXTENSION,true
+ActiveSupport,,Library,Backend,MTO_EXTENSION,true
+Actix Web,,Framework,Backend,MTO_EXTENSION,true
+Ada,,ProgrammingLanguage,Systems Programming | Embedded Systems,MTO_EXTENSION,true
+AdapterHub,,Library,ML/AI,MTO_EXTENSION,true
+Adobe Illustrator,,Tool,Frontend,MTO_EXTENSION,true
+Adobe Photoshop,,Tool,Frontend,MTO_EXTENSION,true
+Adobe XD,,Service | Tool,Frontend,MTO_EXTENSION,true
+AdonisJS,,Framework,Backend,MTO_EXTENSION,true
+Adversarial Robustness Toolbox,,Library,ML/AI,MTO_EXTENSION,true
+After.js,,Framework,Fullstack | Frontend,MTO_EXTENSION,true
+AgentComms,,Library,ML/AI,MTO_EXTENSION,true
+AgentGPT,,Tool,ML/AI,MTO_EXTENSION,true
+AgentIntegrator,,Library,ML/AI,MTO_EXTENSION,true
+AgentLogger,,Library,ML/AI,MTO_EXTENSION,true
+AgentOrchestrator,,Library,ML/AI,MTO_EXTENSION,true
+AgentPrompt,,Library,ML/AI,MTO_EXTENSION,true
+AgentScript,,Library,ML/AI,MTO_EXTENSION,true
+AgentState,,Library,ML/AI,MTO_EXTENSION,true
+Agile,Software Engineering,,,ACTIVE_INTERNAL,true
+Agouti,,Library,Frontend,MTO_EXTENSION,true
+Airborne,,Library,Backend,MTO_EXTENSION,true
+Airship,,Library,Mobile,MTO_EXTENSION,true
+Akka HTTP,,Framework,Backend,MTO_EXTENSION,true
+Alertmanager,,Library,DevOps,MTO_EXTENSION,true
+Alfred,,Framework,Backend,MTO_EXTENSION,true
+Algorithms,Software Engineering,,,ACTIVE_INTERNAL,true
+Alibaba Cloud ApsaraDB,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Alibi Detect,,Library,MLOps,MTO_EXTENSION,true
+Alice,,Library,Backend,MTO_EXTENSION,true
+AllegroGraph,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Alpine.js,,Framework,Frontend,MTO_EXTENSION,true
+AltBeacon Android,,Library,Mobile,MTO_EXTENSION,true
+Alteryx,,Tool,Data Science,MTO_EXTENSION,true
+Amazon Athena,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+Amazon Aurora,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Amazon Aurora MySQL,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+Amazon Aurora PostgreSQL,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+Amazon DocumentDB,,Database,Backend,MTO_EXTENSION,true
+Amazon EMR,,Database,MLOps | Data Engineering,MTO_EXTENSION,true
+Amazon EMR (with Apache Druid),,Database,Data Engineering,MTO_EXTENSION,true
+Amazon ElastiCache for Memcached,,Database,,MTO_EXTENSION,true
+Amazon ElastiCache for Redis,,Database,DevOps | Backend,MTO_EXTENSION,true
+Amazon Kendra,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Amazon Keyspaces,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Amazon Kinesis,,Service,Data Engineering | Backend,MTO_EXTENSION,true
+Amazon Managed Blockchain,,Database,Blockchain,MTO_EXTENSION,true
+Amazon Managed Service for Prometheus,,Database,DevOps,MTO_EXTENSION,true
+Amazon MemoryDB for Redis,,Database,DevOps | Backend,MTO_EXTENSION,true
+Amazon Neptune,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Amazon OpenSearch,,Database,ML/AI | Data Engineering | Backend,MTO_EXTENSION,true
+Amazon QLDB,,Database,Blockchain | Backend,MTO_EXTENSION,true
+Amazon RDS for MySQL,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+Amazon RDS for Oracle,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Amazon RDS for PostgreSQL,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+Amazon RDS for SQL Server,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Amazon Redshift,,Service | Database,Data Science | Data Engineering,MTO_EXTENSION,true
+Amazon S3 Select,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+Amazon SageMaker,,Service | Tool,MLOps,MTO_EXTENSION,true
+Amazon SimpleDB,,Database,Backend,MTO_EXTENSION,true
+Amazon Timestream,,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+Amber,,Framework,Backend,MTO_EXTENSION,true
+Amplitude,,Service | Library,Mobile,MTO_EXTENSION,true
+Anaconda Navigator,,Tool,ML/AI,MTO_EXTENSION,true
+Android (Native),,Framework,Mobile,MTO_EXTENSION,true
+Android Development,Mobile Development,,,ACTIVE_INTERNAL,true
+Android Studio,,Tool,Mobile,MTO_EXTENSION,true
+AndroidX AppCompat,,Library,Mobile,MTO_EXTENSION,true
+Angel,,Framework,Backend,MTO_EXTENSION,true
+Angular,Frontend Development,,,ACTIVE_INTERNAL,true
+Anime.js,,Library,Frontend,MTO_EXTENSION,true
+Annoy,,Library,ML/AI,MTO_EXTENSION,true
+Ansible,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Ant Design,,Library,Frontend,MTO_EXTENSION,true
+Ant Design Mobile,,Library,Mobile,MTO_EXTENSION,true
+Anthos,,Service,DevOps,MTO_EXTENSION,true
+Apache,DevOps and Tools,,,ACTIVE_INTERNAL,true
+Apache Airflow,,Tool,Data Science | ML/AI,MTO_EXTENSION,true
+Apache AsterixDB,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Apache Beam,,Library,MLOps,MTO_EXTENSION,true
+Apache Brooklyn,,Library,DevOps,MTO_EXTENSION,true
+Apache Camel,,Library,Fullstack,MTO_EXTENSION,true
+Apache Cassandra,,Database,Networking | Data Engineering | Backend,MTO_EXTENSION,true
+Apache Commons DBCP,,Library,Backend,MTO_EXTENSION,true
+Apache Commons Email,,Library,Backend,MTO_EXTENSION,true
+Apache Commons Math,,Library,Data Science,MTO_EXTENSION,true
+Apache Cordova,,Framework,Mobile,MTO_EXTENSION,true
+Apache Crunch,,Library,Data Science,MTO_EXTENSION,true
+Apache Derby,,Database,Desktop | Backend,MTO_EXTENSION,true
+Apache Drill,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Apache Druid,,Service | Database,Backend | Data Engineering,MTO_EXTENSION,true
+Apache Hive,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Apache Ivy,,Library,DevOps,MTO_EXTENSION,true
+Apache Jena Fuseki,,Database,Data Science,MTO_EXTENSION,true
+Apache Kafka,,Service | Tool,Backend,MTO_EXTENSION,true
+Apache Lucene,,Library,Backend,MTO_EXTENSION,true
+Apache Mahout,,Library,ML/AI,MTO_EXTENSION,true
+Apache Maven,,Library,DevOps,MTO_EXTENSION,true
+Apache NiFi,,Tool,Data Science,MTO_EXTENSION,true
+Apache OpenNLP,,Library,ML/AI,MTO_EXTENSION,true
+Apache Phoenix (over Apache HBase),,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Apache Pig,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Apache Pivot,,Library,Frontend,MTO_EXTENSION,true
+Apache Qpid JMS Client,,Library,Backend,MTO_EXTENSION,true
+Apache Spark,,Tool,Data Science,MTO_EXTENSION,true
+Apache TinkerGraph,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Apache Tomcat,,Webserver | Tool,DevOps | Backend,MTO_EXTENSION,true
+Apache Trafodion,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Apache Velocity,,Library,Fullstack,MTO_EXTENSION,true
+Apache Wicket,,Library,Fullstack,MTO_EXTENSION,true
+Apache.NMS,,Library,Backend,MTO_EXTENSION,true
+Apama (Software AG),,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+Apollo Client,,Library,Frontend,MTO_EXTENSION,true
+App Service,,Service,Backend | DevOps,MTO_EXTENSION,true
+AppAuth-iOS,,Library,Mobile,MTO_EXTENSION,true
+Appcelerator Titanium,,Framework,Mobile,MTO_EXTENSION,true
+Appium,,Tool | Library,Mobile | QA/Testing,MTO_EXTENSION,true
+Applitools Eyes,,Tool | Library,Data Science | QA/Testing | Frontend,MTO_EXTENSION,true
+ApprovalTests,,Library,QA/Testing | Frontend,MTO_EXTENSION,true
+ArangoDB (with GraphQL support),,Database,Fullstack | Backend | Data Science,MTO_EXTENSION,true
+ArangoDB Oasis,,Database,Fullstack | Backend | Data Science,MTO_EXTENSION,true
+Arbiter,,Library,MLOps | ML/AI,MTO_EXTENSION,true
+ArcGIS,,Tool,Data Science,MTO_EXTENSION,true
+ArchGDAL.jl,,Library,Data Science,MTO_EXTENSION,true
+ArgoCD,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Arquillian,,Library,QA/Testing,MTO_EXTENSION,true
+Assembly Language,,ProgrammingLanguage,Systems Programming | Embedded Systems,MTO_EXTENSION,true
+AssertJ,,Library,QA/Testing,MTO_EXTENSION,true
+AssertJ-Swing,,Library,Frontend,MTO_EXTENSION,true
+Atom,,MarkupLanguage,,MTO_EXTENSION,true
+Aurelia,,Framework,Frontend,MTO_EXTENSION,true
+Auth0 Android,,Library,Mobile,MTO_EXTENSION,true
+Auth0.js,,Library,Mobile,MTO_EXTENSION,true
+Authentication,Cybersecurity,,,ACTIVE_INTERNAL,true
+Authorization,Cybersecurity,,,ACTIVE_INTERNAL,true
+Auto-sklearn,,Library,ML/AI,MTO_EXTENSION,true
+AutoGPT,,Service | Tool,ML/AI,MTO_EXTENSION,true
+AutoLISP,,ProgrammingLanguage,Desktop,MTO_EXTENSION,true
+Autocount,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Axe.Windows,,Library,Frontend,MTO_EXTENSION,true
+Axios,,Library,Backend,MTO_EXTENSION,true
+Axon (Elixir),,Library,ML/AI,MTO_EXTENSION,true
+Axum,,Framework,Backend,MTO_EXTENSION,true
+Azure,Cloud Computing,,,ACTIVE_INTERNAL,true
+Azure Arc,,Service,DevOps,MTO_EXTENSION,true
+Azure Cache,,Database,DevOps | Backend,MTO_EXTENSION,true
+Azure Cognitive Search,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Azure Cosmos DB,,Service | Database,Mobile | IoT | Backend,MTO_EXTENSION,true
+Azure Cosmos DB for Gremlin,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Azure Data Explorer,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Azure Data Explorer (Kusto Query Language support),,,Data Engineering | Backend,MTO_EXTENSION,true
+Azure Data Factory,,Service,Data Engineering,MTO_EXTENSION,true
+Azure Event Hubs,,Service,Data Engineering | Backend,MTO_EXTENSION,true
+Azure HDInsight,,Database,MLOps | Data Engineering,MTO_EXTENSION,true
+Azure Key Vault,,Service | Tool,DevOps,MTO_EXTENSION,true
+Azure Monitor,,Service | Database,DevOps,MTO_EXTENSION,true
+Azure OpenAI Embeddings,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Azure SQL Database,,Service | Database,Backend | Data Engineering,MTO_EXTENSION,true
+Azure SQL Managed Instance,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Azure Stream Analytics,,Service,Data Engineering | Backend,MTO_EXTENSION,true
+Azure Synapse,,Service | Database,Data Science | Data Engineering,MTO_EXTENSION,true
+Azure Table Storage,,Database,Backend,MTO_EXTENSION,true
+BERT,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+BGP,,,,MARKET_EXTENSION,true
+BSON,,MarkupLanguage,,MTO_EXTENSION,true
+Backbone.js,,Framework,Frontend,MTO_EXTENSION,true
+BackstopJS,,Library,Frontend,MTO_EXTENSION,true
+Bamboo,,Tool,DevOps,MTO_EXTENSION,true
+Barista,,Library,Mobile,MTO_EXTENSION,true
+BaseX,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Bash,Programming Language,,,ACTIVE_INTERNAL,true
+Battery Historian,,Tool | Library,Mobile,MTO_EXTENSION,true
+Beego,,Framework,Backend,MTO_EXTENSION,true
+Behat,,Library,Backend,MTO_EXTENSION,true
+Benchmark.js,,Library,QA/Testing,MTO_EXTENSION,true
+BentoML for Agents,,Service | Tool | Library,ML/AI | MLOps,MTO_EXTENSION,true
+BibTeX,,MarkupLanguage,,MTO_EXTENSION,true
+Bit,,Library,Frontend,MTO_EXTENSION,true
+BitTorrent Protocol,,Protocol,,MTO_EXTENSION,true
+Bitbucket,,Service | Tool,DevOps,MTO_EXTENSION,true
+Blazor,,Framework,Frontend,MTO_EXTENSION,true
+Blazored.LocalStorage,,Library,Frontend,MTO_EXTENSION,true
+Blazored.Modal,,Library,Frontend,MTO_EXTENSION,true
+Blazored.Toast,,Library,Frontend,MTO_EXTENSION,true
+Blazorise,,Library,Frontend,MTO_EXTENSION,true
+Blitz.js,,Framework,Fullstack | Frontend,MTO_EXTENSION,true
+BlueprintJS,,Library,Frontend,MTO_EXTENSION,true
+BonMot,,Library,Frontend,MTO_EXTENSION,true
+BoofCV,,Library,ML/AI,MTO_EXTENSION,true
+Bookshelf,,Library,Backend,MTO_EXTENSION,true
+Boomerang,,Library,Frontend,MTO_EXTENSION,true
+Bootstrap,Frontend Development,,,ACTIVE_INTERNAL,true
+Bottle,,Framework,Backend,MTO_EXTENSION,true
+Brain.js,,Library,ML/AI,MTO_EXTENSION,true
+Braintree Android SDK,,Library,Mobile,MTO_EXTENSION,true
+Brakeman,,Library,QA/Testing,MTO_EXTENSION,true
+Bridge.NET,,Library,Fullstack,MTO_EXTENSION,true
+Brownie,,Framework,Backend,MTO_EXTENSION,true
+BrowserStack,,Tool | Library,QA/Testing | Frontend,MTO_EXTENSION,true
+Browserslist,,Library,Frontend,MTO_EXTENSION,true
+Buffalo,,Framework,Backend,MTO_EXTENSION,true
+Bulma,,Library,Frontend,MTO_EXTENSION,true
+Bundler,,Library,DevOps,MTO_EXTENSION,true
+Bunit,,Library,Frontend,MTO_EXTENSION,true
+Bunny Ruby,,Library,Backend,MTO_EXTENSION,true
+Burp Suite,,Service | Tool,QA/Testing,MTO_EXTENSION,true
+Business Intelligence,Data Analytics,,,ACTIVE_INTERNAL,true
+Butter Knife,,Library,Mobile,MTO_EXTENSION,true
+C,,ProgrammingLanguage,Backend | Desktop | Embedded Systems | IoT | DevOps | Data Engineering | Data Science | ML/AI | Cybersecurity | QA/Testi,REVIEW_REQUIRED,false
+C#,Programming Language,,,ACTIVE_INTERNAL,true
+C++,Programming Language,,,ACTIVE_INTERNAL,true
+CCIE,,Certification,,MARKET_EXTENSION,true
+CCNA,,Certification,,MARKET_EXTENSION,true
+CCNP,,Certification,,MARKET_EXTENSION,true
+CDN,,,,MARKET_EXTENSION,true
+CI/CD,DevOps and Tools,,,ACTIVE_INTERNAL,true
+CIM Query Language (CQL),,QueryLanguage,,MTO_EXTENSION,true
+CISM,,Certification,,MARKET_EXTENSION,true
+CISSP,,Certification,,MARKET_EXTENSION,true
+CLI,,,,MARKET_EXTENSION,true
+CMMS,,,,MARKET_EXTENSION,true
+CMS,,,,MARKET_EXTENSION,true
+COBOL,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+COLLADA,,MarkupLanguage,,MTO_EXTENSION,true
+CQL (Cassandra Query Language),,QueryLanguage,,MTO_EXTENSION,true
+CQL for TimeSeries,,QueryLanguage,,MTO_EXTENSION,true
+CRISC,,Certification,,MARKET_EXTENSION,true
+CRM,Enterprise Systems,,,ACTIVE_INTERNAL,true
+CSS,Frontend Development,,,ACTIVE_INTERNAL,true
+CSS Flexbox,,Skill,Frontend,MTO_EXTENSION,true
+CSS Grid,,Skill,Frontend,MTO_EXTENSION,true
+CSS Multi-Column Layout,,Skill,Frontend,MTO_EXTENSION,true
+CSV,,MarkupLanguage,,MTO_EXTENSION,true
+CUDA,,Tool,ML/AI,MTO_EXTENSION,true
+CUE,,MarkupLanguage,,MTO_EXTENSION,true
+CacheManager,,Library,Backend,MTO_EXTENSION,true
+Caddy,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Caffeine,,Library,Backend,MTO_EXTENSION,true
+Cake,,Library,DevOps,MTO_EXTENSION,true
+CakePHP,,Framework,Backend,MTO_EXTENSION,true
+CanJS,,Framework,Frontend,MTO_EXTENSION,true
+Capybara,,Library,Backend | QA/Testing | Frontend,MTO_EXTENSION,true
+Carbon Design System,,Library,Frontend,MTO_EXTENSION,true
+Cargo,,Library,DevOps,MTO_EXTENSION,true
+Carto,,Tool,Data Science,MTO_EXTENSION,true
+Cassandra Astra,,Service | Database,Networking | Backend | Data Engineering,MTO_EXTENSION,true
+Catalyst,,Framework,Backend,MTO_EXTENSION,true
+Celery,,Library,Backend,MTO_EXTENSION,true
+Chakra UI,,Library,Frontend,MTO_EXTENSION,true
+Changesets,,Library,DevOps,MTO_EXTENSION,true
+Charles Proxy,,Tool | Library,Mobile,MTO_EXTENSION,true
+Chart,,Library,Data Science,REVIEW_REQUIRED,false
+Chart.js,,Library,Frontend,MTO_EXTENSION,true
+ChatGPT.js,,Library,ML/AI,MTO_EXTENSION,true
+Chef,,Service | Tool,DevOps,MTO_EXTENSION,true
+Cherokee,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+CherryPy,,Framework,Backend,MTO_EXTENSION,true
+Chi,,Framework,Backend,MTO_EXTENSION,true
+Chicago Boss,,Framework,Backend,MTO_EXTENSION,true
+ChromaDB,,Service | Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Chromatic,,Tool,Frontend,MTO_EXTENSION,true
+Chrome DevTools,,Tool,Frontend,MTO_EXTENSION,true
+CircleCI,,Service | Tool,DevOps,MTO_EXTENSION,true
+Citus (extension for PostgreSQL),,Database,Data Engineering | Backend,MTO_EXTENSION,true
+CityGML,,MarkupLanguage,,MTO_EXTENSION,true
+Clarity,,ProgrammingLanguage,Blockchain,REVIEW_REQUIRED,false
+ClearML,,Service | Tool,MLOps,MTO_EXTENSION,true
+Clinic.js,,Library,DevOps,MTO_EXTENSION,true
+Clojure,,ProgrammingLanguage,Backend | Data Engineering | ML/AI,MTO_EXTENSION,true
+Cloud Bigtable,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Cloud Custodian,,Library,DevOps,MTO_EXTENSION,true
+Cloud Firestore,,Database,Mobile | Fullstack | Backend,MTO_EXTENSION,true
+Cloud Memorystore,,Database,DevOps | Backend,MTO_EXTENSION,true
+Cloud Spanner,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+CloudCheckr,,Tool,DevOps,MTO_EXTENSION,true
+CloudFormation,,Service | Tool,DevOps,MTO_EXTENSION,true
+CloudHealth,,Service | Tool,DevOps,MTO_EXTENSION,true
+CoAP,,Protocol,,MTO_EXTENSION,true
+CockroachDB Cloud,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Code Climate,,Service | Tool,DevOps,MTO_EXTENSION,true
+CodeIgniter,,Framework,Backend,MTO_EXTENSION,true
+CodeSandbox,,Tool,Fullstack,MTO_EXTENSION,true
+Codeception,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+CoffeeScript,,ProgrammingLanguage,Frontend,MTO_EXTENSION,true
+Communication,Soft Skill,,,ACTIVE_INTERNAL,true
+Compojure,,Framework,Backend,MTO_EXTENSION,true
+Composer,,Library | Service,DevOps | Data Engineering,MTO_EXTENSION,true
+Computer Architecture,,,,ACTIVE_INTERNAL,true
+Computer Vision,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+ConstraintLayout,,Library,Mobile,MTO_EXTENSION,true
+Context Toolkit,,Library,ML/AI,MTO_EXTENSION,true
+ControlsFX,,Library,Frontend,MTO_EXTENSION,true
+ConvNetJS,,Library,ML/AI,MTO_EXTENSION,true
+Core ML,,Library,ML/AI,MTO_EXTENSION,true
+Corona SDK (Solar2D),,Framework,Mobile,MTO_EXTENSION,true
+Couchbase Capella,,Service | Database,Mobile | Backend | Fullstack,MTO_EXTENSION,true
+Couchbase Server,,Database,Fullstack | Backend | Mobile,MTO_EXTENSION,true
+Cougaar,,Library,ML/AI,MTO_EXTENSION,true
+Countly,,Tool,Mobile,MTO_EXTENSION,true
+Cowboy,,Framework,Backend,MTO_EXTENSION,true
+CppCMS,,Framework,Backend,MTO_EXTENSION,true
+CrateDB,,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+CrateDB Cloud,,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+CrateDB SQL,,QueryLanguage,,MTO_EXTENSION,true
+Critical Thinking,Soft Skill,,,ACTIVE_INTERNAL,true
+Crontab UI,,Tool,Backend,MTO_EXTENSION,true
+CrossBrowserTesting,,Tool,Frontend,MTO_EXTENSION,true
+Crow,,Framework,Backend,MTO_EXTENSION,true
+Crystal,,ProgrammingLanguage,Backend,REVIEW_REQUIRED,false
+Cuckoo,,Library,Backend,MTO_EXTENSION,true
+Cucumber,,Tool | Library,QA/Testing,MTO_EXTENSION,true
+CyberArk,,Service | Tool,DevOps,MTO_EXTENSION,true
+Cybersecurity,Cybersecurity,,,ACTIVE_INTERNAL,true
+Cypher (Neo4j),,QueryLanguage,,MTO_EXTENSION,true
+Cypress,Testing and QA,,,ACTIVE_INTERNAL,true
+Cypress Component Testing,,Library,Frontend,MTO_EXTENSION,true
+D,,ProgrammingLanguage,Backend | Systems Programming,REVIEW_REQUIRED,false
+D3.js,,Library,Frontend,MTO_EXTENSION,true
+DAX (Data Analysis Expressions),,QueryLanguage,,MTO_EXTENSION,true
+DB Browser for SQLite,,Tool,Mobile,MTO_EXTENSION,true
+DBFlow,,Library,Mobile,MTO_EXTENSION,true
+DBUnit,,Library,Backend,MTO_EXTENSION,true
+DBeaver,,Service | Tool,Backend,MTO_EXTENSION,true
+DHCP,,,,MARKET_EXTENSION,true
+DITA,,MarkupLanguage,,MTO_EXTENSION,true
+DMX (Data Mining Extensions),,QueryLanguage,,MTO_EXTENSION,true
+DNS,Networking,,,ACTIVE_INTERNAL,true
+DOT,,MarkupLanguage,,MTO_EXTENSION,true
+DVC,,Tool | Library,MLOps,MTO_EXTENSION,true
+DXF,,MarkupLanguage,,MTO_EXTENSION,true
+Dagger 2,,Library,Mobile,MTO_EXTENSION,true
+Dalli,,Library,Backend,MTO_EXTENSION,true
+Dancer,,Framework,Backend,MTO_EXTENSION,true
+Danfo.js,,Library,ML/AI,MTO_EXTENSION,true
+Daphne,,Tool,Backend,MTO_EXTENSION,true
+Dapper,,Library,Backend,MTO_EXTENSION,true
+Dart,Programming Language,,,ACTIVE_INTERNAL,true
+Daru,,Library,Data Science,MTO_EXTENSION,true
+Dask,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+Dask-ML,,Library,ML/AI,MTO_EXTENSION,true
+Data Analysis,Data Analytics,,,ACTIVE_INTERNAL,true
+Data Cleaning,Data Analytics,,,ACTIVE_INTERNAL,true
+Data Structures,Software Engineering,,,ACTIVE_INTERNAL,true
+Data Visualization,Data Analytics,,,ACTIVE_INTERNAL,true
+Data-Forge,,Library,ML/AI,MTO_EXTENSION,true
+DataFrames.jl,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+DataFusion,,Library,Data Science,MTO_EXTENSION,true
+DataGrip,,Service | Tool,Backend,MTO_EXTENSION,true
+DataRobot,,Service | Tool,Data Science,MTO_EXTENSION,true
+DataSnap,,Framework,Backend,MTO_EXTENSION,true
+DataStax Enterprise Graph,,Database,Networking | Backend | Data Science,MTO_EXTENSION,true
+DataVec,,Library,Data Science | MLOps | ML/AI,MTO_EXTENSION,true
+Database Cleaner,,Library,Backend,MTO_EXTENSION,true
+Database Design,Database,,,ACTIVE_INTERNAL,true
+Database Normalization,Database,,,ACTIVE_INTERNAL,true
+Databricks for Retail,,Service | Tool,Data Science,MTO_EXTENSION,true
+Datadog,,Service | Tool,DevOps,MTO_EXTENSION,true
+Datalog,,QueryLanguage,,MTO_EXTENSION,true
+Dataproc,,Database,MLOps | Data Engineering,MTO_EXTENSION,true
+Datomic (On-Prem),,,Data Engineering | Backend,MTO_EXTENSION,true
+Dear PyGui,,Library,Frontend,MTO_EXTENSION,true
+Debug,,Library,Backend | Frontend | ML/AI,REVIEW_REQUIRED,false
+Debugging,Software Engineering,,,ACTIVE_INTERNAL,true
+Deedle,,Library,Data Science,MTO_EXTENSION,true
+Deep Java Library (DJL),,Library,ML/AI,MTO_EXTENSION,true
+Deep Learning,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+DeepSpeed,,Service | Tool | Library,ML/AI,MTO_EXTENSION,true
+Deeplearning4j,,Library,ML/AI,MTO_EXTENSION,true
+Deequ,,Library,Data Science,MTO_EXTENSION,true
+Delphi,,ProgrammingLanguage,Backend | Desktop,MTO_EXTENSION,true
+Detox,,Tool | Library,Mobile,MTO_EXTENSION,true
+DevExtreme,,Library,Frontend,MTO_EXTENSION,true
+DevOps,,,,MARKET_EXTENSION,true
+DeviceKit,,Library,Mobile,MTO_EXTENSION,true
+Dgraph,,Database,Fullstack | ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Dgraph Cloud,,Database,Fullstack | ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Diesel,,Library,Backend,MTO_EXTENSION,true
+Django,Backend Development,,,ACTIVE_INTERNAL,true
+Django REST Framework,Backend Development,,,ACTIVE_INTERNAL,true
+DocBook,,MarkupLanguage,,MTO_EXTENSION,true
+Docker,DevOps and Tools,,,ACTIVE_INTERNAL,true
+Docker SDK for Python,,Library,DevOps,MTO_EXTENSION,true
+Docker Swarm,,Tool,DevOps,MTO_EXTENSION,true
+Docker.DotNet,,Library,DevOps,MTO_EXTENSION,true
+Dockerode,,Library,DevOps,MTO_EXTENSION,true
+Doctrine ORM,,Library,Backend,MTO_EXTENSION,true
+Dojo,,Framework,Frontend,MTO_EXTENSION,true
+DrWatson.jl,,Library,Data Science,MTO_EXTENSION,true
+Dramatiq,,Library,Backend,MTO_EXTENSION,true
+Drill SQL (Apache Drill),,QueryLanguage,,MTO_EXTENSION,true
+Drone,,Service | Library,DevOps,MTO_EXTENSION,true
+Drools,,Library,ML/AI,MTO_EXTENSION,true
+Dropwizard,,Framework | Library,Backend | Fullstack,MTO_EXTENSION,true
+Dropwizard Metrics,,Library,DevOps,MTO_EXTENSION,true
+Druid SQL,,QueryLanguage,,MTO_EXTENSION,true
+E-Commerce,,,,ACTIVE_INTERNAL,true
+EBNF,,MarkupLanguage,,MTO_EXTENSION,true
+EC2,,,,MARKET_EXTENSION,true
+ECS,,,,MARKET_EXTENSION,true
+ECharts,,Service | Library,Frontend,MTO_EXTENSION,true
+EDR,,,,MARKET_EXTENSION,true
+EJML,,Library,Data Science,MTO_EXTENSION,true
+ELK Stack,,Tool,DevOps,MTO_EXTENSION,true
+ELT,,,,MARKET_EXTENSION,true
+EMC Documentum xDB,,Database,Backend,MTO_EXTENSION,true
+EQL (Event Query Language),,QueryLanguage,,MTO_EXTENSION,true
+ERP,Enterprise Systems,,,ACTIVE_INTERNAL,true
+ESLint,,Tool | Library,,REVIEW_REQUIRED,false
+ETL,Data Analytics,,,ACTIVE_INTERNAL,true
+EasyCaching,,Library,Backend,MTO_EXTENSION,true
+EasyNetQ,,Library,Backend,MTO_EXTENSION,true
+Echo,,Framework,Backend,REVIEW_REQUIRED,false
+Eclipse RCP,,Library,Frontend,MTO_EXTENSION,true
+Eclipse RDF4J,,Database,Data Science,MTO_EXTENSION,true
+EclipseLink,,Library,Backend,MTO_EXTENSION,true
+EdgeDB Cloud,,Database,Fullstack | Backend,MTO_EXTENSION,true
+Eel,,Library,Frontend,MTO_EXTENSION,true
+Effector,,Library,Frontend,MTO_EXTENSION,true
+Eggplant,,Tool,QA/Testing,MTO_EXTENSION,true
+Ehcache,,Library,Backend,MTO_EXTENSION,true
+Eiffel,,ProgrammingLanguage,Backend | Desktop,MTO_EXTENSION,true
+ElasticHQ,,Tool,Backend,MTO_EXTENSION,true
+ElasticSwift,,Library,Backend,MTO_EXTENSION,true
+Elasticsearch (with dense vector support),,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Elasticsearch Java API Client,,Library,Backend,MTO_EXTENSION,true
+Elasticsearch Service,,Service | Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Elasticsearch-PHP,,Library,Backend,MTO_EXTENSION,true
+Elasticsearch.Net,,Library,Backend,MTO_EXTENSION,true
+Element UI,,Library,Frontend,MTO_EXTENSION,true
+Eli5,,Library,ML/AI,MTO_EXTENSION,true
+Elixir,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+Elixir Explorer,,Library,Data Science,MTO_EXTENSION,true
+Elm,,ProgrammingLanguage | Framework,Frontend,MTO_EXTENSION,true
+Embark,,Framework,Backend,MTO_EXTENSION,true
+Ember.js,,Framework,Frontend,MTO_EXTENSION,true
+Emotion,,Library,Frontend,MTO_EXTENSION,true
+Encog,,Library,ML/AI,MTO_EXTENSION,true
+Encryption,Cybersecurity,,,ACTIVE_INTERNAL,true
+EnterpriseDB Postgres Advanced Server,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Entity Framework Core,,Library,Backend,MTO_EXTENSION,true
+Enzyme,,Library,Frontend,MTO_EXTENSION,true
+Epicor,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Erlang,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+Esper (Complex Event Processing engine),,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+Espresso,,Tool | Library,Mobile | QA/Testing,MTO_EXTENSION,true
+Essentia.js,,Library,ML/AI,MTO_EXTENSION,true
+Estimote SDK,,Library,Mobile,MTO_EXTENSION,true
+EventBus,,Library,Mobile,MTO_EXTENSION,true
+EventStoreDB Cloud,,Database,Backend,MTO_EXTENSION,true
+Evergreen,,Library,Frontend,MTO_EXTENSION,true
+Evidently,,Tool | Library,MLOps,MTO_EXTENSION,true
+Exasol Cloud,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+Excel,Data Analytics,,,ACTIVE_INTERNAL,true
+Excel Power Pivot,,Database,Desktop | Data Science,MTO_EXTENSION,true
+ExoPlayer,,Library,Mobile,MTO_EXTENSION,true
+Express.js,Backend Development,,,ACTIVE_INTERNAL,true
+Ext JS,,Framework,Frontend,MTO_EXTENSION,true
+F#,,ProgrammingLanguage,Backend | Data Engineering | ML/AI,MTO_EXTENSION,true
+FAISS,,Database | Library,Data Science | ML/AI,MTO_EXTENSION,true
+FBX,,MarkupLanguage,,MTO_EXTENSION,true
+FFImageLoading,,Library,Frontend,MTO_EXTENSION,true
+FOAF,,MarkupLanguage,,MTO_EXTENSION,true
+FQL (Facebook Query Language),,QueryLanguage,,MTO_EXTENSION,true
+FTP,,Protocol,,MTO_EXTENSION,true
+FXRouter,,Library,Frontend,MTO_EXTENSION,true
+FXyz,,Library,Frontend,MTO_EXTENSION,true
+Fabric8 Kubernetes Client,,Library | Tool,DevOps,MTO_EXTENSION,true
+Fairlearn,,Library,MLOps | ML/AI,MTO_EXTENSION,true
+Falcon,,Framework,Backend,MTO_EXTENSION,true
+Fast Android Networking,,Library,Mobile,MTO_EXTENSION,true
+FastAPI,Backend Development,,,ACTIVE_INTERNAL,true
+FastChat,,Library,ML/AI,MTO_EXTENSION,true
+Fastify,,Framework,Backend,MTO_EXTENSION,true
+Fastlane,,Tool,Mobile,MTO_EXTENSION,true
+Fauna,,Service | Database,Mobile | Backend | Fullstack,MTO_EXTENSION,true
+Faye,,Library,Backend,MTO_EXTENSION,true
+FeathersJS,,Framework | Library,Backend | Frontend | Fullstack,MTO_EXTENSION,true
+Featuretools,,Tool | Library,MLOps,MTO_EXTENSION,true
+Fiber,,Framework,Backend,REVIEW_REQUIRED,false
+Fiddler AI,,Tool,MLOps,MTO_EXTENSION,true
+Figma,UI and UX,,,ACTIVE_INTERNAL,true
+Final Form,,Library,Frontend,MTO_EXTENSION,true
+Firebase,Database,,,ACTIVE_INTERNAL,true
+Firebase Analytics,,Library,Mobile,MTO_EXTENSION,true
+Firebase Authentication,,Library,Mobile,MTO_EXTENSION,true
+Firebase CLI,,Tool,Mobile,MTO_EXTENSION,true
+Firebase Cloud Messaging,,Service | Library,Mobile,MTO_EXTENSION,true
+Firebase Realtime Database,,Database,Fullstack | Mobile | Frontend,MTO_EXTENSION,true
+Firebase Test Lab,,Library,Mobile,MTO_EXTENSION,true
+Firebird,,Database,Desktop | Backend,MTO_EXTENSION,true
+Firebolt,,Service | Database,Data Science | Data Engineering,MTO_EXTENSION,true
+Firefox Developer Tools,,Tool,Frontend,MTO_EXTENSION,true
+Firestore Query Language,,QueryLanguage,,MTO_EXTENSION,true
+Firewall,Cybersecurity,,,ACTIVE_INTERNAL,true
+FitNesse,,Library,QA/Testing,MTO_EXTENSION,true
+Flask,Backend Development,,,ACTIVE_INTERNAL,true
+Flask-RESTful,,Framework,Backend,MTO_EXTENSION,true
+FlatLaf,,Library,Frontend,MTO_EXTENSION,true
+Flax,,Library,ML/AI,MTO_EXTENSION,true
+Flower,,Tool,Backend,MTO_EXTENSION,true
+Fluent.Ribbon,,Library,Frontend,MTO_EXTENSION,true
+FluentAssertions,,Library,Backend,MTO_EXTENSION,true
+FluentEmail,,Library,Backend,MTO_EXTENSION,true
+FluentScheduler,,Library,Backend,MTO_EXTENSION,true
+Flurl,,Library,Backend,MTO_EXTENSION,true
+Flurry,,Library,Mobile,MTO_EXTENSION,true
+Flutter,Mobile Development,,,ACTIVE_INTERNAL,true
+Flux (InfluxDB),,QueryLanguage,,MTO_EXTENSION,true
+Flux CD,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Flux.jl,,Library,ML/AI,MTO_EXTENSION,true
+Fluxor,,Library,Frontend,MTO_EXTENSION,true
+Fomantic UI,,Library,Frontend,MTO_EXTENSION,true
+Formik,,Library,Frontend,MTO_EXTENSION,true
+Forth,,ProgrammingLanguage,Embedded Systems | Systems Programming,MTO_EXTENSION,true
+Fortran,,ProgrammingLanguage,Data Engineering | Data Science | ML/AI,MTO_EXTENSION,true
+Foundation,,Library,Frontend,REVIEW_REQUIRED,false
+Fractal,,Library,Frontend,MTO_EXTENSION,true
+Framer Motion,,Library,Frontend,MTO_EXTENSION,true
+Framework7,,Framework,Mobile,MTO_EXTENSION,true
+FreeMarker,,Library,Fullstack,MTO_EXTENSION,true
+Frisby.js,,Library,QA/Testing,MTO_EXTENSION,true
+FuelPHP,,Framework,Backend,MTO_EXTENSION,true
+Fused Location Provider,,Library,Mobile,MTO_EXTENSION,true
+Fyne,,Library,Mobile,MTO_EXTENSION,true
+G-WAN,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+GAMA,,Tool,ML/AI,MTO_EXTENSION,true
+GCP Dataflow,,Service,Data Engineering,MTO_EXTENSION,true
+GDPR,,,,MARKET_EXTENSION,true
+GIS,,,,MARKET_EXTENSION,true
+GLM.jl,,Library,Data Science,MTO_EXTENSION,true
+GML,,MarkupLanguage,,MTO_EXTENSION,true
+GORM,,Library,Backend,MTO_EXTENSION,true
+GPO,,,,MARKET_EXTENSION,true
+GPT,,,,MARKET_EXTENSION,true
+GPT-3-Encoder,,Library,ML/AI,MTO_EXTENSION,true
+GPU,,,,MARKET_EXTENSION,true
+GRDB.swift,,Library,Backend,MTO_EXTENSION,true
+GSAP,,Library,Frontend,MTO_EXTENSION,true
+GSQL (TigerGraph),,QueryLanguage,,MTO_EXTENSION,true
+Gadfly,,Library,Data Science,MTO_EXTENSION,true
+Gatling,,Tool | Library,QA/Testing | Frontend,MTO_EXTENSION,true
+Gatsby,,Framework,Frontend,MTO_EXTENSION,true
+GemStone/S,,Database,Backend,MTO_EXTENSION,true
+GenAI,,,,MARKET_EXTENSION,true
+Gensim,,Library,ML/AI,MTO_EXTENSION,true
+Genymotion,,Tool,Mobile,MTO_EXTENSION,true
+GeoTools,,Library,Data Science,MTO_EXTENSION,true
+Geolib,,Library,Mobile,MTO_EXTENSION,true
+Gherkin,,MarkupLanguage,,MTO_EXTENSION,true
+Gin,,Framework,Backend,MTO_EXTENSION,true
+Ginkgo,,Library,Backend,MTO_EXTENSION,true
+Giraffe,,Framework,Backend,MTO_EXTENSION,true
+Git,DevOps and Tools,,,ACTIVE_INTERNAL,true
+Git version control,,,,ACTIVE_INTERNAL,true
+GitHub,DevOps and Tools,,,ACTIVE_INTERNAL,true
+GitHub Actions,DevOps and Tools,,,ACTIVE_INTERNAL,true
+GitHub Packages,,Tool,DevOps,MTO_EXTENSION,true
+GitLab,DevOps and Tools,,,ACTIVE_INTERNAL,true
+GitLab CI,,Service | Tool,DevOps,MTO_EXTENSION,true
+GitPython,,Library,DevOps,MTO_EXTENSION,true
+Glide,,Library,Mobile,MTO_EXTENSION,true
+GnuPG,,Tool,,MTO_EXTENSION,true
+Go,Programming Language,,,ACTIVE_INTERNAL,true
+Go Modules,,Library,DevOps,MTO_EXTENSION,true
+Go-app,,Library,Frontend,MTO_EXTENSION,true
+GoAhead Web Server,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+GoConvey,,Library,QA/Testing,MTO_EXTENSION,true
+Golearn,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+Gomail,,Library,Backend,MTO_EXTENSION,true
+Gonum,,Library,Data Science,MTO_EXTENSION,true
+Gonum/plot,,Library,Data Science,MTO_EXTENSION,true
+Google Analytics for Mobile,,Library,Mobile,MTO_EXTENSION,true
+Google BigQuery,,Service | Database,Data Science | Data Engineering,MTO_EXTENSION,true
+Google Cloud Platform,Cloud Computing,,,ACTIVE_INTERNAL,true
+Google Cloud SQL,,Service | Database,Backend | Data Engineering,MTO_EXTENSION,true
+Google Colab,,Tool,ML/AI,MTO_EXTENSION,true
+Google Pay API,,Library,Mobile,MTO_EXTENSION,true
+Google Pub/Sub,,Service,Backend | Data Engineering,MTO_EXTENSION,true
+Google Vertex AI,,Service | Tool,MLOps,MTO_EXTENSION,true
+Google Web Toolkit (GWT),,Library,Fullstack,MTO_EXTENSION,true
+Goose,,Library,Backend,MTO_EXTENSION,true
+Gorgonia,,Library,ML/AI,MTO_EXTENSION,true
+Gota,,Library,Data Science,MTO_EXTENSION,true
+Gradle,,Tool | Library,Mobile | DevOps,MTO_EXTENSION,true
+Grafana,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Grails,,Framework,Backend | Fullstack,MTO_EXTENSION,true
+Grape,,Framework,Backend,MTO_EXTENSION,true
+GraphML,,MarkupLanguage,,MTO_EXTENSION,true
+GraphQL,Backend Development,,,ACTIVE_INTERNAL,true
+Graylog Cloud,,Service | Tool,,REVIEW_REQUIRED,false
+Great Expectations,,Service | Library,Data Science | ML/AI,MTO_EXTENSION,true
+GreenDAO,,Library,Mobile,MTO_EXTENSION,true
+Greenplum Database,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Gremlin,,QueryLanguage,,MTO_EXTENSION,true
+GridDB Cloud,,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+Griffon,,Library,Frontend,MTO_EXTENSION,true
+Grizzly,,Library,Backend,MTO_EXTENSION,true
+Grommet,,Library,Frontend,MTO_EXTENSION,true
+Groovy,,ProgrammingLanguage,Backend | DevOps,MTO_EXTENSION,true
+Gruff,,Library,Frontend,MTO_EXTENSION,true
+Gunicorn,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Guzzle,,Library,Backend,MTO_EXTENSION,true
+Gyro.js,,Library,Mobile,MTO_EXTENSION,true
+H2 Database Engine,,Database,Desktop | Backend,MTO_EXTENSION,true
+H2O-3,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+HAML,,MarkupLanguage,,MTO_EXTENSION,true
+HCL,,MarkupLanguage,,MTO_EXTENSION,true
+HIPAA Compliance,,Skill,Cybersecurity,MTO_EXTENSION,true
+HSQLDB,,Database,Desktop | Backend,MTO_EXTENSION,true
+HTML,Frontend Development,,,ACTIVE_INTERNAL,true
+HTTP,Networking,,,ACTIVE_INTERNAL,true
+HTTParty,,Library,Backend,MTO_EXTENSION,true
+HTTPie,,Tool,Backend,MTO_EXTENSION,true
+HTTPretty,,Library,Backend,MTO_EXTENSION,true
+Hadoop,,Database | Tool,Data Science,MTO_EXTENSION,true
+Hammer.js,,Library,Mobile,MTO_EXTENSION,true
+Hanami,,Framework,Backend,MTO_EXTENSION,true
+Hangfire,,Library,Backend,MTO_EXTENSION,true
+Hapi.js,,Framework,Backend,MTO_EXTENSION,true
+Hardhat,,Framework,Backend,MTO_EXTENSION,true
+Harness,,Service | Tool,DevOps,REVIEW_REQUIRED,false
+HarperDB Cloud,,Database,Fullstack | Backend | Mobile,MTO_EXTENSION,true
+Haskell,,ProgrammingLanguage,Backend | Data Engineering | ML/AI,MTO_EXTENSION,true
+Hasktorch,,Library,ML/AI,MTO_EXTENSION,true
+Haxe,,ProgrammingLanguage,Backend | Mobile,MTO_EXTENSION,true
+Haystack,,Service | Library,ML/AI,MTO_EXTENSION,true
+Hazelcast,,Library,Backend,MTO_EXTENSION,true
+HeidiSQL,,Tool,Backend,MTO_EXTENSION,true
+Hiawatha,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Hibernate ORM,,Library,Backend,MTO_EXTENSION,true
+Highcharts,,Library,Frontend,MTO_EXTENSION,true
+HikariCP,,Library,Backend,MTO_EXTENSION,true
+HiveQL (Hive Query Language),,QueryLanguage,,MTO_EXTENSION,true
+Hoppscotch,,Tool,Backend,MTO_EXTENSION,true
+Hotjar,,Service | Library,QA/Testing,MTO_EXTENSION,true
+Huawei Cloud GaussDB,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Huey,,Library,Backend,MTO_EXTENSION,true
+Hugging Face Transformers,,Service | Tool | Library,ML/AI,MTO_EXTENSION,true
+Hunt Framework,,Framework,Backend,MTO_EXTENSION,true
+Hyperapp,,Framework,Frontend,MTO_EXTENSION,true
+Hyperopt,,Library,ML/AI,MTO_EXTENSION,true
+Hystrix,,Library,Backend,MTO_EXTENSION,true
+IAM,,,,MARKET_EXTENSION,true
+IBM Cloud Databases,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+IBM Cognos TM1,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+IBM Db2,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+IBM Db2 on Cloud,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+IBM HTTP Server,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+IBM Mainframe Systems,,Framework,Backend,MTO_EXTENSION,true
+IBM iSeries Backend Development,,Framework,Backend,MTO_EXTENSION,true
+ICMP,,Protocol,,MTO_EXTENSION,true
+IGES,,MarkupLanguage,,MTO_EXTENSION,true
+IMAP,,Protocol,,MTO_EXTENSION,true
+INI,,MarkupLanguage,,MTO_EXTENSION,true
+ITIL,,,,MARKET_EXTENSION,true
+ITSM,,,,MARKET_EXTENSION,true
+Iced,,Library,Mobile,MTO_EXTENSION,true
+IdentityModel,,Library,Backend,MTO_EXTENSION,true
+Idris,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+Images.jl,,Library,ML/AI,MTO_EXTENSION,true
+Immer,,Library,Frontend,MTO_EXTENSION,true
+Immutable.js,,Library,Frontend,MTO_EXTENSION,true
+InVision,,Service | Tool,Frontend,MTO_EXTENSION,true
+Inferno,,Framework,Frontend,MTO_EXTENSION,true
+Infinispan,,Library,Backend,MTO_EXTENSION,true
+InfluxDB,,Service | Database,Backend | DevOps | IoT | Data Engineering,MTO_EXTENSION,true
+InfluxDB Cloud,,Database,IoT | DevOps | Data Engineering | Backend,MTO_EXTENSION,true
+InfluxQL (InfluxDB),,QueryLanguage,,MTO_EXTENSION,true
+Infor,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Informatica,,Service | Tool,Data Science,MTO_EXTENSION,true
+Information Retrieval,,,,ACTIVE_INTERNAL,true
+Information Systems,,,,ACTIVE_INTERNAL,true
+Informix,,Database,Backend,MTO_EXTENSION,true
+Infracost,,Library,DevOps,MTO_EXTENSION,true
+Ingres,,Database,Backend,MTO_EXTENSION,true
+Insomnia,,Tool,Backend,MTO_EXTENSION,true
+Insta,,Library,QA/Testing,MTO_EXTENSION,true
+Integration Testing,Testing and QA,,,ACTIVE_INTERNAL,true
+InterBase,,Database,Backend,MTO_EXTENSION,true
+InterSystems IRIS Cloud,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Intern,,Library,QA/Testing,REVIEW_REQUIRED,false
+Ionic,,Framework,Mobile | Frontend,MTO_EXTENSION,true
+Ionic Studio,,Tool,Mobile,MTO_EXTENSION,true
+Iris,,Framework,Backend,MTO_EXTENSION,true
+JADE,,Library,ML/AI,MTO_EXTENSION,true
+JAX,,Service | Library,ML/AI,MTO_EXTENSION,true
+JBehave,,Library,QA/Testing,MTO_EXTENSION,true
+JDBI,,Library,Backend,MTO_EXTENSION,true
+JFreeChart,,Library,Data Science | Frontend,MTO_EXTENSION,true
+JFrog,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+JGit,,Library,DevOps,MTO_EXTENSION,true
+JGiven,,Library,QA/Testing,MTO_EXTENSION,true
+JGoodies Binding,,Library,Frontend,MTO_EXTENSION,true
+JGoodies Forms,,Library,Frontend,MTO_EXTENSION,true
+JHipster,,Library,Fullstack,MTO_EXTENSION,true
+JIDE,,Library,Frontend,MTO_EXTENSION,true
+JMH,,Library,Data Science,MTO_EXTENSION,true
+JMeter,,Service | Tool | Library,DevOps | QA/Testing | Backend,MTO_EXTENSION,true
+JSON,,MarkupLanguage,,MTO_EXTENSION,true
+JSONiq,,QueryLanguage,,MTO_EXTENSION,true
+JSP,,,,MARKET_EXTENSION,true
+JSS,,Library,Frontend,MTO_EXTENSION,true
+JTS Topology Suite,,Library,Data Science,MTO_EXTENSION,true
+JTattoo,,Library,Frontend,MTO_EXTENSION,true
+JTimeSeries,,Library,ML/AI,MTO_EXTENSION,true
+JUnit,,Tool | Library,Backend | QA/Testing,MTO_EXTENSION,true
+JWT Authentication,Backend Development,,,ACTIVE_INTERNAL,true
+Jadex,,Library,ML/AI,MTO_EXTENSION,true
+Jakarta EE,,Framework,Backend,MTO_EXTENSION,true
+JanusGraph,,Database,Networking | ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Jasmine,,Library,QA/Testing,MTO_EXTENSION,true
+Jason,,Library,ML/AI,MTO_EXTENSION,true
+Java,Programming Language,,,ACTIVE_INTERNAL,true
+Java JWT,,Library,Backend,MTO_EXTENSION,true
+Java Persistence API (JPA),,Library,Backend,MTO_EXTENSION,true
+Java-ML,,Library,Data Science,MTO_EXTENSION,true
+JavaCV,,Library,ML/AI,MTO_EXTENSION,true
+JavaFX,,Library,Frontend,MTO_EXTENSION,true
+JavaMail API,,Library,Backend,MTO_EXTENSION,true
+JavaScript,Programming Language,,,ACTIVE_INTERNAL,true
+Jenkins,DevOps and Tools,,,ACTIVE_INTERNAL,true
+Jest,Testing and QA,,,ACTIVE_INTERNAL,true
+Jester,,Framework,Backend,MTO_EXTENSION,true
+Jet,,Library,Fullstack,MTO_EXTENSION,true
+Jetpack Compose,,Framework | Library,Mobile,MTO_EXTENSION,true
+Jetty,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Jira,,,,MARKET_EXTENSION,true
+JobRunr,,Library,Backend,MTO_EXTENSION,true
+Jubula,,Library,QA/Testing,MTO_EXTENSION,true
+Julia,,ProgrammingLanguage,Data Engineering | Data Science | ML/AI,MTO_EXTENSION,true
+JuliaDB,,Library,Data Science,MTO_EXTENSION,true
+Jupyter Notebook,,Tool,ML/AI,MTO_EXTENSION,true
+JupyterLab,,Tool,ML/AI,MTO_EXTENSION,true
+KFServing,,Tool,MLOps,MTO_EXTENSION,true
+KIF,,Library,Mobile | QA/Testing,MTO_EXTENSION,true
+KML,,MarkupLanguage,,MTO_EXTENSION,true
+KNIME,,Service | Tool | Library,Data Science | ML/AI,MTO_EXTENSION,true
+KQL (Kusto Query Language),,QueryLanguage,,MTO_EXTENSION,true
+KSQL,,QueryLanguage,Data Engineering | Backend,MTO_EXTENSION,true
+Kafka Connect,,Tool,Data Engineering | Backend,MTO_EXTENSION,true
+Kafka Streams,,Library,Backend | MLOps,MTO_EXTENSION,true
+Karate DSL,,Library | Framework,DevOps | QA/Testing,MTO_EXTENSION,true
+Karax,,Framework,Backend,MTO_EXTENSION,true
+Karma,,Library,QA/Testing,MTO_EXTENSION,true
+Kaspresso,,Library,Mobile,MTO_EXTENSION,true
+Katalon Studio,,Tool,QA/Testing,MTO_EXTENSION,true
+Keanu,,Library,Data Science,MTO_EXTENSION,true
+Kedro,,Library,MLOps,MTO_EXTENSION,true
+Kemal,,Framework,Backend,MTO_EXTENSION,true
+Kendo UI,,Library,Frontend,MTO_EXTENSION,true
+Keras,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+KerasJS,,Library,ML/AI,MTO_EXTENSION,true
+Kestrel,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Keycloak,,Tool,,MTO_EXTENSION,true
+KeystoneJS,,Framework,Fullstack | Frontend,MTO_EXTENSION,true
+Kingfisher,,Library,Frontend,MTO_EXTENSION,true
+Kivy,,Framework,Mobile,MTO_EXTENSION,true
+Knowledge Management,,,,ACTIVE_INTERNAL,true
+Koa.js,,Framework,Backend,MTO_EXTENSION,true
+Kodein,,Library,Mobile,MTO_EXTENSION,true
+Koin,,Library,Mobile,MTO_EXTENSION,true
+Kore,,Framework,Backend,MTO_EXTENSION,true
+Kotlin,Programming Language,,,ACTIVE_INTERNAL,true
+Kotlin Coroutines,,Library,Mobile,MTO_EXTENSION,true
+Kotlin Multiplatform Mobile,,Framework,Mobile,MTO_EXTENSION,true
+Ktor,,Framework,Backend,MTO_EXTENSION,true
+Kubecost,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Kubeflow,,Tool,ML/AI,MTO_EXTENSION,true
+Kubeflow Pipelines,,Tool,MLOps,MTO_EXTENSION,true
+Kubernetes,DevOps and Tools,,,ACTIVE_INTERNAL,true
+Kubernetes Java Client,,Library,DevOps,MTO_EXTENSION,true
+Ky,,Library,Frontend,REVIEW_REQUIRED,false
+LAN,,,,MARKET_EXTENSION,true
+LDAP,,Protocol,,MTO_EXTENSION,true
+LINQ (Language Integrated Query),,QueryLanguage,,MTO_EXTENSION,true
+LLM,,,,MARKET_EXTENSION,true
+LM Evaluation Harness,,Tool,ML/AI,MTO_EXTENSION,true
+LaTeX,,MarkupLanguage,,MTO_EXTENSION,true
+LabVIEW,,ProgrammingLanguage,Embedded Systems | IoT,MTO_EXTENSION,true
+LabelImg,,Tool,ML/AI,MTO_EXTENSION,true
+Lagom,,Framework,Backend,MTO_EXTENSION,true
+Laminas,,Framework,Backend,MTO_EXTENSION,true
+LangChain,,Service | Tool | Library,ML/AI,MTO_EXTENSION,true
+LangChain.js,,Library,ML/AI,MTO_EXTENSION,true
+LangSmith,,Service | Library,ML/AI,MTO_EXTENSION,true
+Laravel,Backend Development,,,ACTIVE_INTERNAL,true
+Large Language Models,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+LaunchDarkly,,Service | Tool,MLOps,MTO_EXTENSION,true
+LazyCache,,Library,Backend,MTO_EXTENSION,true
+League/Plates,,Library,Fullstack,MTO_EXTENSION,true
+LeakCanary,,Library,Mobile,MTO_EXTENSION,true
+Lerna,,Library,DevOps,MTO_EXTENSION,true
+Less,,MarkupLanguage,,REVIEW_REQUIRED,false
+LibGit2Sharp,,Library,DevOps,MTO_EXTENSION,true
+Lift,,Framework,Backend,REVIEW_REQUIRED,false
+Lighthouse,,Tool | Library,QA/Testing | Frontend,MTO_EXTENSION,true
+Lighttpd,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Linaria,,Library,Frontend,MTO_EXTENSION,true
+Linux,Operating System,,,ACTIVE_INTERNAL,true
+Lisp,,ProgrammingLanguage,Backend | ML/AI,MTO_EXTENSION,true
+Lit,,Framework,Frontend,MTO_EXTENSION,true
+LiveCharts,,Library,Frontend,MTO_EXTENSION,true
+LiveScript,,ProgrammingLanguage,Frontend,MTO_EXTENSION,true
+LlamaIndex,,Service | Tool | Library,ML/AI,MTO_EXTENSION,true
+LoRA,,Tool,ML/AI,MTO_EXTENSION,true
+LoadRunner,,Tool,QA/Testing,MTO_EXTENSION,true
+Loadable Components,,Library,Frontend,MTO_EXTENSION,true
+LocalForage,,Library,Mobile,MTO_EXTENSION,true
+LocalTunnel,,Tool,Fullstack,MTO_EXTENSION,true
+LogicBlox,,,Data Engineering | Backend,MTO_EXTENSION,true
+Logo,,ProgrammingLanguage,,MTO_EXTENSION,true
+Loki,,Library,Frontend,MTO_EXTENSION,true
+Looker,,Service | Tool,Data Science,MTO_EXTENSION,true
+LoopBack,,Framework,Backend | Frontend | Fullstack,MTO_EXTENSION,true
+Lottie-iOS,,Library,Frontend,MTO_EXTENSION,true
+Lua,,ProgrammingLanguage,Embedded Systems | Game Development,MTO_EXTENSION,true
+Lucky,,Framework,Backend,MTO_EXTENSION,true
+Luigi,,Tool,Data Science,MTO_EXTENSION,true
+Luminus,,Framework,Backend,MTO_EXTENSION,true
+MATLAB,,ProgrammingLanguage,Data Engineering | Data Science | ML/AI,MTO_EXTENSION,true
+MDBootstrap,,Library,Frontend,MTO_EXTENSION,true
+MDX (Multidimensional Expressions),,QueryLanguage,,MTO_EXTENSION,true
+MEAN.js,,Framework,Fullstack | Frontend,MTO_EXTENSION,true
+MFA,,,,MARKET_EXTENSION,true
+ML.NET,,Library,Data Science,MTO_EXTENSION,true
+MLJ.jl,,Library,ML/AI,MTO_EXTENSION,true
+MLRun,,Tool,MLOps,MTO_EXTENSION,true
+MLflow,,Service | Tool | Library,ML/AI | MLOps,MTO_EXTENSION,true
+MOA,,Library,Data Science,MTO_EXTENSION,true
+MQTT,,Protocol,,MTO_EXTENSION,true
+MQTT.js,,Library,Backend,MTO_EXTENSION,true
+MSTest,,Library,QA/Testing,MTO_EXTENSION,true
+MUI,,Library,Frontend,MTO_EXTENSION,true
+MVC,,,,MARKET_EXTENSION,true
+MXNet,,Service | Library,ML/AI,MTO_EXTENSION,true
+Machine Learning,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+Magenta.js,,Library,ML/AI,MTO_EXTENSION,true
+MahApps.Metro,,Library,Frontend,MTO_EXTENSION,true
+MailCore,,Library,Backend,MTO_EXTENSION,true
+MailHog,,Tool,Backend,MTO_EXTENSION,true
+MailKit,,Library,Backend,MTO_EXTENSION,true
+Manufacturing Execution System,Enterprise Systems,,,ACTIVE_INTERNAL,true
+MapInfo,,Tool,Data Science,MTO_EXTENSION,true
+MapStruct,,Library,Backend,MTO_EXTENSION,true
+Mapbox Android SDK,,Library,Mobile,MTO_EXTENSION,true
+MariaDB,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+MariaDB SkySQL,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+MarkLogic,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+MarkLogic Data Hub Service,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Markdown,,MarkupLanguage,,MTO_EXTENSION,true
+Marko,,Framework,Frontend,MTO_EXTENSION,true
+MassTransit,,Library,Backend,MTO_EXTENSION,true
+Material Components Web,,Library,Frontend,MTO_EXTENSION,true
+Material Components for Android,,Library,Mobile,MTO_EXTENSION,true
+MaterialComponents for iOS,,Library,Mobile,MTO_EXTENSION,true
+MaterialDesignInXamlToolkit,,Library,Frontend,MTO_EXTENSION,true
+Materialize css,,Library,Frontend,MTO_EXTENSION,true
+Math.NET Numerics,,Library,Data Science,MTO_EXTENSION,true
+MathML,,MarkupLanguage,,MTO_EXTENSION,true
+MathPHP,,Library,Data Science,MTO_EXTENSION,true
+Mathematics,,,,ACTIVE_INTERNAL,true
+Matplotlib,Data Analytics,,,ACTIVE_INTERNAL,true
+MediatR,,Library,Backend,MTO_EXTENSION,true
+Memgraph,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Memgraph Cloud,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Mercury,,ProgrammingLanguage,Backend | ML/AI,MTO_EXTENSION,true
+Metaflow,,Tool,MLOps,MTO_EXTENSION,true
+Meteor.js,,Framework,Backend | Frontend | Fullstack,MTO_EXTENSION,true
+Meyda,,Library,ML/AI,MTO_EXTENSION,true
+Micro,,Library,Fullstack | Frontend,REVIEW_REQUIRED,false
+Microdata,,MarkupLanguage,,MTO_EXTENSION,true
+Micrometer,,Library,DevOps,MTO_EXTENSION,true
+Micronaut,,Framework,Backend,MTO_EXTENSION,true
+Microservices,Backend Development,,,ACTIVE_INTERNAL,true
+Microsoft Bot Framework,,Tool,ML/AI,MTO_EXTENSION,true
+Microsoft Dynamics,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Microsoft Excel,,,,ACTIVE_INTERNAL,true
+Microsoft IIS,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Microsoft SQL Server,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Microsoft SQL Server Analysis Services (SSAS),,Database,Data Engineering | Backend | Data Science,MTO_EXTENSION,true
+Microsoft SQL Server Analysis Services (Tabular Mode),,Database,Data Engineering | Backend | Data Science,MTO_EXTENSION,true
+Microsoft.AppCenter.Analytics,,Library,Mobile,MTO_EXTENSION,true
+Microsoft.Data.SqlClient,,Library,Backend,MTO_EXTENSION,true
+Microsoft.Spark,,Library,Data Science,MTO_EXTENSION,true
+MigLayout,,Library,Frontend,MTO_EXTENSION,true
+Milligram,,Library,Frontend,MTO_EXTENSION,true
+Milvus Cloud,,Service | Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+MindsDB Cloud,,Database,ML/AI | MLOps | Data Science,MTO_EXTENSION,true
+Minitest,,Library,Backend,MTO_EXTENSION,true
+Mink,,Library,Frontend,MTO_EXTENSION,true
+Mithril.js,,Framework,Frontend,MTO_EXTENSION,true
+Mixpanel,,Service | Library,Mobile,MTO_EXTENSION,true
+Mixpanel-swift,,Library,Mobile,MTO_EXTENSION,true
+MobSF,,Tool | Library,Mobile,MTO_EXTENSION,true
+MobX,,Library,Frontend,MTO_EXTENSION,true
+MobX DevTools,,Tool,Frontend,MTO_EXTENSION,true
+Mobile App Development,Mobile Development,,,ACTIVE_INTERNAL,true
+Mobile Development,,,,ACTIVE_INTERNAL,true
+Mobile Device Management,,,,MARKET_EXTENSION,true
+MockWebServer,,Library,Mobile,MTO_EXTENSION,true
+Mockery,,Library,Backend,MTO_EXTENSION,true
+Mockito,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+Mode,,Service | Tool,Data Science,REVIEW_REQUIRED,false
+ModelOp,,Tool,MLOps,MTO_EXTENSION,true
+Modernizr,,Library,Frontend,MTO_EXTENSION,true
+Modin,,Library,Data Science,MTO_EXTENSION,true
+Mojolicious,,Framework,Backend,MTO_EXTENSION,true
+MonetDB,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+MonetDB/XQuery,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+MongoDB,Database,,,ACTIVE_INTERNAL,true
+MongoDB Atlas,,Service | Database,Mobile | Backend | Fullstack,MTO_EXTENSION,true
+MongoDB Query Language,,QueryLanguage,,MTO_EXTENSION,true
+MongoDB.Driver,,Library,Backend,MTO_EXTENSION,true
+Mongoose,,Framework,Backend,MTO_EXTENSION,true
+MonkeyCache,,Library,Frontend,MTO_EXTENSION,true
+Moq,,Library,Backend,MTO_EXTENSION,true
+Moshi,,Library,Mobile,MTO_EXTENSION,true
+MotionKit,,Library,Mobile,MTO_EXTENSION,true
+Moya,,Library,Backend,MTO_EXTENSION,true
+MudBlazor,,Library,Frontend,MTO_EXTENSION,true
+MusicXML,,MarkupLanguage,,MTO_EXTENSION,true
+MyBatis,,Library,Backend,MTO_EXTENSION,true
+MySQL,Database,,,ACTIVE_INTERNAL,true
+MySQL Connector/J,,Library,Backend,MTO_EXTENSION,true
+MySQL Query Language,,QueryLanguage,,MTO_EXTENSION,true
+MySql.Data,,Library,Backend,MTO_EXTENSION,true
+N-Quads,,MarkupLanguage,,MTO_EXTENSION,true
+N-Triples,,MarkupLanguage,,MTO_EXTENSION,true
+N1QL (Couchbase),,QueryLanguage,,MTO_EXTENSION,true
+NAS,,,,MARKET_EXTENSION,true
+NBomber,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+ND4J,,Library,Data Science,MTO_EXTENSION,true
+NHibernate,,Library,Backend,MTO_EXTENSION,true
+NIST,,,,MARKET_EXTENSION,true
+NLTK,,Service | Library,ML/AI,MTO_EXTENSION,true
+NSubstitute,,Library,Backend,MTO_EXTENSION,true
+NTP,,Protocol,,MTO_EXTENSION,true
+NUnit,,Library,QA/Testing,MTO_EXTENSION,true
+Nagios,,Service | Tool,,REVIEW_REQUIRED,false
+NancyFX,,Framework,Backend,MTO_EXTENSION,true
+NativeBase,,Library,Mobile,MTO_EXTENSION,true
+NativeScript,,Framework,Mobile,MTO_EXTENSION,true
+Natural,,Library,ML/AI,REVIEW_REQUIRED,false
+Natural Language Processing,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+NaviServer,,Framework,Backend,MTO_EXTENSION,true
+Navicat,,Tool,Backend,MTO_EXTENSION,true
+Navigo,,Library,Frontend,MTO_EXTENSION,true
+Neo4j,,Database,Networking | ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Neo4j AuraDB,,Service | Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Neptune.ai,,Service | Tool,MLOps,MTO_EXTENSION,true
+Nerves,,Framework,Backend,MTO_EXTENSION,true
+Nest,,Library,Backend,REVIEW_REQUIRED,false
+NestJS,,Framework,Backend,MTO_EXTENSION,true
+NetBeans Platform,,Library,Frontend,MTO_EXTENSION,true
+NetMQ,,Library,Backend,MTO_EXTENSION,true
+NetSuite,Enterprise Systems,,,ACTIVE_INTERNAL,true
+NetTopologySuite,,Library,Data Science,MTO_EXTENSION,true
+Netflix Eureka,,Framework,Backend,MTO_EXTENSION,true
+Netflix Fenzo,,Library,DevOps,MTO_EXTENSION,true
+Network Link Conditioner,,Tool,Mobile,MTO_EXTENSION,true
+Network Profiler,,Library,Mobile,MTO_EXTENSION,true
+Network Security,Cybersecurity,,,ACTIVE_INTERNAL,true
+Networking,,,,ACTIVE_INTERNAL,true
+New Relic,,Service | Tool,DevOps,MTO_EXTENSION,true
+Newman,,Library,QA/Testing,MTO_EXTENSION,true
+Next.js,Frontend Development,,,ACTIVE_INTERNAL,true
+Nexus Repository Manager,,Tool | Library,DevOps,MTO_EXTENSION,true
+Nginx,DevOps and Tools,,,ACTIVE_INTERNAL,true
+Nightwatch.js,,Library,QA/Testing,MTO_EXTENSION,true
+Nim,,ProgrammingLanguage,Systems Programming | Backend,MTO_EXTENSION,true
+Nivo,,Library,Frontend,MTO_EXTENSION,true
+NoSQL,,,,MARKET_EXTENSION,true
+Node-RED,,Library,ML/AI,MTO_EXTENSION,true
+Node.js,Backend Development,,,ACTIVE_INTERNAL,true
+NodeGit,,Library,DevOps,MTO_EXTENSION,true
+Nomad,,Service | Tool,DevOps,MTO_EXTENSION,true
+Nowin,,Library,Backend,MTO_EXTENSION,true
+Nox,,Library,DevOps,MTO_EXTENSION,true
+Npgsql,,Library,Backend,MTO_EXTENSION,true
+NuGet.Protocol,,Library,DevOps,MTO_EXTENSION,true
+Nuke.Build,,Library,DevOps,MTO_EXTENSION,true
+NumJS,,Library,ML/AI,MTO_EXTENSION,true
+NumPy,Data Analytics,,,ACTIVE_INTERNAL,true
+NuoDB,,Database,Backend,MTO_EXTENSION,true
+NuoDB Cloud,,Database,Backend,MTO_EXTENSION,true
+Nuxt.js,,Framework,Frontend | Fullstack,MTO_EXTENSION,true
+Nx,,Library,Data Science,REVIEW_REQUIRED,false
+OAuth,Backend Development,,,ACTIVE_INTERNAL,true
+OCaml,,ProgrammingLanguage,Systems Programming | Data Engineering,MTO_EXTENSION,true
+OHHTTPStubs,,Library,Backend | Mobile,MTO_EXTENSION,true
+ONNX,,Service | Tool | Library,ML/AI,MTO_EXTENSION,true
+ONNX Runtime Java,,Library,MLOps | ML/AI,MTO_EXTENSION,true
+ONNX.js,,Library,ML/AI,MTO_EXTENSION,true
+OPML,,MarkupLanguage,,MTO_EXTENSION,true
+OQL (Object Query Language),,QueryLanguage,,MTO_EXTENSION,true
+OSPF,,,,MARKET_EXTENSION,true
+OWASP ESAPI,,Library,Backend,MTO_EXTENSION,true
+OWASP ZAP,,Service | Tool | Library,Backend | QA/Testing,MTO_EXTENSION,true
+Oat++,,Framework,Backend,MTO_EXTENSION,true
+Object-Oriented Programming,Software Engineering,,,ACTIVE_INTERNAL,true
+ObjectBox,,Library,Mobile,MTO_EXTENSION,true
+ObjectDB,,Database,Backend,MTO_EXTENSION,true
+Objection.js,,Library,Backend,MTO_EXTENSION,true
+Objective-C,,ProgrammingLanguage,Mobile | Desktop | Game Development,MTO_EXTENSION,true
+OceanBase Cloud,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Octave,,ProgrammingLanguage,Data Engineering | Data Science | ML/AI,MTO_EXTENSION,true
+Octokit.net,,Library,DevOps,MTO_EXTENSION,true
+Odoo,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Offline.js,,Library,Mobile,MTO_EXTENSION,true
+OkHttp,,Library,Mobile | Frontend,MTO_EXTENSION,true
+Okta Mobile SDK,,Library,Mobile,MTO_EXTENSION,true
+OneSignal,,Library,Mobile,MTO_EXTENSION,true
+OneSignal CLI,,Tool,Mobile,MTO_EXTENSION,true
+OneSignal React Native,,Library,Mobile,MTO_EXTENSION,true
+Onsen UI,,Framework | Library,Mobile | Frontend,MTO_EXTENSION,true
+Ontotext GraphDB,,Database,Data Science,MTO_EXTENSION,true
+Opal,,Library,Fullstack,MTO_EXTENSION,true
+OpenAI API,,Service | Tool,ML/AI,MTO_EXTENSION,true
+OpenAI Evals,,Library,ML/AI,MTO_EXTENSION,true
+OpenAI Java SDK,,Library,ML/AI,MTO_EXTENSION,true
+OpenAI Node.js,,Library,ML/AI,MTO_EXTENSION,true
+OpenCL,,ProgrammingLanguage,Systems Programming | ML/AI,MTO_EXTENSION,true
+OpenCV,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+OpenCypher,,QueryLanguage,,MTO_EXTENSION,true
+OpenLink Virtuoso,,Database,Backend | Data Science,MTO_EXTENSION,true
+OpenLiteSpeed,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+OpenPrompt,,Tool,ML/AI,MTO_EXTENSION,true
+OpenShift,,Service | Tool,DevOps,MTO_EXTENSION,true
+OpenTelemetry,,Library,DevOps,MTO_EXTENSION,true
+Operating Systems,,,,ACTIVE_INTERNAL,true
+OpsGenie,,Tool,DevOps,MTO_EXTENSION,true
+OpsGenie Java SDK,,Library,DevOps,MTO_EXTENSION,true
+Opt4J,,Library,MLOps,MTO_EXTENSION,true
+Optimizely,,Service | Tool | Library,QA/Testing,MTO_EXTENSION,true
+Optimizely Java SDK,,Library,MLOps | QA/Testing,MTO_EXTENSION,true
+Optimum,,Tool,ML/AI,REVIEW_REQUIRED,false
+Optuna,,Tool | Library,ML/AI | MLOps,MTO_EXTENSION,true
+Oracle,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Oracle Autonomous Database,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Oracle Essbase,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Oracle HTTP Server,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Oracle JDBC Driver,,Library,Backend,MTO_EXTENSION,true
+Oracle NoSQL Database Cloud,,Database,Backend,MTO_EXTENSION,true
+Oracle.ManagedDataAccess,,Library,Backend,MTO_EXTENSION,true
+Orb,,Library,Data Science,MTO_EXTENSION,true
+OrientDB,,Database,Fullstack | Backend | Data Science,MTO_EXTENSION,true
+OxyPlot,,Library,Frontend,MTO_EXTENSION,true
+PCI DSS,,,,MARKET_EXTENSION,true
+PDO,,Library,Backend,MTO_EXTENSION,true
+PEFT,,Tool | Library,ML/AI,MTO_EXTENSION,true
+PHP,Programming Language,,,ACTIVE_INTERNAL,true
+PHP DBUnit,,Library,Backend,MTO_EXTENSION,true
+PHP Relay,,Library,Backend,MTO_EXTENSION,true
+PHP-ML,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+PHP-Resque,,Library,Backend,MTO_EXTENSION,true
+PHP-SCSS,,Library,Frontend,MTO_EXTENSION,true
+PHPBench,,Library,Backend,MTO_EXTENSION,true
+PHPIDS,,Library,Backend,MTO_EXTENSION,true
+PHPMailer,,Library,Backend,MTO_EXTENSION,true
+PHPUnit,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+PHPlot,,Library,Data Science,MTO_EXTENSION,true
+PL/SQL,,QueryLanguage,,MTO_EXTENSION,true
+PLC,,,,MARKET_EXTENSION,true
+PLIST,,MarkupLanguage,,MTO_EXTENSION,true
+PMP,,Certification,,MARKET_EXTENSION,true
+POP3,,Protocol,,MTO_EXTENSION,true
+PRINCE2,,Certification,,MARKET_EXTENSION,true
+Padrino,,Framework,Backend,MTO_EXTENSION,true
+Page.js,,Library,Frontend,MTO_EXTENSION,true
+PagerDuty,,Tool,DevOps,MTO_EXTENSION,true
+PagerDuty Java Client,,Library,DevOps,MTO_EXTENSION,true
+PagerDutySharp,,Library,DevOps,MTO_EXTENSION,true
+Pandas,Data Analytics,,,ACTIVE_INTERNAL,true
+Parcel,,Tool,,REVIEW_REQUIRED,false
+PartiQL,,QueryLanguage,,MTO_EXTENSION,true
+Pascal,,ProgrammingLanguage,Backend | Desktop,MTO_EXTENSION,true
+Paste,,Library,Backend,MTO_EXTENSION,true
+Paw,,Tool,Backend,MTO_EXTENSION,true
+PayPal Mobile SDK,,Library,Mobile,MTO_EXTENSION,true
+Pedestal,,Framework,Backend,MTO_EXTENSION,true
+Peewee,,Library,Backend,MTO_EXTENSION,true
+Penetration Testing,Cybersecurity,,,ACTIVE_INTERNAL,true
+Percona Server for MySQL,,Database,Fullstack | Data Engineering | Backend,MTO_EXTENSION,true
+Percy,,Tool | Library,QA/Testing | Frontend,MTO_EXTENSION,true
+Perfect,,Framework,Backend,REVIEW_REQUIRED,false
+Perfume.js,,Library,Frontend,MTO_EXTENSION,true
+Perl,,ProgrammingLanguage,Backend | DevOps,MTO_EXTENSION,true
+PettingZoo,,Tool,ML/AI,MTO_EXTENSION,true
+Phalcon,,Framework,Backend,MTO_EXTENSION,true
+Phoenix,,Framework,Backend,MTO_EXTENSION,true
+Phoenix SQL (Apache Phoenix),,QueryLanguage,,MTO_EXTENSION,true
+Picasso,,Library,Mobile,MTO_EXTENSION,true
+Pig Latin (Apache Pig),,QueryLanguage,,MTO_EXTENSION,true
+Pillow,,Library,ML/AI,MTO_EXTENSION,true
+Pinecone,,Service | Database | Tool | Library,Data Science | ML/AI,MTO_EXTENSION,true
+Pinia,,Library,Frontend,MTO_EXTENSION,true
+Pipenv,,Tool,Backend,MTO_EXTENSION,true
+Pistache,,Framework,Backend,MTO_EXTENSION,true
+PlanOut,,Library,MLOps | QA/Testing,MTO_EXTENSION,true
+PlanetScale,,Service | Database,Backend | Data Engineering,MTO_EXTENSION,true
+Play Framework,,Framework | Library,Backend | Fullstack,MTO_EXTENSION,true
+Playwright,,Service | Tool | Library,Frontend,MTO_EXTENSION,true
+Playwright.js,,Library,Frontend | QA/Testing,MTO_EXTENSION,true
+Plot,,Library,Data Science | Fullstack,MTO_EXTENSION,true
+Plotly,,Library,Frontend | Data Science,MTO_EXTENSION,true
+Plotly Java,,Library,Data Science,MTO_EXTENSION,true
+Plotly.NET,,Library,Data Science,MTO_EXTENSION,true
+Plotly.js,,Library,Frontend,MTO_EXTENSION,true
+Plots.jl,,Library,Data Science,MTO_EXTENSION,true
+Plotters,,Library,Data Science | Frontend,MTO_EXTENSION,true
+Plug,,Framework,Backend,REVIEW_REQUIRED,false
+Poetry,,Library,DevOps,MTO_EXTENSION,true
+Polars,,Library,Data Science,MTO_EXTENSION,true
+Polly,,Library,Backend,MTO_EXTENSION,true
+Polymer,,Framework,Frontend,MTO_EXTENSION,true
+PonyORM,,Library,Backend,MTO_EXTENSION,true
+Popmotion,,Library,Frontend,MTO_EXTENSION,true
+PostScript,,ProgrammingLanguage,,MTO_EXTENSION,true
+PostgreSQL,Database,,,ACTIVE_INTERNAL,true
+PostgreSQL JDBC Driver,,Library,Backend,MTO_EXTENSION,true
+PostgreSQL SQL,,QueryLanguage,,MTO_EXTENSION,true
+Postman,Testing and QA,,,ACTIVE_INTERNAL,true
+PouchDB,,Library,Mobile,MTO_EXTENSION,true
+Power BI,Data Analytics,,,ACTIVE_INTERNAL,true
+Power BI Desktop (on-premises version),,Database,Desktop | Data Science,MTO_EXTENSION,true
+PowerMock,,Library,QA/Testing,MTO_EXTENSION,true
+PowerShell,Programming Language,,,ACTIVE_INTERNAL,true
+Preact,,Framework,Frontend,MTO_EXTENSION,true
+Prefect,,Tool,Data Science,MTO_EXTENSION,true
+PrimeNG,,Library,Frontend,MTO_EXTENSION,true
+PrimeReact,,Library,Frontend,MTO_EXTENSION,true
+PrimeVue,,Library,Frontend,MTO_EXTENSION,true
+Primer CSS,,Library,Frontend,MTO_EXTENSION,true
+Problem Solving,Soft Skill,,,ACTIVE_INTERNAL,true
+Programming,,,,ACTIVE_INTERNAL,true
+Project Management,Soft Skill,,,ACTIVE_INTERNAL,true
+Prolog,,ProgrammingLanguage,ML/AI,MTO_EXTENSION,true
+Prologue,,Framework,Backend,MTO_EXTENSION,true
+PromQL (Prometheus Query Language),,QueryLanguage,,MTO_EXTENSION,true
+Prometheus,,Service | Database | Tool | Library,DevOps | Backend,MTO_EXTENSION,true
+Prometheus Client Python,,Library,DevOps,MTO_EXTENSION,true
+Prometheus Java Client,,Library,DevOps,MTO_EXTENSION,true
+Prompt Engineering,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+PromptLayer,,Tool | Library,ML/AI,MTO_EXTENSION,true
+Prophet,,Library,ML/AI,MTO_EXTENSION,true
+Protobuf,,Library | MarkupLanguage,,REVIEW_REQUIRED,false
+Prototyping,UI and UX,,,ACTIVE_INTERNAL,true
+Pulumi,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Pulumi.net,,Library,DevOps,MTO_EXTENSION,true
+Puma,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Puppet,,Tool,DevOps,MTO_EXTENSION,true
+Puppeteer,,Tool,Frontend,MTO_EXTENSION,true
+Puppeteer.js,,Library,Frontend | QA/Testing,MTO_EXTENSION,true
+PuppeteerSharp,,Library,QA/Testing,MTO_EXTENSION,true
+Pure.css,,Library,Frontend,MTO_EXTENSION,true
+PureScript,,ProgrammingLanguage,Frontend,MTO_EXTENSION,true
+Pushy,,Library,Mobile,MTO_EXTENSION,true
+PyAudioAnalysis,,Library,ML/AI,MTO_EXTENSION,true
+PyAutoGUI,,Library,QA/Testing,MTO_EXTENSION,true
+PyDub,,Library,ML/AI,MTO_EXTENSION,true
+PyInfra,,Library,DevOps,MTO_EXTENSION,true
+PyMySQL,,Library,Backend,MTO_EXTENSION,true
+PySimpleGUI,,Library,Frontend,MTO_EXTENSION,true
+PySpark,,Library,Data Science,MTO_EXTENSION,true
+PyTables,,Library,Data Science,MTO_EXTENSION,true
+PyTorch,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+Pyramid,,Framework,Backend,MTO_EXTENSION,true
+Pytest,Testing and QA,,,ACTIVE_INTERNAL,true
+Python,Programming Language,,,ACTIVE_INTERNAL,true
+Q#,,ProgrammingLanguage,,MTO_EXTENSION,true
+QARK,,Library,Mobile,MTO_EXTENSION,true
+QGIS,,Tool,Data Science,MTO_EXTENSION,true
+QLoRA,,Tool,ML/AI,MTO_EXTENSION,true
+QUIC,,Protocol,,MTO_EXTENSION,true
+QUnit,,Library,QA/Testing,MTO_EXTENSION,true
+Qdrant,,Service | Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Qt for Mobile,,Framework,Mobile,MTO_EXTENSION,true
+Quarkus,,Framework,Backend,MTO_EXTENSION,true
+Quartz Scheduler,,Library,Backend,MTO_EXTENSION,true
+Quartz.NET,,Library,Backend,MTO_EXTENSION,true
+Quasar,,Library,Frontend | Mobile | Fullstack,MTO_EXTENSION,true
+Query Optimization,Database,,,ACTIVE_INTERNAL,true
+Query.jl,,Library,Data Science,MTO_EXTENSION,true
+QuestDB Cloud,,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+Quick,,Library,Backend | QA/Testing,REVIEW_REQUIRED,false
+QuickPerf,,Library,QA/Testing,MTO_EXTENSION,true
+Qwik,,Framework,Frontend,MTO_EXTENSION,true
+R,Programming Language,,,ACTIVE_INTERNAL,true
+RAG,,,,MARKET_EXTENSION,true
+RBAC,,,,MARKET_EXTENSION,true
+RCA,,,,MARKET_EXTENSION,true
+RDBMS,,,,MARKET_EXTENSION,true
+RDF,,MarkupLanguage,,MTO_EXTENSION,true
+RDFa,,MarkupLanguage,,MTO_EXTENSION,true
+RDFox,,,ML/AI | Data Science,MTO_EXTENSION,true
+RDQL (RDF Data Query Language),,QueryLanguage,,MTO_EXTENSION,true
+REST API,Backend Development,,,ACTIVE_INTERNAL,true
+REST-assured,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+RGeo,,Library,Data Science,MTO_EXTENSION,true
+RHEL,,,,MARKET_EXTENSION,true
+RLlib,,Tool,ML/AI,MTO_EXTENSION,true
+RPA,,,,MARKET_EXTENSION,true
+RPG,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+RQL (RDF Query Language),,QueryLanguage,,MTO_EXTENSION,true
+RSS,,MarkupLanguage,,MTO_EXTENSION,true
+RSpec,,Library,QA/Testing,MTO_EXTENSION,true
+RStudio,,Tool,Data Science,MTO_EXTENSION,true
+RSyntaxTextArea,,Library,Frontend,MTO_EXTENSION,true
+RTMP,,Protocol,,MTO_EXTENSION,true
+RTSP,,Protocol,,MTO_EXTENSION,true
+RabbitMQ,,Service | Tool | Library,Backend,MTO_EXTENSION,true
+Rack,,Library,Backend,REVIEW_REQUIRED,false
+Racket,,ProgrammingLanguage,,MTO_EXTENSION,true
+Rancher,,Service | Tool,DevOps,MTO_EXTENSION,true
+Ranorex Studio,,Tool,QA/Testing,MTO_EXTENSION,true
+RapidMiner,,Service | Tool,Data Science,MTO_EXTENSION,true
+Rasa,,Service | Tool,ML/AI,MTO_EXTENSION,true
+Ratchet,,Library,Backend,MTO_EXTENSION,true
+Ratpack,,Framework,Backend,MTO_EXTENSION,true
+RavenDB Cloud,,Database,Backend,MTO_EXTENSION,true
+Ray,,Tool | Library,ML/AI,MTO_EXTENSION,true
+Ray Serve,,Library,ML/AI,MTO_EXTENSION,true
+Ray Tune,,Library,MLOps,MTO_EXTENSION,true
+Razzle,,Framework,Fullstack | Frontend,MTO_EXTENSION,true
+Reach Router,,Library,Frontend,MTO_EXTENSION,true
+React,Frontend Development,,,ACTIVE_INTERNAL,true
+React Axe,,Library,Frontend,MTO_EXTENSION,true
+React Hook Form,,Library,Frontend,MTO_EXTENSION,true
+React JSON Schema Form,,Library,Frontend,MTO_EXTENSION,true
+React Lazyload,,Library,Frontend,MTO_EXTENSION,true
+React Native,Mobile Development,,,ACTIVE_INTERNAL,true
+React Native App Auth,,Library,Mobile,MTO_EXTENSION,true
+React Native Config,,Library,Mobile,MTO_EXTENSION,true
+React Native Device Info,,Library,Mobile,MTO_EXTENSION,true
+React Native Elements,,Library,Mobile,MTO_EXTENSION,true
+React Native Geolocation Service,,Library,Mobile,MTO_EXTENSION,true
+React Native Google Analytics Bridge,,Library,Mobile,MTO_EXTENSION,true
+React Native Keychain,,Library,Mobile,MTO_EXTENSION,true
+React Native Location,,Library,Mobile,MTO_EXTENSION,true
+React Native Material Kit,,Library,Mobile,MTO_EXTENSION,true
+React Native NetInfo,,Library,Mobile,MTO_EXTENSION,true
+React Native Offline,,Library,Mobile,MTO_EXTENSION,true
+React Native Paper,,Library,Mobile,MTO_EXTENSION,true
+React Native Payments,,Library,Mobile,MTO_EXTENSION,true
+React Native Push Notification,,Library,Mobile,MTO_EXTENSION,true
+React Native Sensors,,Library,Mobile,MTO_EXTENSION,true
+React Query,,Library,Backend | Frontend,MTO_EXTENSION,true
+React Router,,Library,Frontend,MTO_EXTENSION,true
+React Spring,,Library,Frontend,MTO_EXTENSION,true
+React Styleguidist,,Library,Frontend,MTO_EXTENSION,true
+React Test Renderer,,Library,Frontend,MTO_EXTENSION,true
+React Testing Library,,Library,Frontend,MTO_EXTENSION,true
+React Virtualized,,Library,Frontend,MTO_EXTENSION,true
+React Window,,Library,Frontend,MTO_EXTENSION,true
+React-Bootstrap,,Library,Frontend,MTO_EXTENSION,true
+ReactJS.NET,,Library,Fullstack,MTO_EXTENSION,true
+ReactiveUI,,Library,Frontend,MTO_EXTENSION,true
+ReactiveX,,Library,Backend,MTO_EXTENSION,true
+Reactor Core,,Library,Backend,MTO_EXTENSION,true
+ReactorKit,,Library,Frontend,MTO_EXTENSION,true
+Realm,,Library | Database,Mobile,MTO_EXTENSION,true
+Realm Java,,Library,Mobile,MTO_EXTENSION,true
+Realm Kotlin,,Library,Mobile,MTO_EXTENSION,true
+Realm Studio,,Tool,Mobile,MTO_EXTENSION,true
+Realm.js,,Library,Mobile,MTO_EXTENSION,true
+RealmSwift,,Library,Mobile,MTO_EXTENSION,true
+ReasonML,,ProgrammingLanguage,Frontend,MTO_EXTENSION,true
+Recharts,,Service | Library,Frontend,MTO_EXTENSION,true
+Recoil,,Library,Frontend,MTO_EXTENSION,true
+Redis,Database,,,ACTIVE_INTERNAL,true
+Redis (with RediSearch module),,Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Redis Enterprise Cloud,,Service | Database,DevOps | Backend,MTO_EXTENSION,true
+RedisGraph,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+RedisInsight,,Tool,Backend,MTO_EXTENSION,true
+Redoc,,Service | Tool,Backend,MTO_EXTENSION,true
+Redux,Frontend Development,,,ACTIVE_INTERNAL,true
+Redux DevTools,,Tool,Frontend,MTO_EXTENSION,true
+Redux Form,,Library,Frontend,MTO_EXTENSION,true
+Redux Toolkit,,Library,Frontend,MTO_EXTENSION,true
+RedwoodJS,,Framework,Frontend,MTO_EXTENSION,true
+Refit,,Library,Backend,MTO_EXTENSION,true
+ReinforceJS,,Library,ML/AI,MTO_EXTENSION,true
+Relay,,Library,Frontend,MTO_EXTENSION,true
+Remi,,Library,Frontend,MTO_EXTENSION,true
+Render,,Service | Tool,Fullstack,MTO_EXTENSION,true
+Repast Simphony,,Library,ML/AI,MTO_EXTENSION,true
+Research,,,,ACTIVE_INTERNAL,true
+Resin,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Respawn,,Library,Backend,MTO_EXTENSION,true
+Responsive Design,Frontend Development,,,ACTIVE_INTERNAL,true
+RestSharp,,Library,Backend,MTO_EXTENSION,true
+Resty,,Library,Backend,MTO_EXTENSION,true
+Retire.js,,Library,Mobile,MTO_EXTENSION,true
+Retrofit,,Library,Backend | Mobile,MTO_EXTENSION,true
+Revel,,Framework,Backend,MTO_EXTENSION,true
+Ring,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+Ring Framework,,Framework,Backend,MTO_EXTENSION,true
+Riot.js,,Framework,Frontend,MTO_EXTENSION,true
+Robot Framework,,Tool,QA/Testing,MTO_EXTENSION,true
+Robotium,,Tool,Mobile,MTO_EXTENSION,true
+Rocket,,Framework,Backend,MTO_EXTENSION,true
+Rockset,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+Roff,,MarkupLanguage,,MTO_EXTENSION,true
+Room Persistence Library,,Library,Mobile,MTO_EXTENSION,true
+Rubix ML,,Library,ML/AI,MTO_EXTENSION,true
+Ruby,Programming Language,,,ACTIVE_INTERNAL,true
+Ruby Mail,,Library,Backend,MTO_EXTENSION,true
+Ruby on Rails,,Framework,Backend,MTO_EXTENSION,true
+Rubyplot,,Library,Data Science,MTO_EXTENSION,true
+Rumale,,Library,ML/AI,MTO_EXTENSION,true
+RumbleDB,,Database,Data Engineering,MTO_EXTENSION,true
+Rush,,Library,DevOps,MTO_EXTENSION,true
+Rust,,ProgrammingLanguage,Backend | Systems Programming | Embedded Systems,REVIEW_REQUIRED,false
+RxAndroid,,Library,Mobile,MTO_EXTENSION,true
+RxJS,,Library,Frontend,MTO_EXTENSION,true
+SAN,,,,MARKET_EXTENSION,true
+SAP,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP Basis,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP Business Warehouse (SAP BW),,Database,Data Engineering | Backend,MTO_EXTENSION,true
+SAP Data Warehouse Cloud,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+SAP FICO,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP HANA,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+SAP HANA Cloud,,Database,,MTO_EXTENSION,true
+SAP HANA Graph,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+SAP MM,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP NetWeaver,,Framework,Backend,MTO_EXTENSION,true
+SAP PP,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP S/4HANA,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP SD,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAP SuccessFactors,Enterprise Systems,,,ACTIVE_INTERNAL,true
+SAS,,ProgrammingLanguage | Tool,Data Science | ML/AI | Data Engineering,MTO_EXTENSION,true
+SCADA,,,,MARKET_EXTENSION,true
+SCCM,,,,MARKET_EXTENSION,true
+SCTP,,Protocol,,MTO_EXTENSION,true
+SDK,,,,MARKET_EXTENSION,true
+SDN,,,,REVIEW_REQUIRED,false
+SEO,,,,MARKET_EXTENSION,true
+SFTP,,Protocol,,MTO_EXTENSION,true
+SGML,,MarkupLanguage,,MTO_EXTENSION,true
+SHAP,,Tool | Library,ML/AI | MLOps,MTO_EXTENSION,true
+SIEM,Cybersecurity,,,ACTIVE_INTERNAL,true
+SIP,,Protocol,,MTO_EXTENSION,true
+SMIL,,MarkupLanguage,,MTO_EXTENSION,true
+SMTP,,Protocol,,MTO_EXTENSION,true
+SNMP,,Protocol,,MTO_EXTENSION,true
+SOAP,,Protocol,,MTO_EXTENSION,true
+SOLID,,,,MARKET_EXTENSION,true
+SPARQL,,QueryLanguage,,MTO_EXTENSION,true
+SPIN (SPARQL Inferencing Notation),,QueryLanguage,,MTO_EXTENSION,true
+SQL,Database,,,ACTIVE_INTERNAL,true
+SQL++,,QueryLanguage,,MTO_EXTENSION,true
+SQLAlchemy,,Library,Backend,MTO_EXTENSION,true
+SQLDelight,,Library,Mobile,MTO_EXTENSION,true
+SQLPro Studio,,Tool,Backend,MTO_EXTENSION,true
+SQLite,Database,,,ACTIVE_INTERNAL,true
+SQLite JDBC,,Library,Backend,MTO_EXTENSION,true
+SQLite-net,,Library,Mobile,MTO_EXTENSION,true
+SQLite.swift,,Library,Mobile,MTO_EXTENSION,true
+SRE,,,,MARKET_EXTENSION,true
+SSH,,Protocol,,MTO_EXTENSION,true
+SSL,,,,MARKET_EXTENSION,true
+SSO,,,,MARKET_EXTENSION,true
+STEP,,MarkupLanguage,,REVIEW_REQUIRED,false
+SVG,,MarkupLanguage,,MTO_EXTENSION,true
+SWR,,Library,Frontend,MTO_EXTENSION,true
+SWT,,Library,Frontend,MTO_EXTENSION,true
+Sage,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Sails.js,,Framework,Backend | Frontend | Fullstack,MTO_EXTENSION,true
+Salesforce Apex,,ProgrammingLanguage | Framework,Backend,MTO_EXTENSION,true
+SaltStack,,Tool | Library,DevOps,MTO_EXTENSION,true
+SampledSignals.jl,,Library,ML/AI,MTO_EXTENSION,true
+Sanic,,Framework,Backend,MTO_EXTENSION,true
+Sass,,Library | MarkupLanguage,Frontend,MTO_EXTENSION,true
+Sauce Labs,,Tool | Library,QA/Testing | Frontend,MTO_EXTENSION,true
+Saxon XQuery Processor,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Scala,Programming Language,,,ACTIVE_INTERNAL,true
+Scalatra,,Framework,Backend,MTO_EXTENSION,true
+Scheme,,ProgrammingLanguage,Embedded Systems,REVIEW_REQUIRED,false
+SciPy,,Library,Data Science,MTO_EXTENSION,true
+Scikit-learn,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+ScottPlot,,Library,Data Science,MTO_EXTENSION,true
+Scotty,,Framework,Backend,MTO_EXTENSION,true
+Scratch,,ProgrammingLanguage,,REVIEW_REQUIRED,false
+Scrum,Software Engineering,,,ACTIVE_INTERNAL,true
+Scylla Cloud,,Database,Networking | Data Engineering | Backend,MTO_EXTENSION,true
+ScyllaDB,,Database,Networking | Data Engineering | Backend,MTO_EXTENSION,true
+SeRQL (Sesame RDF Query Language),,QueryLanguage,,MTO_EXTENSION,true
+Seaborn,Data Analytics,,,ACTIVE_INTERNAL,true
+Security Operations Center,,,,MARKET_EXTENSION,true
+Sedna,,Database,Backend,MTO_EXTENSION,true
+Segment Analytics,,Library,Mobile,MTO_EXTENSION,true
+Seldon Core,,Tool,MLOps,MTO_EXTENSION,true
+Selendroid,,Tool,Mobile,MTO_EXTENSION,true
+Selenide,,Library,QA/Testing,MTO_EXTENSION,true
+Selenium,Testing and QA,,,ACTIVE_INTERNAL,true
+Selenium Grid,,Tool,QA/Testing | DevOps,MTO_EXTENSION,true
+Semantic UI,,Library,Frontend,MTO_EXTENSION,true
+Semantic UI React,,Library,Frontend,MTO_EXTENSION,true
+Sencha Touch,,Framework,Mobile,MTO_EXTENSION,true
+SendGrid,,Service | Library,Backend,MTO_EXTENSION,true
+Sensor Kinetics Pro,,Tool,Mobile,MTO_EXTENSION,true
+Sentence Transformers,,Library,ML/AI,MTO_EXTENSION,true
+Sentry,,Library,DevOps,MTO_EXTENSION,true
+Sequel,,Library,Backend,MTO_EXTENSION,true
+Sequel Pro,,Tool,Backend,MTO_EXTENSION,true
+Sequelize,,Library,Backend,MTO_EXTENSION,true
+Serenity BDD,,Library,QA/Testing,MTO_EXTENSION,true
+Serverless Framework,,Library,DevOps,MTO_EXTENSION,true
+ServiceNow,Enterprise Systems,,,ACTIVE_INTERNAL,true
+ServiceStack,,Framework,Backend,MTO_EXTENSION,true
+ServiceStack.OrmLite,,Library,Backend,MTO_EXTENSION,true
+Shelf,,Framework,Backend,MTO_EXTENSION,true
+Shiny,,Library,Mobile,MTO_EXTENSION,true
+Shipit,,Library,DevOps,MTO_EXTENSION,true
+Sidekiq,,Library,Backend,MTO_EXTENSION,true
+SignalR,,Library,Backend,MTO_EXTENSION,true
+SikuliX,,Library,QA/Testing | Frontend,MTO_EXTENSION,true
+SimpleForm,,Library,Frontend,MTO_EXTENSION,true
+Sinatra,,Framework,Backend,MTO_EXTENSION,true
+SingleStore Managed Service,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Sketch,,Service | Tool,Frontend,MTO_EXTENSION,true
+Slim,,Framework,Backend,MTO_EXTENSION,true
+Smalltalk,,ProgrammingLanguage,Backend,MTO_EXTENSION,true
+Smile,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+SmokeTest,,Library,QA/Testing,MTO_EXTENSION,true
+Snap,,Framework,Backend,MTO_EXTENSION,true
+SnapKit,,Library,Frontend,MTO_EXTENSION,true
+SnapshotTesting,,Library,Frontend,MTO_EXTENSION,true
+Snowflake,,Service | Database,Data Science | Data Engineering,MTO_EXTENSION,true
+Snyk,,Service | Library,QA/Testing,MTO_EXTENSION,true
+SoQL (Socrata Query Language),,QueryLanguage,,MTO_EXTENSION,true
+SoapUI,,Tool,QA/Testing,MTO_EXTENSION,true
+Software Development Life Cycle,Software Engineering,,,ACTIVE_INTERNAL,true
+Software Testing,Testing and QA,,,ACTIVE_INTERNAL,true
+SolidJS,,Framework,Frontend,MTO_EXTENSION,true
+Solidity,,ProgrammingLanguage,Blockchain,MTO_EXTENSION,true
+SonarQube,,Service | Tool,DevOps,MTO_EXTENSION,true
+SparkOptimizer,,Tool,Data Engineering,MTO_EXTENSION,true
+SpecFlow,,Library,QA/Testing,MTO_EXTENSION,true
+Spectre.css,,Library,Frontend,MTO_EXTENSION,true
+Spinnaker,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Splunk Observability,,Service | Tool,DevOps,MTO_EXTENSION,true
+Spock,,Framework,Backend,MTO_EXTENSION,true
+Spot.io,,Tool,DevOps,MTO_EXTENSION,true
+Spring Boot,Backend Development,,,ACTIVE_INTERNAL,true
+Spring Boot Actuator,,Framework,Backend,MTO_EXTENSION,true
+Spring Cloud,,Framework,Backend,MTO_EXTENSION,true
+Spring Cloud Config,,Library,DevOps,MTO_EXTENSION,true
+Spring Cloud Vault,,Library,DevOps,MTO_EXTENSION,true
+Spring Framework,,Framework,Backend,MTO_EXTENSION,true
+Spring Roo,,Library,Fullstack,MTO_EXTENSION,true
+Spyder,,Tool,ML/AI,MTO_EXTENSION,true
+Squirrel SQL,,Tool,Backend,MTO_EXTENSION,true
+StackBlitz,,Tool,Fullstack,MTO_EXTENSION,true
+Stacks Blockchain Tools,,Framework,Backend,MTO_EXTENSION,true
+Stanford NLP,,Service | Library,ML/AI,MTO_EXTENSION,true
+StarRocks Cloud,,Database,Data Engineering | Data Science,MTO_EXTENSION,true
+Stardog,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Starscream,,Library,Backend,MTO_EXTENSION,true
+Statistics,,,,ACTIVE_INTERNAL,true
+Statrs,,Library,Data Science,MTO_EXTENSION,true
+StatsModels.jl,,Library,Data Science,MTO_EXTENSION,true
+Statsample,,Library,Data Science,MTO_EXTENSION,true
+Stencil,,Library,Fullstack,MTO_EXTENSION,true
+Stetho,,Library,Mobile,MTO_EXTENSION,true
+Stimulus,,Framework,Frontend,MTO_EXTENSION,true
+Stored Procedures,Database,,,ACTIVE_INTERNAL,true
+Storybook,,Tool | Library,Frontend,MTO_EXTENSION,true
+Streamlit,,Tool,ML/AI,MTO_EXTENSION,true
+Stripe Android SDK,,Library,Mobile,MTO_EXTENSION,true
+Stripe CLI,,Tool,Mobile,MTO_EXTENSION,true
+Stripe React Native,,Library,Mobile,MTO_EXTENSION,true
+Stripe iOS,,Library,Mobile,MTO_EXTENSION,true
+Stripe.js,,Library,Mobile,MTO_EXTENSION,true
+Stripe.net,,Library,Mobile,MTO_EXTENSION,true
+Stryker,,Library,QA/Testing,MTO_EXTENSION,true
+Styled Components,,Library,Frontend,MTO_EXTENSION,true
+Suave,,Framework,Backend,MTO_EXTENSION,true
+Substance,,Library,Frontend,MTO_EXTENSION,true
+Subversion,,Tool,DevOps,MTO_EXTENSION,true
+Sun Java System Web Server,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Supply Chain Management,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Surge,,Library,Data Science,MTO_EXTENSION,true
+SurrealDB Cloud,,Database,Fullstack | Backend,MTO_EXTENSION,true
+Svelte,,Framework,Frontend,MTO_EXTENSION,true
+Svelte Routing,,Library,Frontend,MTO_EXTENSION,true
+SvelteKit,,Framework,Frontend | Fullstack,MTO_EXTENSION,true
+Swagger/OpenAPI,,Service | Tool,Backend,MTO_EXTENSION,true
+Swift,Programming Language,,,ACTIVE_INTERNAL,true
+Swift Cache,,Library,Backend,MTO_EXTENSION,true
+Swift Numerics,,Library,Data Science,MTO_EXTENSION,true
+Swift Package Manager,,Library,DevOps,MTO_EXTENSION,true
+SwiftBench,,Library,Backend,MTO_EXTENSION,true
+SwiftCron,,Library,Backend,MTO_EXTENSION,true
+SwiftDBTesting,,Library,Backend,MTO_EXTENSION,true
+SwiftForms,,Library,Frontend,MTO_EXTENSION,true
+SwiftKueryPostgreSQL,,Library,Backend,MTO_EXTENSION,true
+SwiftLocation,,Library,Mobile,MTO_EXTENSION,true
+SwiftLog,,Library,Backend,MTO_EXTENSION,true
+SwiftMQ,,Library,Backend,MTO_EXTENSION,true
+SwiftMiddleware,,Library,Backend,MTO_EXTENSION,true
+SwiftQueue,,Library,Backend,MTO_EXTENSION,true
+SwiftUI,,Framework,Mobile,MTO_EXTENSION,true
+SwiftUIX,,Library,Frontend,MTO_EXTENSION,true
+SwiftySecurity,,Library,Backend,MTO_EXTENSION,true
+Swing,,Library,Frontend,MTO_EXTENSION,true
+SwingX,,Library,Frontend,MTO_EXTENSION,true
+Sybase ASE,,Database,Backend,MTO_EXTENSION,true
+Sycamore,,Library,Frontend,MTO_EXTENSION,true
+Symfony,,Framework,Backend,MTO_EXTENSION,true
+Symfony Console,,Library,Backend,MTO_EXTENSION,true
+Synaptic,,Library,ML/AI,MTO_EXTENSION,true
+Syncfusion Essential JS 2,,Library,Frontend,MTO_EXTENSION,true
+Syncfusion Essential Studio for Xamarin,,Library,Mobile,MTO_EXTENSION,true
+System Design,Software Engineering,,,ACTIVE_INTERNAL,true
+Systems Analysis,,,,ACTIVE_INTERNAL,true
+T-SQL,,QueryLanguage,,MTO_EXTENSION,true
+TCP,,Protocol,,MTO_EXTENSION,true
+TCP/IP,Networking,,,ACTIVE_INTERNAL,true
+TLS,,Protocol,,MTO_EXTENSION,true
+TPOT,,Library,ML/AI,MTO_EXTENSION,true
+TRL,,Library,ML/AI,MTO_EXTENSION,true
+Tableau,Data Analytics,,,ACTIVE_INTERNAL,true
+Tablesaw,,Library,Data Science,MTO_EXTENSION,true
+Tailwind CSS,Frontend Development,,,ACTIVE_INTERNAL,true
+Talend,,Service | Tool,Data Science,MTO_EXTENSION,true
+Tantivy,,Library,Backend,MTO_EXTENSION,true
+TarsosDSP,,Library,ML/AI,MTO_EXTENSION,true
+Tavern,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+Tcl,,ProgrammingLanguage,Backend | DevOps,MTO_EXTENSION,true
+Tcl Web Server,,Framework,Backend,MTO_EXTENSION,true
+TeamCity,,Service | Tool,DevOps,MTO_EXTENSION,true
+Teamwork,Soft Skill,,,ACTIVE_INTERNAL,true
+Tekton,,Tool,DevOps,MTO_EXTENSION,true
+Telerik UI for Xamarin,,Library,Mobile,MTO_EXTENSION,true
+Telnet,,Protocol,,MTO_EXTENSION,true
+Tenacity,,Library,Backend,MTO_EXTENSION,true
+Tencent Cloud Database Services,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+TensorBoard,,Tool,ML/AI,MTO_EXTENSION,true
+TensorFlow,AI and Machine Learning,,,ACTIVE_INTERNAL,true
+TensorFlow Java,,Library,MLOps | ML/AI,MTO_EXTENSION,true
+TensorFlow Swift,,Library,ML/AI,MTO_EXTENSION,true
+TensorFlow.js,,Library,ML/AI,MTO_EXTENSION,true
+TensorRT,,Service | Tool,ML/AI,MTO_EXTENSION,true
+Tera,,Library,Fullstack,MTO_EXTENSION,true
+Teradata,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+TerminusDB Cloud,,Database,Backend | Data Science,MTO_EXTENSION,true
+Terraform,,Service | Tool | Library,DevOps,MTO_EXTENSION,true
+Test Automation,Testing and QA,,,ACTIVE_INTERNAL,true
+TestCafe,,Tool | Library,Frontend | QA/Testing,MTO_EXTENSION,true
+TestComplete,,Tool,QA/Testing,MTO_EXTENSION,true
+TestFX,,Library,Frontend,MTO_EXTENSION,true
+TestNG,,Tool | Library,Backend | QA/Testing,MTO_EXTENSION,true
+TestProject,,Library,QA/Testing,MTO_EXTENSION,true
+TestRail,,Tool,QA/Testing,MTO_EXTENSION,true
+TestStack.White,,Library,QA/Testing,MTO_EXTENSION,true
+Testcontainers,,Library,Backend,MTO_EXTENSION,true
+Testim,,Tool | Library,QA/Testing,MTO_EXTENSION,true
+TextAnalysis.jl,,Library,ML/AI,MTO_EXTENSION,true
+TextBlob,,Library,ML/AI,MTO_EXTENSION,true
+Thymeleaf,,Library,Fullstack,MTO_EXTENSION,true
+TiDB Cloud,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Tide,,Framework,Backend,MTO_EXTENSION,true
+TigerGraph,,Database,Networking | ML/AI | Backend | Data Science,MTO_EXTENSION,true
+TigerGraph Cloud,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+Tilt,,Library,Fullstack,MTO_EXTENSION,true
+Timber,,Library,Mobile,MTO_EXTENSION,true
+Time Management,Soft Skill,,,ACTIVE_INTERNAL,true
+TimeSeries.jl,,Library,ML/AI,MTO_EXTENSION,true
+Timescale Cloud,,Database,IoT | Data Engineering | Backend,MTO_EXTENSION,true
+TimescaleDB,,Service | Database,Backend | IoT | Data Engineering,MTO_EXTENSION,true
+Timing Framework,,Library,Frontend,MTO_EXTENSION,true
+TopBraid Composer,,Database,Data Science,MTO_EXTENSION,true
+Tornado,,Framework,Backend,MTO_EXTENSION,true
+TortoiseSVN,,Tool,DevOps,MTO_EXTENSION,true
+Total.js,,Framework,Backend | Fullstack,MTO_EXTENSION,true
+Tower,,Tool,DevOps,REVIEW_REQUIRED,false
+Transitionals,,Library,Frontend,MTO_EXTENSION,true
+Travis CI,,Tool,DevOps,MTO_EXTENSION,true
+Tribuo,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+Trident,,Library,Frontend,MTO_EXTENSION,true
+Truffle,,Framework,Backend,MTO_EXTENSION,true
+Turtle,,MarkupLanguage,,MTO_EXTENSION,true
+Twig,,Library,Frontend,MTO_EXTENSION,true
+TypeGraphQL,,Library,Fullstack | Backend,MTO_EXTENSION,true
+TypeORM,,Library,Backend,MTO_EXTENSION,true
+TypeScript,Programming Language,,,ACTIVE_INTERNAL,true
+UAT,,,,MARKET_EXTENSION,true
+UBJSON,,MarkupLanguage,,MTO_EXTENSION,true
+UDP,,Protocol,,MTO_EXTENSION,true
+UI Automator,,Library,Mobile,MTO_EXTENSION,true
+UI Design,UI and UX,,,ACTIVE_INTERNAL,true
+UI Kitten,,Library,Mobile,MTO_EXTENSION,true
+UIkit,,Library,Frontend,MTO_EXTENSION,true
+URLNavigator,,Library,Frontend,MTO_EXTENSION,true
+UX Design,UI and UX,,,ACTIVE_INTERNAL,true
+Ufront,,Framework,Backend,MTO_EXTENSION,true
+UnQL (Unstructured Query Language),,QueryLanguage,,MTO_EXTENSION,true
+Unfolding Maps,,Library,Data Science,MTO_EXTENSION,true
+Unicorn,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Unirest Java,,Library,Backend,MTO_EXTENSION,true
+Unit Testing,Testing and QA,,,ACTIVE_INTERNAL,true
+Unity,,Framework,Mobile,MTO_EXTENSION,true
+UserTesting,,Tool,QA/Testing,MTO_EXTENSION,true
+VB.NET,,ProgrammingLanguage,Backend | Desktop,MTO_EXTENSION,true
+VBA,,,,MARKET_EXTENSION,true
+VCRpy,,Library,Backend,MTO_EXTENSION,true
+VCard,,MarkupLanguage,,MTO_EXTENSION,true
+VHDL,,ProgrammingLanguage,Embedded Systems,MTO_EXTENSION,true
+VLAN,,,,MARKET_EXTENSION,true
+VLLM,,Tool,ML/AI,MTO_EXTENSION,true
+VPC,,,,MARKET_EXTENSION,true
+VPN,Networking,,,ACTIVE_INTERNAL,true
+VRML,,MarkupLanguage,,MTO_EXTENSION,true
+VWO,,Service | Library,QA/Testing,MTO_EXTENSION,true
+Vaadin,,Framework,Frontend | Fullstack,MTO_EXTENSION,true
+Vaex,,Library,Data Science,MTO_EXTENSION,true
+Vala,,ProgrammingLanguage,Desktop,MTO_EXTENSION,true
+Vald,,Database,ML/AI | Backend | Data Science,MTO_EXTENSION,true
+ValidatorFX,,Library,Frontend,MTO_EXTENSION,true
+Vanilla Extract,,Library,Frontend,MTO_EXTENSION,true
+Vanity,,Library,QA/Testing,MTO_EXTENSION,true
+Vant,,Library,Mobile,MTO_EXTENSION,true
+Vapor,,Framework,Backend,MTO_EXTENSION,true
+Vault,,Service | Tool | Library,DevOps,REVIEW_REQUIRED,false
+Vectara,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Velocity.js,,Library,Frontend,MTO_EXTENSION,true
+Vercel AI SDK,,Library,ML/AI,MTO_EXTENSION,true
+Verilog,,ProgrammingLanguage,Embedded Systems,MTO_EXTENSION,true
+Versant Object Database,,Database,Backend,MTO_EXTENSION,true
+Version Control,Software Engineering,,,ACTIVE_INTERNAL,true
+Vert.x,,Framework,Backend,MTO_EXTENSION,true
+Vertex AI Matching Engine,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Vertica Accelerator,,Database,Data Engineering | Backend | Data Science,MTO_EXTENSION,true
+Vespa,,Service | Database | Library,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Vibe.d,,Framework,Backend,MTO_EXTENSION,true
+VictorOps,,Tool,DevOps,MTO_EXTENSION,true
+Victory,,Library,Frontend,MTO_EXTENSION,true
+VideoIO.jl,,Library,ML/AI,MTO_EXTENSION,true
+ViewComponent,,Library,Frontend,MTO_EXTENSION,true
+Visual Basic,,ProgrammingLanguage,Desktop,MTO_EXTENSION,true
+Visual Studio Code,,Tool,ML/AI,MTO_EXTENSION,true
+Visx,,Library,Frontend,MTO_EXTENSION,true
+Vite,Frontend Development,,,ACTIVE_INTERNAL,true
+Volley,,Library,Frontend,MTO_EXTENSION,true
+VoltDB,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Vue Router,,Library,Frontend,MTO_EXTENSION,true
+Vue Test Utils,,Library,Frontend,MTO_EXTENSION,true
+Vue.js,Frontend Development,,,ACTIVE_INTERNAL,true
+Vuelidate,,Library,Frontend,MTO_EXTENSION,true
+Vuetify,,Library,Frontend,MTO_EXTENSION,true
+Vuex,,Library,Frontend,MTO_EXTENSION,true
+Vugu,,Library,Frontend,MTO_EXTENSION,true
+Vulnerability Assessment,Cybersecurity,,,ACTIVE_INTERNAL,true
+Vyper,,ProgrammingLanguage,Blockchain,MTO_EXTENSION,true
+WAF,,,,MARKET_EXTENSION,true
+WAN,,,,MARKET_EXTENSION,true
+WCAG,,Skill,Frontend | Mobile,MTO_EXTENSION,true
+WCF,,,,MARKET_EXTENSION,true
+WLAN,,,,MARKET_EXTENSION,true
+WPF,,,,MARKET_EXTENSION,true
+WSDL,,MarkupLanguage,,MTO_EXTENSION,true
+WTForms,,Library,Frontend,MTO_EXTENSION,true
+Wallaby.js,,Library,QA/Testing,MTO_EXTENSION,true
+Warehouse Management System,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Warp,,Framework,Backend,MTO_EXTENSION,true
+Warp webserver,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+WatermelonDB,,Library,Mobile,MTO_EXTENSION,true
+Watermill,,Library,Backend,MTO_EXTENSION,true
+Weaviate,,Service | Database | Tool | Library,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+Web Accessibility,Frontend Development,,,ACTIVE_INTERNAL,true
+WebDAV,,Protocol,,MTO_EXTENSION,true
+WebMock,,Library,Backend,MTO_EXTENSION,true
+WebPageTest,,Tool,Frontend,MTO_EXTENSION,true
+WebSharper,,Framework,Backend,MTO_EXTENSION,true
+WebSocket,,Protocol,,MTO_EXTENSION,true
+WebdriverIO,,Library,Frontend | QA/Testing,MTO_EXTENSION,true
+Webpack,,Tool | Library,Frontend,MTO_EXTENSION,true
+Weex,,Library,Mobile,MTO_EXTENSION,true
+Weights & Biases,,Service | Tool | Library,ML/AI | MLOps,MTO_EXTENSION,true
+Weka,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+WhiteNoise,,Library,Backend,MTO_EXTENSION,true
+Whoosh,,Library,Backend,MTO_EXTENSION,true
+WiFi,,,,MARKET_EXTENSION,true
+Wijmo,,Library,Frontend,MTO_EXTENSION,true
+Wikitext,,MarkupLanguage,,MTO_EXTENSION,true
+WireMock,,Tool | Library,Backend,MTO_EXTENSION,true
+Wireframing,UI and UX,,,ACTIVE_INTERNAL,true
+Wireshark,,Service | Tool,,REVIEW_REQUIRED,false
+Wolfram Language,,ProgrammingLanguage,Data Engineering | Data Science | ML/AI,MTO_EXTENSION,true
+Workday,Enterprise Systems,,,ACTIVE_INTERNAL,true
+Wraith,,Library,Frontend,MTO_EXTENSION,true
+Wt,,Framework,Backend,REVIEW_REQUIRED,false
+XAML,,MarkupLanguage,,MTO_EXTENSION,true
+XBRL,,MarkupLanguage,,MTO_EXTENSION,true
+XCUITest,,Tool | Library,Mobile | QA/Testing | Frontend,MTO_EXTENSION,true
+XChart,,Library,Data Science | Frontend,MTO_EXTENSION,true
+XLA,,Tool,ML/AI,MTO_EXTENSION,true
+XML,,,,MARKET_EXTENSION,true
+XMPP,,Protocol,,MTO_EXTENSION,true
+XPath,,QueryLanguage,,MTO_EXTENSION,true
+XQuery,,QueryLanguage,,MTO_EXTENSION,true
+XSLT,,MarkupLanguage,,MTO_EXTENSION,true
+XState,,Library,ML/AI,MTO_EXTENSION,true
+Xamarin,,Framework,Mobile,MTO_EXTENSION,true
+Xamarin.Auth,,Library,Mobile,MTO_EXTENSION,true
+Xamarin.Essentials,,Library,Mobile,MTO_EXTENSION,true
+Xamarin.UITest,,Library,Mobile,MTO_EXTENSION,true
+Xceed.Wpf.Toolkit,,Library,Frontend,MTO_EXTENSION,true
+Xcode,,Tool,Mobile,MTO_EXTENSION,true
+Xuggler,,Library,ML/AI,MTO_EXTENSION,true
+YAML,,MarkupLanguage,Backend,MTO_EXTENSION,true
+YANG,,MarkupLanguage,,MTO_EXTENSION,true
+Yarn,,Library,DevOps,MTO_EXTENSION,true
+Yaws,,Framework,Backend,MTO_EXTENSION,true
+Yesod,,Framework,Backend,MTO_EXTENSION,true
+Yii,,Framework,Backend,MTO_EXTENSION,true
+Yjs,,Library,Frontend,MTO_EXTENSION,true
+YugabyteDB Managed,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+Zeus Web Server,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+Zewo,,Framework,Backend,MTO_EXTENSION,true
+Zig,,ProgrammingLanguage,Systems Programming | Backend,MTO_EXTENSION,true
+Zilliz Cloud,,Database,ML/AI | Data Science,MTO_EXTENSION,true
+Zustand,,Library,Frontend,MTO_EXTENSION,true
+Zuul,,Framework,Backend,MTO_EXTENSION,true
+a11y Ruby,,Library,QA/Testing,MTO_EXTENSION,true
+abap workbench,,Tool,Backend,MTO_EXTENSION,true
+agenda,,Library,Backend,MTO_EXTENSION,true
+aiohttp,,Framework,Backend,MTO_EXTENSION,true
+akka,,Framework,Backend,MTO_EXTENSION,true
+allure-pytest,,Library,QA/Testing,MTO_EXTENSION,true
+altair,,Library,Data Science | Frontend,MTO_EXTENSION,true
+amqplib,,Library,Backend,MTO_EXTENSION,true
+argon2-cffi,,Library,Backend,MTO_EXTENSION,true
+artillery,,Library,Backend | DevOps,MTO_EXTENSION,true
+assert_cmd,,Library,Backend,MTO_EXTENSION,true
+asyncio,,Library,Backend,MTO_EXTENSION,true
+autocannon,,Library,Backend | DevOps,MTO_EXTENSION,true
+ava,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+axe-core,,Library,Frontend | QA/Testing,MTO_EXTENSION,true
+axe-selenium-java,,Library,QA/Testing | Frontend,MTO_EXTENSION,true
+bandit,,Library,QA/Testing,MTO_EXTENSION,true
+bare metal,,Tool,Embedded Systems,MTO_EXTENSION,true
+battery-level,,Library,Mobile,MTO_EXTENSION,true
+bazel,,Tool,Backend,MTO_EXTENSION,true
+bcrypt,,Library,Backend,MTO_EXTENSION,true
+beam vm,,Tool,Backend,MTO_EXTENSION,true
+bee-queue,,Library,Backend,MTO_EXTENSION,true
+behave,,Library,QA/Testing,MTO_EXTENSION,true
+bigcache,,Library,Backend,MTO_EXTENSION,true
+bitcoin,,Service,Blockchain,MTO_EXTENSION,true
+bokeh,,Library,Data Science | Frontend,MTO_EXTENSION,true
+botocore,,Library,Backend,MTO_EXTENSION,true
+bravado,,Library,Backend,MTO_EXTENSION,true
+btop,,Tool,,MTO_EXTENSION,true
+bull,,Library,Backend,MTO_EXTENSION,true
+cURL,,Tool,,MTO_EXTENSION,true
+cabal,,Tool,Backend,MTO_EXTENSION,true
+cache-manager,,Library,Backend,MTO_EXTENSION,true
+cachetools,,Library,Backend,MTO_EXTENSION,true
+caniuse-lite,,Library,Frontend,MTO_EXTENSION,true
+capacitor,,Tool,Mobile,MTO_EXTENSION,true
+caret,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+cbor2,,Library | MarkupLanguage,,REVIEW_REQUIRED,false
+cert-manager,,Tool,DevOps,MTO_EXTENSION,true
+chai,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+chai-http,,Library,Backend,MTO_EXTENSION,true
+chromedp,,Library,Frontend,MTO_EXTENSION,true
+cmake,,Tool,Desktop | Embedded Systems | Systems Programming,MTO_EXTENSION,true
+cocoapods,,Tool,Mobile | Desktop,MTO_EXTENSION,true
+compression,,Library,Backend,MTO_EXTENSION,true
+compromise,,Library,ML/AI,MTO_EXTENSION,true
+conda,,Tool,Data Science | ML/AI | Backend,MTO_EXTENSION,true
+cors,,Library,Backend,MTO_EXTENSION,true
+cost-of-modules,,Library,DevOps,MTO_EXTENSION,true
+cron rust,,Library,Backend,MTO_EXTENSION,true
+cron-expression,,Library,Backend,MTO_EXTENSION,true
+cron4j,,Library,Backend,MTO_EXTENSION,true
+cuDF,,Library,Data Science,MTO_EXTENSION,true
+cx_Oracle,,Library,Backend,MTO_EXTENSION,true
+cypress-axe,,Library,Frontend,MTO_EXTENSION,true
+data.table,,Library,Data Science,MTO_EXTENSION,true
+dbt,,Service | Library,Data Science,MTO_EXTENSION,true
+deepchecks,,Library,ML/AI,MTO_EXTENSION,true
+deno,,Tool,Backend | Fullstack,MTO_EXTENSION,true
+dlib,,Library,ML/AI,MTO_EXTENSION,true
+docker-java,,Library,DevOps,MTO_EXTENSION,true
+docker-modem,,Library,DevOps,MTO_EXTENSION,true
+dogpile.cache,,Library,Backend,MTO_EXTENSION,true
+doit,,Library,DevOps,MTO_EXTENSION,true
+dotenv-safe,,Library,DevOps,MTO_EXTENSION,true
+dotnet cli,,Tool,Backend | Desktop | Fullstack,MTO_EXTENSION,true
+dplyr,,Library,Data Science,MTO_EXTENSION,true
+dub,,Tool,Backend | Systems Programming,MTO_EXTENSION,true
+dune,,Tool,Backend,MTO_EXTENSION,true
+eXist-db,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+ecto,,Library,Backend,MTO_EXTENSION,true
+elastic-apm-node,,Library,DevOps,MTO_EXTENSION,true
+elasticlunr,,Library,Backend,MTO_EXTENSION,true
+elasticsearch,,Library,Backend,MTO_EXTENSION,true
+elasticsearch-ruby,,Library,Backend,MTO_EXTENSION,true
+electron,,Framework,Desktop | Fullstack,MTO_EXTENSION,true
+eloquent orm,,Library,Backend,MTO_EXTENSION,true
+emails,,Library,Backend,REVIEW_REQUIRED,false
+engine.io,,Library,Backend,MTO_EXTENSION,true
+entity framework,,Framework,Backend,MTO_EXTENSION,true
+ethereum,,Service,Blockchain,MTO_EXTENSION,true
+evm,,Tool,Blockchain,MTO_EXTENSION,true
+expo,,Tool,Mobile,MTO_EXTENSION,true
+express-rate-limit,,Library,Backend,MTO_EXTENSION,true
+face-api.js,,Library,ML/AI,MTO_EXTENSION,true
+fairmodels,,Library,ML/AI,MTO_EXTENSION,true
+fast-check,,Library,QA/Testing,MTO_EXTENSION,true
+ffmpeg,,Tool,Desktop,MTO_EXTENSION,true
+ffmpeg.wasm,,Library,ML/AI,MTO_EXTENSION,true
+flanker,,Library,Backend,MTO_EXTENSION,true
+folium,,Library,Data Science,MTO_EXTENSION,true
+forecast,,Library,ML/AI,REVIEW_REQUIRED,false
+frames,,Library,Data Science,MTO_EXTENSION,true
+gRPC,,Protocol,,MTO_EXTENSION,true
+ganache,,Tool,Blockchain,MTO_EXTENSION,true
+gas,,ScriptingLanguage,Backend,REVIEW_REQUIRED,false
+gcc,,Tool,Systems Programming | Embedded Systems | Desktop,MTO_EXTENSION,true
+geopandas,,Library,Data Science,MTO_EXTENSION,true
+ggplot2,,Library,Data Science,MTO_EXTENSION,true
+glassfish,,Tool,Backend,MTO_EXTENSION,true
+go-bindata,,Library,Frontend,MTO_EXTENSION,true
+go-echarts,,Library,Frontend,MTO_EXTENSION,true
+go-nsq,,Library,Backend,MTO_EXTENSION,true
+go-sql-driver/mysql,,Library,Backend,MTO_EXTENSION,true
+gocraft/work,,Library,Backend,MTO_EXTENSION,true
+gomock,,Library,Backend,MTO_EXTENSION,true
+google-api-python-client,,Library,Backend,MTO_EXTENSION,true
+got,,Library,Backend,REVIEW_REQUIRED,false
+graalvm,,Tool,Backend | Fullstack | Systems Programming,MTO_EXTENSION,true
+grunt,,Tool,Frontend,MTO_EXTENSION,true
+gulp,,Tool,Frontend,MTO_EXTENSION,true
+haxelib,,Tool,Frontend | Backend,MTO_EXTENSION,true
+helmet,,Library,Backend | Frontend,MTO_EXTENSION,true
+hey,,Library,DevOps,MTO_EXTENSION,true
+hgeometry,,Library,Data Science,MTO_EXTENSION,true
+httpexpect,,Library,Backend,MTO_EXTENSION,true
+httpmock,,Library,Backend,MTO_EXTENSION,true
+hvac,,Library,DevOps,MTO_EXTENSION,true
+hypothesis,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+iOS (Native),,Framework,Mobile,MTO_EXTENSION,true
+iOS Charts,,Library,Frontend,MTO_EXTENSION,true
+iOS Development,Mobile Development,,,ACTIVE_INTERNAL,true
+icCube,,Database,Data Engineering | Backend,MTO_EXTENSION,true
+imageio,,Library,ML/AI,MTO_EXTENSION,true
+imager,,Library,ML/AI,MTO_EXTENSION,true
+invoke,,Library,DevOps,MTO_EXTENSION,true
+isomorphic-git,,Library,DevOps,MTO_EXTENSION,true
+itsdangerous,,Library,Backend,MTO_EXTENSION,true
+jOOQ,,Library,Backend,MTO_EXTENSION,true
+jquery,,Library,Frontend,MTO_EXTENSION,true
+jvm,,Tool,Backend | Fullstack,MTO_EXTENSION,true
+k6,,Service | Tool | Library,DevOps | QA/Testing,MTO_EXTENSION,true
+kafka-node,,Library,Backend,MTO_EXTENSION,true
+kafka-python,,Library,Backend,MTO_EXTENSION,true
+kibana,,Tool,DevOps,MTO_EXTENSION,true
+kombu,,Library,Backend,MTO_EXTENSION,true
+kubernetes-client,,Library,DevOps,MTO_EXTENSION,true
+lapin,,Library,Backend,MTO_EXTENSION,true
+leiningen,,Tool,Backend,MTO_EXTENSION,true
+lettre,,Library,Backend,MTO_EXTENSION,true
+libmicrohttpd,,Framework,Backend,MTO_EXTENSION,true
+librosa,,Library,ML/AI,MTO_EXTENSION,true
+lightbend,,Service,Backend,MTO_EXTENSION,true
+lime,,Tool | Library,ML/AI | MLOps,MTO_EXTENSION,true
+linfa,,Library,ML/AI,MTO_EXTENSION,true
+loadtest,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+locust,,Library,Backend | DevOps | QA/Testing,MTO_EXTENSION,true
+logrus,,Library,Backend,MTO_EXTENSION,true
+logstash,,Tool,DevOps,MTO_EXTENSION,true
+lru-cache,,Library,Backend,MTO_EXTENSION,true
+lunr,,Library,Backend,MTO_EXTENSION,true
+lxml,,Library | MarkupLanguage,,REVIEW_REQUIRED,false
+mORMot,,Framework,Backend,MTO_EXTENSION,true
+macOS,,,,MARKET_EXTENSION,true
+mailgun-js,,Library,Backend,MTO_EXTENSION,true
+masm,,ProgrammingLanguage,Systems Programming,MTO_EXTENSION,true
+math,,,,ACTIVE_INTERNAL,true
+memcached,,Database | Library,Backend,MTO_EXTENSION,true
+memlab,,Library,Mobile,MTO_EXTENSION,true
+missingno,,Library,Data Science,MTO_EXTENSION,true
+ml-confusion-matrix,,Library,ML/AI,MTO_EXTENSION,true
+ml5.js,,Library,ML/AI,MTO_EXTENSION,true
+mocha,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+mockito rust,,Library,Backend,MTO_EXTENSION,true
+modelsim,,Tool,Embedded Systems,MTO_EXTENSION,true
+mongodb-memory-server,,Library,Backend,MTO_EXTENSION,true
+mongomock,,Library,Backend,MTO_EXTENSION,true
+moto,,Library,Backend,MTO_EXTENSION,true
+moviepy,,Library,ML/AI,MTO_EXTENSION,true
+msbuild,,Tool,Backend | Desktop | Fullstack,MTO_EXTENSION,true
+mysql-connector-python,,Library,Backend,MTO_EXTENSION,true
+mysql2,,Library,Backend,MTO_EXTENSION,true
+nasm,,ProgrammingLanguage,Systems Programming,MTO_EXTENSION,true
+nbval,,Library,Data Science,MTO_EXTENSION,true
+ndarray,,Library,Data Science,MTO_EXTENSION,true
+needle,,Library,Frontend,MTO_EXTENSION,true
+network-simulator,,Library,Mobile,MTO_EXTENSION,true
+ngrok,,Tool,Fullstack,MTO_EXTENSION,true
+ngrx,,Library,Frontend,MTO_EXTENSION,true
+nimble,,Tool,Backend,MTO_EXTENSION,true
+nlp.js,,Library,ML/AI,MTO_EXTENSION,true
+nock,,Library,Backend,MTO_EXTENSION,true
+node-cache,,Library,Backend,MTO_EXTENSION,true
+node-cron,,Library,Backend,MTO_EXTENSION,true
+node-fetch,,Library,Backend,MTO_EXTENSION,true
+node-pagerduty,,Library,DevOps,MTO_EXTENSION,true
+node-schedule,,Library,Backend,MTO_EXTENSION,true
+node-ssm,,Library,DevOps,MTO_EXTENSION,true
+node-statsd,,Library,DevOps,MTO_EXTENSION,true
+nodemailer,,Library,Backend,MTO_EXTENSION,true
+nodemon,,Library,Backend,MTO_EXTENSION,true
+nose2,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+nosurf,,Library,Backend,MTO_EXTENSION,true
+npm,,Tool,Frontend | Backend,MTO_EXTENSION,true
+npm-check-updates,,Library,DevOps,MTO_EXTENSION,true
+nuget,,Tool,Backend | Desktop | Fullstack,MTO_EXTENSION,true
+olivere/elastic,,Library,Backend,MTO_EXTENSION,true
+opam,,Tool,Backend,MTO_EXTENSION,true
+opsgenie js,,Library,DevOps,MTO_EXTENSION,true
+owin,,Tool,Backend,MTO_EXTENSION,true
+pChart,,Library,Frontend,MTO_EXTENSION,true
+pa11y,,Tool | Library,Frontend | QA/Testing,MTO_EXTENSION,true
+pact,,Library,Backend,MTO_EXTENSION,true
+pandas-profiling,,Library,Data Science,MTO_EXTENSION,true
+pandera,,Library,Data Science,MTO_EXTENSION,true
+perfplot,,Library,ML/AI,MTO_EXTENSION,true
+perlbrew,,Tool,Backend,MTO_EXTENSION,true
+petl,,Library,Data Science,MTO_EXTENSION,true
+pg,,Library,Backend,REVIEW_REQUIRED,false
+pg-mem,,Library,Backend,MTO_EXTENSION,true
+pgAdmin,,Tool,Backend,MTO_EXTENSION,true
+pgvector,,Service | Database,Data Science | Backend | ML/AI,MTO_EXTENSION,true
+pharo,,Tool,Desktop,MTO_EXTENSION,true
+php-amqplib,,Library,Backend,MTO_EXTENSION,true
+phpfastcache,,Library,Backend,MTO_EXTENSION,true
+pika,,Library,Backend,MTO_EXTENSION,true
+pingouin,,Library,Data Science,MTO_EXTENSION,true
+pip,,Tool,Backend | Data Science | ML/AI,MTO_EXTENSION,true
+pip-tools,,Library,DevOps,MTO_EXTENSION,true
+pm2,,Library,Backend,MTO_EXTENSION,true
+pmdarima,,Library,ML/AI,MTO_EXTENSION,true
+postcss,,Tool,Frontend,MTO_EXTENSION,true
+pq,,Library,Backend,REVIEW_REQUIRED,false
+prom-client,,Library,DevOps,MTO_EXTENSION,true
+psycopg2,,Library,Backend,MTO_EXTENSION,true
+pyOpenSSL,,Library,Backend,MTO_EXTENSION,true
+pygerduty,,Library,DevOps,MTO_EXTENSION,true
+pyjanitor,,Library,Data Science,MTO_EXTENSION,true
+pylibmc,,Library,Backend,MTO_EXTENSION,true
+pyodbc,,Library,Backend,MTO_EXTENSION,true
+pyplotly,,Library,Data Science | Frontend,MTO_EXTENSION,true
+pypy,,Tool,Backend,MTO_EXTENSION,true
+pytest-asyncio,,Library,QA/Testing,MTO_EXTENSION,true
+pytest-benchmark,,Library,Data Science | QA/Testing,MTO_EXTENSION,true
+pytest-mock,,Library,QA/Testing,MTO_EXTENSION,true
+pytest-mpl,,Library,Data Science,MTO_EXTENSION,true
+pytest-postgresql,,Library,Backend,MTO_EXTENSION,true
+pytest-qt,,Library,Frontend,MTO_EXTENSION,true
+pytest-selenium,,Library,QA/Testing,MTO_EXTENSION,true
+pytest-xdist,,Library,QA/Testing,MTO_EXTENSION,true
+pywebview,,Library,Frontend,MTO_EXTENSION,true
+pyzmq,,Library,Backend,MTO_EXTENSION,true
+qmake,,Tool,Desktop,MTO_EXTENSION,true
+quanteda,,Library,ML/AI,MTO_EXTENSION,true
+quicklisp,,Tool,Backend,MTO_EXTENSION,true
+rad studio,,Tool,Desktop | Mobile,MTO_EXTENSION,true
+raspberry pi,,Tool,Embedded Systems | IoT,MTO_EXTENSION,true
+react-perf-devtool,,Library,Frontend,MTO_EXTENSION,true
+readr,,Library,Data Science,MTO_EXTENSION,true
+redux-mock-store,,Library,Frontend,MTO_EXTENSION,true
+redux-saga-test-plan,,Library,Frontend,MTO_EXTENSION,true
+release-it,,Library,DevOps,MTO_EXTENSION,true
+repl,,Tool,Backend,MTO_EXTENSION,true
+reqwasm,,Library,Frontend,MTO_EXTENSION,true
+reqwest,,Library,Backend,MTO_EXTENSION,true
+responses,,Library,Backend,REVIEW_REQUIRED,false
+rhino,,Tool,Backend,MTO_EXTENSION,true
+robfig/cron,,Library,Backend,MTO_EXTENSION,true
+rollup,,Tool,Frontend,MTO_EXTENSION,true
+roswell,,Tool,Backend,MTO_EXTENSION,true
+rsmq,,Library,Backend,MTO_EXTENSION,true
+rsocket-rust,,Library,Backend,MTO_EXTENSION,true
+rstest,,Library,QA/Testing,MTO_EXTENSION,true
+ruby-dnn,,Library,ML/AI,MTO_EXTENSION,true
+ruby-jmeter,,Library,Backend,MTO_EXTENSION,true
+rubygems,,Tool,Backend | Fullstack,MTO_EXTENSION,true
+rufus-scheduler,,Library,Backend,MTO_EXTENSION,true
+rust cached,,Library,Backend,MTO_EXTENSION,true
+rust geo,,Library,Data Science,MTO_EXTENSION,true
+rust-postgres,,Library,Backend,MTO_EXTENSION,true
+rust-queue,,Library,Backend,MTO_EXTENSION,true
+rust-secure,,Library,Backend,MTO_EXTENSION,true
+rust-sql-mock,,Library,Backend,MTO_EXTENSION,true
+sap application server,,Tool,Backend,MTO_EXTENSION,true
+sap ui5,,Framework,Frontend,MTO_EXTENSION,true
+sbcl,,Tool,Backend,MTO_EXTENSION,true
+sbt,,Tool,Backend,MTO_EXTENSION,true
+scala.js,,Tool,Frontend,MTO_EXTENSION,true
+schedule,,Library,Backend,REVIEW_REQUIRED,false
+schemathesis,,Library,Backend,MTO_EXTENSION,true
+scikit-image,,Library,ML/AI,MTO_EXTENSION,true
+secure-env,,Library,DevOps,MTO_EXTENSION,true
+secure_headers,,Library,Backend,MTO_EXTENSION,true
+semantic-release,,Library,DevOps,MTO_EXTENSION,true
+sencha cmd,,Tool,Frontend,MTO_EXTENSION,true
+serverless-plugin-optimize,,Library,DevOps,MTO_EXTENSION,true
+serverless-plugin-split-stacks,,Library,DevOps,MTO_EXTENSION,true
+sf,,Library,Data Science,REVIEW_REQUIRED,false
+shapely,,Library,Data Science,MTO_EXTENSION,true
+shards,,Tool,Backend,MTO_EXTENSION,true
+simple-git,,Library,DevOps,MTO_EXTENSION,true
+sinon,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+socket.io,,Library,Backend,MTO_EXTENSION,true
+spaCy,,Service | Library,ML/AI,MTO_EXTENSION,true
+sqlmock,,Library,Backend,MTO_EXTENSION,true
+stacks cli,,Tool,Blockchain,MTO_EXTENSION,true
+statistics Haskell,,Library,Data Science,MTO_EXTENSION,true
+statsmodels,,Library,Data Science | ML/AI,MTO_EXTENSION,true
+stomp.py,,Library,Backend,MTO_EXTENSION,true
+streamz,,Library,Backend,MTO_EXTENSION,true
+structopt,,Library,Backend,MTO_EXTENSION,true
+stylist,,Library,Frontend,MTO_EXTENSION,true
+supertest,,Library,Backend,MTO_EXTENSION,true
+sweetviz,,Library,Data Science,MTO_EXTENSION,true
+tch-rs,,Library,ML/AI,MTO_EXTENSION,true
+testflight,,Tool,Mobile,MTO_EXTENSION,true
+testify,,Library,Backend | QA/Testing,MTO_EXTENSION,true
+tfjs-vis,,Library,ML/AI,MTO_EXTENSION,true
+tidymodels,,Library,ML/AI,MTO_EXTENSION,true
+tidyr,,Library,Data Science,MTO_EXTENSION,true
+timeseries-analysis,,Library,ML/AI,MTO_EXTENSION,true
+tink_web,,Framework,Backend,MTO_EXTENSION,true
+tokio,,Library,Backend | Systems Programming,MTO_EXTENSION,true
+tokio-test,,Library,Backend,MTO_EXTENSION,true
+toml,,Library | MarkupLanguage,,REVIEW_REQUIRED,false
+tower-http,,Library,Backend,MTO_EXTENSION,true
+tox,,Library,QA/Testing,MTO_EXTENSION,true
+tracking.js,,Library,ML/AI,MTO_EXTENSION,true
+tract,,Library,ML/AI,MTO_EXTENSION,true
+uWSGI,,Webserver,Backend | DevOps,MTO_EXTENSION,true
+uniGUI,,Framework,Backend,MTO_EXTENSION,true
+valac,,ProgrammingLanguage,Desktop,MTO_EXTENSION,true
+vegeta,,Library,Backend,MTO_EXTENSION,true
+visual studio,,Tool,Desktop | Backend | Fullstack,MTO_EXTENSION,true
+wasm-bindgen,,Library,Frontend,MTO_EXTENSION,true
+wasm-bindgen-test,,Library,Frontend,MTO_EXTENSION,true
+web-push,,Library,Mobile,MTO_EXTENSION,true
+web-vitals,,Library,Frontend,MTO_EXTENSION,true
+web2py,,Framework,Backend,MTO_EXTENSION,true
+wildfly,,Tool,Backend,MTO_EXTENSION,true
+ws,,Library,Backend,REVIEW_REQUIRED,false
+wsgi,,Tool,Backend,MTO_EXTENSION,true
+xMatters,,Tool,DevOps,MTO_EXTENSION,true
+xUnit.net,,Library,QA/Testing,MTO_EXTENSION,true
+yagmail,,Library,Backend,MTO_EXTENSION,true
