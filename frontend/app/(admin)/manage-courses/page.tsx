@@ -6,15 +6,7 @@ import { Search, Plus, Pencil, Trash2, GraduationCap, X } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Button } from '@/src/components/ui';
 import { apiFetch } from '@/src/lib/apiFetch';
-
-const DEPARTMENTS = [
-  'Artificial Intelligence',
-  'Software Engineering',
-  'Information Systems',
-  'Computer System & Networking',
-  'Multimedia',
-  'Compulsory',
-];
+import { useDepartments } from '@/src/lib/privacyNotice';
 
 interface Course {
   id: number;
@@ -41,6 +33,9 @@ export default function ManageCoursesPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<CourseForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  // Course departments include "Compulsory", which is not something a
+  // student can belong to, so this is the wider of the two server lists.
+  const { course_departments: DEPARTMENTS } = useDepartments();
   const [formError, setFormError] = useState('');
 
   useEffect(() => {

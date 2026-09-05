@@ -1,6 +1,7 @@
 from django.db import models
 
 from accounts.models import AdminProfile
+from config.sanitization import sanitize_html, sanitize_text
 
 
 class Announcement(models.Model):
@@ -28,6 +29,18 @@ class Announcement(models.Model):
 
     class Meta:
         ordering = ['-publish_time']
+
+    def save(self, *args, **kwargs):
+        """Sanitize before storing.
+
+        ``message`` is rendered with dangerouslySetInnerHTML on the student,
+        company and admin dashboards. An administrator account is the most
+        valuable one to compromise, so the content it authors is sanitized on
+        the same terms as everyone else's.
+        """
+        self.message = sanitize_html(self.message)
+        self.title = sanitize_text(self.title)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

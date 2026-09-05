@@ -1,4 +1,9 @@
-const API_BASE = 'http://localhost:8000';
+// Single source of truth for the backend origin. This used to be hardcoded
+// while half the app read NEXT_PUBLIC_API_URL, so the two disagreed
+// (127.0.0.1 vs localhost) and changing the variable moved only half the
+// requests. The fallback keeps a checkout with no .env.local working.
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 async function refreshAccessToken(): Promise<string | null> {
   const refresh = localStorage.getItem('refreshToken');

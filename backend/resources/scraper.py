@@ -570,6 +570,164 @@ def scrape_coursera(skill_names):
 
 
 # ============================================================
+# Coursera — category listings, paginated, nothing discarded
+# ============================================================
+#
+# The difference from scrape_coursera above is what gets kept. That one
+# searched 12 job-role names, read only the first page of each, and then threw
+# a course away unless a Skill name appeared literally in its title. Three
+# limits compounding: ~12 searches x ~12 first-page results, filtered down to
+# 59 stored rows.
+#
+# This walks the three categories the platform actually files courses under,
+# follows pagination to the end, and keeps every course it sees. Deciding what
+# a course teaches is a separate pass over CourseCatalogue -- see
+# resources.services.map_catalogue_to_skills -- so a course whose title names
+# no skill is stored rather than lost.
+
+#: Only these three. Coursera files courses under eleven top-level categories;
+#: the rest (Arts and Humanities, Health, Language Learning ...) are outside
+#: what this project advises on and are deliberately not fetched.
+COURSERA_CATEGORIES = [
+    "Computer Science",
+    "Information Technology",
+    "Data Science",
+]
+
+#: The faceted search listing rather than /browse/<slug>: the browse pages are
+#: curated shelves behind a JS "Show more", while search exposes real
+#: pagination in the URL. Both the facet name and the page parameter are kept
+#: here as constants because they are the two things Coursera is most likely to
+#: rename, and a rename should be a one-line fix rather than a rewrite.
+COURSERA_CATEGORY_URL = (
+    "https://www.coursera.org/search?topic={topic}&page={page}&language=English"
+)
+
+#: A stop, not a target. Pagination ends when a page yields no course link that
+#: has not already been seen; this only bounds the damage if that never happens
+#: because the facet was silently ignored and every page looks the same.
+COURSERA_MAX_PAGES = 40
+
+
+def scrape_coursera_categories(categories=None, max_pages=COURSERA_MAX_PAGES):
+    """Every course under the given Coursera categories.
+
+    Returns a list of catalogue dicts -- url, title, type, category, card_text.
+    No skill filtering happens here, deliberately: this function's only job is
+    to find courses. Mapping them to skills is a separate, re-runnable pass.
+    """
+    categories = categories or COURSERA_CATEGORIES
+    by_url = {}
+    driver = create_driver()
+
+    try:
+        logger.info("Coursera: warming up session on homepage ...")
+        safe_load_page(driver, "https://www.coursera.org/", retries=2)
+        random_delay(4, 7)
+
+        for category in categories:
+            logger.info("Coursera: category '%s'", category)
+            for page in range(1, max_pages + 1):
+                url = COURSERA_CATEGORY_URL.format(
+                    topic=quote_plus(category), page=page)
+                page_source = safe_load_page(driver, url, retries=2)
+                if not page_source:
+                    logger.warning("Coursera: '%s' page %d failed to load",
+                                   category, page)
+                    break
+
+                try:
+                    WebDriverWait(driver, 15).until(
+                        EC.presence_of_element_located((
+                            By.CSS_SELECTOR,
+                            'a[href*="/learn/"], a[href*="/specializations/"], '
+                            'a[href*="/professional-certificates/"]',
+                        ))
+                    )
+                except Exception:
+                    logger.info("Coursera: '%s' page %d has no courses -- end "
+                                "of category.", category, page)
+                    break
+
+                random_delay(2, 4)
+                found = _parse_coursera_cards(driver.page_source, category, by_url)
+
+                # The end of a category is a page that adds nothing new. Trusting
+                # a "no results" banner would mean trusting copy that changes;
+                # this holds whether the last page is empty or simply repeats the
+                # one before it, which is what a clamped page parameter does.
+                if not found:
+                    logger.info("Coursera: '%s' page %d added nothing new -- "
+                                "stopping.", category, page)
+                    break
+
+                random_delay(8, 12)
+
+    finally:
+        quit_driver(driver)
+
+    logger.info("Coursera: %d distinct courses across %d categories.",
+                len(by_url), len(categories))
+    return list(by_url.values())
+
+
+def _parse_coursera_cards(page_source, category, by_url):
+    """Merge one listing page into ``by_url``. Returns how many were new.
+
+    A course listed under two categories is one row carrying both, not two
+    rows: the catalogue is keyed by URL, and where a course came from is
+    recorded on it rather than duplicated.
+    """
+    soup = BeautifulSoup(page_source, "html.parser")
+    for element in soup.find_all(["nav", "header", "footer"]):
+        element.decompose()
+
+    new_count = 0
+    for link in soup.find_all("a", href=True):
+        href = link["href"]
+        if "/learn/" in href:
+            resource_type = "Course"
+        elif "/specializations/" in href:
+            resource_type = "Specialization"
+        elif "/professional-certificates/" in href:
+            resource_type = "Professional Certificate"
+        else:
+            continue
+
+        heading = link.find(["h2", "h3", "h4", "h5", "h6"])
+        title = (heading.get_text(strip=True) if heading
+                 else link.get_text(separator=" ", strip=True))
+        if not title or len(title) < 5:
+            continue
+        title = title[:255]
+
+        url = href if href.startswith("http") else f"https://www.coursera.org{href}"
+        url = url.split("?")[0]
+
+        existing = by_url.get(url)
+        if existing:
+            if category not in existing["categories"]:
+                existing["categories"].append(category)
+            continue
+
+        # The card's whole text, not just the title. "Google Data Analytics"
+        # names no skill in its title but its card lists SQL, R and Tableau,
+        # and that line is the only evidence the listing page carries.
+        card = link.find_parent(["li", "article"]) or link
+        by_url[url] = {
+            "url":        url,
+            "title":      title,
+            "platform":   "Coursera",
+            "type":       resource_type,
+            "categories": [category],
+            "card_text":  card.get_text(separator=" ", strip=True)[:2000],
+        }
+        new_count += 1
+
+    return new_count
+
+
+# ============================================================
 # Main entry point
 # ============================================================
 

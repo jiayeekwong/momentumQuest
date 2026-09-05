@@ -1,44 +1,23 @@
+"""Superseded by ``manage.py import_skills``.
+
+This migration seeded skill aliases, but only where the canonical skill
+already existed -- and on a fresh database migrations run before anything
+imports cs_skills.csv, so there were no skills to point at and every alias
+was skipped. The original comment said they would "wait for the next run";
+nothing ran them again, so a new deployment got the full skill list and no
+aliases at all.
+
+Aliases now live in data/skill_aliases.csv and are loaded by import_skills,
+which imports the canonical skills first and the aliases second, is
+idempotent, and reports any alias it could not resolve instead of silently
+dropping it.
+
+Left as an explicit no-op rather than deleted: it is already applied on
+existing databases, where it did seed correctly, and removing an applied
+migration would break their history.
+"""
+
 from django.db import migrations
-
-
-# alias -> canonical skill_name. Aliases are only created when the canonical
-# skill already exists in the Skill table, so this is safe on any dataset.
-ALIASES = {
-    "JS":          "JavaScript",
-    "TS":          "TypeScript",
-    "React.js":    "React",
-    "ReactJS":     "React",
-    "Node":        "Node.js",
-    "NodeJS":      "Node.js",
-    "k8s":         "Kubernetes",
-    "Postgres":    "PostgreSQL",
-    "GCP":         "Google Cloud",
-    "Golang":      "Go",
-    "HTML5":       "HTML",
-    "CSS3":        "CSS",
-    "ML":          "Machine Learning",
-    "scikit-learn": "Scikit-learn",
-    "Tailwind":    "Tailwind CSS",
-}
-
-
-def seed_aliases(apps, schema_editor):
-    Skill = apps.get_model("scrape_jobs", "Skill")
-    SkillAlias = apps.get_model("scrape_jobs", "SkillAlias")
-
-    for alias, canonical in ALIASES.items():
-        skill = Skill.objects.filter(skill_name__iexact=canonical).first()
-        if skill is None:
-            continue
-        SkillAlias.objects.get_or_create(
-            alias_name=alias,
-            defaults={"skill": skill},
-        )
-
-
-def unseed_aliases(apps, schema_editor):
-    SkillAlias = apps.get_model("scrape_jobs", "SkillAlias")
-    SkillAlias.objects.filter(alias_name__in=list(ALIASES.keys())).delete()
 
 
 class Migration(migrations.Migration):
@@ -48,5 +27,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(seed_aliases, unseed_aliases),
+        migrations.RunPython(migrations.RunPython.noop,
+                             migrations.RunPython.noop),
     ]

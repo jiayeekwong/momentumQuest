@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, Input } from "@/src/components/ui";
@@ -11,7 +11,7 @@ type ApiErrorResponse = {
   [key: string]: unknown;
 };
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageContent() {
   const searchParams = useSearchParams();
   const uid = searchParams.get("uid");
   const token = searchParams.get("token");
@@ -193,5 +193,21 @@ export default function ResetPasswordPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+
+// useSearchParams() reads the ?token= query string, which does not exist when
+// Next.js pre-renders this page at build time. The Suspense boundary defers
+// that part to the browser; without it `next build` fails.
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
+      <p className="text-sm font-medium text-neutral-500">Loading…</p>
+    </main>
+    }>
+      <ResetPasswordPageContent />
+    </Suspense>
   );
 }

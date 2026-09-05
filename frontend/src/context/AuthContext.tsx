@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserRole, TargetJob } from '@/src/types';
+import { User, UserRole, TargetRole, TargetOccupation } from '@/src/types';
 
 interface BackendProfile {
   email: string;
@@ -10,7 +10,8 @@ interface BackendProfile {
   student_name?: string;
   company_name?: string;
   department?: string;
-  target_jobs?: TargetJob[];
+  target_roles?: TargetRole[];
+  target_occupations?: TargetOccupation[];
 }
 
 interface AuthContextType {
@@ -44,12 +45,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem('mq_user');
     if (saved) {
-      try { setUser(JSON.parse(saved)); setIsLoading(false); return; } catch { localStorage.removeItem('mq_user'); }
+      try {
+        const restoredUser = JSON.parse(saved) as User;
+        queueMicrotask(() => {
+          setUser(restoredUser);
+          setIsLoading(false);
+        });
+        return;
+      } catch {
+        localStorage.removeItem('mq_user');
+      }
     }
 
     // mq_user missing — try to restore session from a stored access token
     const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) { setIsLoading(false); return; }
+    if (!accessToken) {
+      queueMicrotask(() => setIsLoading(false));
+      return;
+    }
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile/`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -70,7 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role,
           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`,
           department: profileData.department,
-          targetJobs: profileData.target_jobs,
+          targetRoles: profileData.target_roles,
+          targetOccupations: profileData.target_occupations,
           companyName: profileData.company_name,
         };
         setUser(restored);
@@ -113,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`,
       department: profileData.department,
-      targetJobs: profileData.target_jobs,
+      targetRoles: profileData.target_roles,
+      targetOccupations: profileData.target_occupations,
       companyName: profileData.company_name,
     };
 

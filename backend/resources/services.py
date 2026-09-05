@@ -93,6 +93,101 @@ def deactivate_stale_resources(platform_name, active_urls):
     return deactivated
 
 
+def save_course_catalogue(courses):
+    """Upsert scraped catalogue rows. Returns (created, updated).
+
+    Nothing here looks at skills. A course is stored because it exists in the
+    category, which is the whole point of separating the two passes.
+    """
+    from resources.models import CourseCatalogue
+
+    created = updated = 0
+    for data in courses:
+        url = (data.get("url") or "").strip()
+        if not url:
+            continue
+        row, was_created = CourseCatalogue.objects.update_or_create(
+            url=url,
+            defaults={
+                "title":      (data.get("title") or "")[:255],
+                "platform":   data.get("platform") or "Coursera",
+                "type":       data.get("type") or "Course",
+                "categories": data.get("categories") or [],
+                "card_text":  data.get("card_text") or "",
+                "is_active":  True,
+            },
+        )
+        if was_created:
+            created += 1
+        else:
+            updated += 1
+    return created, updated
+
+
+def map_catalogue_to_skills(platform_name="Coursera", categories=None):
+    """Turn catalogue rows into LearningResource rows, one per (skill, course).
+
+    The second of the two passes. It reads only the database, so it can be re-run
+    whenever the Skill table grows or the matching improves, without going back
+    to the network -- which is the reason the catalogue exists.
+
+    Matching is over the card's text as well as the title. The old scraper
+    matched titles alone, so "Google Data Analytics Professional Certificate"
+    was discarded despite its card naming SQL, R and Tableau.
+
+    A course matching several skills produces several rows; that is what
+    (skill, url) uniqueness is for. A course matching none produces none and
+    stays in the catalogue.
+
+    Returns (created, updated, unmapped_course_count).
+    """
+    from resources.models import CourseCatalogue
+    from resources.scraper import skill_matches_title
+
+    rows = CourseCatalogue.objects.filter(platform=platform_name, is_active=True)
+    if categories:
+        matching = CourseCatalogue.objects.none()
+        for category in categories:
+            matching = matching | rows.filter(categories__contains=[category])
+        rows = matching.distinct()
+
+    # Read once, not once per course: this loop is O(courses x skills) and the
+    # Skill table is ~2,100 rows.
+    skills = list(Skill.objects.values_list("id", "skill_name"))
+
+    created = updated = unmapped = 0
+    for course in rows:
+        haystack = f"{course.title} {course.card_text}"
+        matched_any = False
+        for skill_id, skill_name in skills:
+            if not skill_matches_title(skill_name, haystack):
+                continue
+            matched_any = True
+            _, was_created = LearningResource.objects.update_or_create(
+                skill_id=skill_id,
+                url=course.url,
+                defaults={
+                    "title":     course.title,
+                    "platform":  course.platform,
+                    "type":      course.type,
+                    "is_active": True,
+                },
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        if not matched_any:
+            unmapped += 1
+
+    logger.info(
+        "%s: mapped %d new and %d existing resource(s); %d course(s) matched "
+        "no known skill and stay in the catalogue.",
+        platform_name, created, updated, unmapped,
+    )
+    return created, updated, unmapped
+
+
 def create_resource_scrape_log(platforms):
     return ResourceScrapeLog.objects.create(platforms_scraped=platforms)
 

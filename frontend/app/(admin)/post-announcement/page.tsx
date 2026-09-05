@@ -237,7 +237,7 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
         </div>
       </div>
 
-      {/* Audience */}
+      {/* Target Audience */}
       <div className="space-y-2">
         <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Target Audience</label>
         <div className="grid grid-cols-3 gap-2">

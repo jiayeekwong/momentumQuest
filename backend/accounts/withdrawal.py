@@ -59,75 +59,25 @@ def has_live_consent(user, consent_type):
 
 
 def _recalculate_skills_for(student):
-    """Drop skills whose only support was evidence that is gone or withdrawn.
+    """Re-derive the student's skills now that some evidence is withdrawn.
 
-    A skill is kept when *any* live evidence still supports it: an approved
-    certificate, or a verified transcript. Skills with no evidence row at all
-    are left alone -- they predate evidence tracking, and there is nothing
-    recorded to say they came from a withdrawn document. Removing them would be
-    guessing, and the guess would silently strip a student's profile.
+    Delegates to resources.skill_evidence, which is the single authority on
+    what level each skill is currently supported at. This used to be a second,
+    boolean-only implementation living here: it could drop a skill whose
+    evidence had gone entirely, but not *lower* one whose remaining evidence
+    supported less -- so withdrawing an Advanced certificate left the student
+    at Advanced on the strength of a Beginner one.
+
+    Skills with no recorded provenance are outside the scope of this mechanism
+    and are left alone; see evidenced_skill_ids.
 
     Returns the number of skills removed.
     """
     # Imported here: accounts must not import resources at module scope, or the
     # app registry loads in the wrong order.
-    from accounts.models import StudentSkill
-    from resources.models import Certificate, TranscriptSkillEvidence, TranscriptUpload
+    from resources.skill_evidence import recalculate_student_skills
 
-    supported_by_certificate = set(
-        Certificate.objects
-        .filter(student=student,
-                verified_status=Certificate.VerifiedStatus.APPROVED)
-        .exclude(upload_consent__withdrawn_at__isnull=False)
-        .values_list("skill_id", flat=True)
-    )
-
-    verified_transcripts = TranscriptUpload.objects.filter(
-        student=student,
-        verification_status__in=(
-            TranscriptUpload.VerificationStatus.AUTO_VERIFIED,
-            TranscriptUpload.VerificationStatus.MANUALLY_VERIFIED,
-        ),
-    ).exclude(upload_consent__withdrawn_at__isnull=False)
-
-    supported_by_transcript = set(
-        TranscriptSkillEvidence.objects
-        .filter(transcript__in=verified_transcripts)
-        .values_list("skill_id", flat=True)
-    )
-
-    still_supported = supported_by_certificate | supported_by_transcript
-
-    # Only skills that some evidence row once pointed at are in scope. Anything
-    # never backed by a recorded document is outside this mechanism entirely.
-    ever_evidenced = set(
-        Certificate.objects.filter(student=student)
-        .values_list("skill_id", flat=True)
-    ) | set(
-        TranscriptSkillEvidence.objects
-        .filter(transcript__student=student)
-        .values_list("skill_id", flat=True)
-    )
-
-    orphaned = ever_evidenced - still_supported
-    if not orphaned:
-        return 0
-
-    removed, _ = StudentSkill.objects.filter(
-        student=student, skill_id__in=orphaned
-    ).delete()
-
-    if removed:
-        # The student's gaps are computed from the skills they hold, so they
-        # are wrong the moment a skill goes.
-        try:
-            from dashboard.skill_gap_snapshots import refresh_skill_gaps
-            refresh_skill_gaps(student)
-        except Exception:
-            logger.exception(
-                "Skill-gap refresh failed after withdrawal for student %s", student.pk)
-
-    return removed
+    return recalculate_student_skills(student)["removed"]
 
 
 @transaction.atomic
@@ -174,3 +124,55 @@ def withdraw_latest(user, consent_type, actor=None, request=None):
         raise WithdrawalError(
             "There is no active consent of this type to withdraw.")
     return withdraw_consent(consent, actor=actor, request=request)
+
+
+@transaction.atomic
+def restore_consent(user, consent_type, request=None):
+    """Give a withdrawn consent again, as a new row.
+
+    Withdrawal used to be a one-way door: the notice told the student to
+    "restore it in Settings" and no such path existed, so a single click
+    locked them out of document verification permanently.
+
+    Append-only, like every other consent event. The withdrawn row keeps its
+    ``withdrawn_at`` -- that withdrawal is a fact about what the student
+    decided, and rewriting it to look like it never happened is exactly what
+    the table exists to prevent. What changes is that a *newer* row now says
+    yes, and every check reads the latest one.
+
+    Skills are **not** brought back. Their evidence was removed when the
+    consent went, and re-consenting does not re-verify a document nobody has
+    looked at since. The student uploads again, which is the honest path.
+
+    Returns the new consent. Raises WithdrawalError if there is nothing to
+    restore.
+    """
+    from .privacy_notice import CURRENT_VERSION
+
+    latest = (
+        UserConsent.objects
+        .filter(user=user, consent_type=consent_type)
+        .order_by("-created_at")
+        .first()
+    )
+    if latest is not None and latest.is_live:
+        raise WithdrawalError("This consent is already active.")
+
+    consent = UserConsent.objects.create(
+        user=user,
+        consent_type=consent_type,
+        notice_version=CURRENT_VERSION,
+        accepted=True,
+        accepted_at=timezone.now(),
+        source=UserConsent.Source.SETTINGS_RESTORE,
+    )
+
+    record_privacy_event(
+        PrivacyAuditLog.Action.CONSENT_ACCEPTED,
+        actor=user,
+        target=user,
+        resource_id=consent.pk,
+        resource_type=PrivacyAuditLog.ResourceType.CONSENT,
+        request=request,
+    )
+    return consent

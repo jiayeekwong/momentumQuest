@@ -13,6 +13,9 @@ db.sqlite3
 backend/staticfiles/
 backend/media/
 
+# Uploaded transcripts — contain student name and NRIC, never commit
+backend/private_media/
+
 # Environment variables / secrets
 .env
 .env.*
@@ -45,6 +48,9 @@ Thumbs.db
 *.dump
 *.sql
 
+# Downloaded/generated official taxonomy source files
+backend/scrape_jobs/data/official/
+
 # Frontend / Next.js
 frontend/node_modules/
 frontend/.next/
@@ -55,3 +61,8 @@ frontend/next-env.d.ts
 backend/venv/
 __pycache__/
 *.pyc
+*.tsbuildinfo
+research/skill_alias_viability/.cache/
+research/onet_skill_catalog_viability/.cache/
+research/datamata_skill_catalog_viability/.cache/
+research/mto_cso_viability/.cache/

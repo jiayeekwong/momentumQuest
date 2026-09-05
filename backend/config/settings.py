@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from dotenv import load_dotenv
 import os
+import sys
+
+from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -40,12 +43,22 @@ load_env_file(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*velcn5rret025^z1q28v(!@qqu^-3ll%0sqo@^noxyp4fkq2='
+# Read from .env, which is gitignored. The fallback keeps a fresh clone
+# running for development only -- it is prefixed django-insecure- so Django's
+# own deployment check flags it if it ever reaches production.
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-local-development-only-do-not-use-in-production",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -70,6 +83,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # Serves STATIC_ROOT when DEBUG is false; a no-op in development, where
+    # Django's own static handler is already doing it.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -101,14 +117,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Credentials come from .env, which is gitignored. They were previously
+# literals here, and config/settings.py is a tracked file.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'momentumquest_db',
-        'USER': 'postgres',
-        'PASSWORD': 'JY!040910',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'momentumquest_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -145,9 +163,59 @@ USE_TZ = True
 
 #For JWT Authentication
 
+# Throttling is scoped rather than global: the public job feed is meant to be
+# browsed freely, while the endpoints that send mail, mint tokens or accept a
+# guessable token are the ones worth rate-limiting. Each rate is overridable by
+# environment variable so a deployment can tighten one without a code change.
+#
+# Counted per client IP for anonymous callers, which is what these endpoints
+# see. The history lives in Django's cache: with the default in-memory cache
+# each worker process keeps its own counter, so behind several workers the
+# effective limit is the rate times the worker count. That is a weaker
+# guarantee than it looks, and a deployment that runs more than one worker
+# should point CACHES at something shared before relying on these numbers.
+_THROTTLE_RATES = {
+    # Credential stuffing is the thing being slowed here, so this is the
+    # tightest of the set and is measured per minute.
+    "login": os.getenv("THROTTLE_LOGIN", "10/min"),
+    "register": os.getenv("THROTTLE_REGISTER", "10/hour"),
+    "verify_email": os.getenv("THROTTLE_VERIFY_EMAIL", "20/hour"),
+    # Sends mail to an address the caller names, so an unlimited version is an
+    # open relay for harassment as much as an account risk.
+    "password_reset": os.getenv("THROTTLE_PASSWORD_RESET", "5/hour"),
+    # The confirm endpoints take a token from a link. They are the ones a
+    # brute-force actually targets, so they are throttled at least as hard as
+    # the request that issues the token.
+    "token_confirm": os.getenv("THROTTLE_TOKEN_CONFIRM", "10/hour"),
+}
+
+# Relaxed under the test runner, not removed. Throttle history is keyed by
+# scope and client IP, and every test shares 127.0.0.1, so the real rates would
+# accumulate across the whole suite and fail unrelated tests by exhaustion
+# rather than by defect.
+#
+# The rates are raised rather than the scopes dropped, because dropping them
+# does not disable throttling -- ScopedRateThrottle.get_rate() raises
+# ImproperlyConfigured for a scope it cannot find a rate for, so an empty dict
+# turns every throttled endpoint into a 500. It also keeps the throttle code
+# path executing in every test instead of being skipped in exactly the
+# configuration nobody runs in production.
+#
+# The limits themselves are exercised deliberately by AuthThrottleTests, which
+# patches these rates down to numbers a test can reach.
+_RUNNING_TESTS = "test" in sys.argv
+_TEST_RATE = "100000/min"
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': (
+        {scope: _TEST_RATE for scope in _THROTTLE_RATES}
+        if _RUNNING_TESTS else _THROTTLE_RATES
     ),
 }
 
@@ -155,13 +223,93 @@ REST_FRAMEWORK = {
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# collectstatic needs a destination. Without it the command raises and any
+# deployment that serves static assets from the web server cannot be built.
+# Gitignored: it is a build artefact, regenerated by collectstatic.
+STATIC_ROOT = Path(os.getenv("DJANGO_STATIC_ROOT", BASE_DIR / 'staticfiles'))
 MEDIA_URL  = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", BASE_DIR / 'media'))
+
+# Django serves its own admin CSS and JS only while DEBUG is true. Behind
+# waitress with DEBUG=false the admin renders as unstyled HTML unless
+# something serves STATIC_ROOT -- so WhiteNoise does it from the app itself,
+# which is one fewer moving part than a separate static server for a handful
+# of admin assets.
+#
+# Placed directly after SecurityMiddleware, which is where its documentation
+# requires it: before everything that might short-circuit a response.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+
+# ============================================================
+# Production hardening
+#
+# Every setting below is a no-op in development (DEBUG=true) and takes effect
+# only when DEBUG is false, so a local clone keeps working unchanged while a
+# deployment gets the protections `manage.py check --deploy` asks for.
+# ============================================================
+
+if not DEBUG:
+    # A deployment must supply its own key. Failing loudly at startup is far
+    # better than silently signing sessions with a value that is in the repo.
+    if SECRET_KEY.startswith("django-insecure-"):
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY must be set to a real secret when DEBUG is false. "
+            "Generate one with: python -c "
+            "\"from django.core.management.utils import get_random_secret_key as k; print(k())\""
+        )
+
+    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "true").lower() == "true"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # Six months. Start lower (e.g. 3600) when first enabling HTTPS, because a
+    # browser honours the longest value it has seen and a mistake is not
+    # quickly undone.
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", 60 * 60 * 24 * 180))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+
+    # Behind a TLS-terminating proxy Django sees plain HTTP and would redirect
+    # forever. Set this only when such a proxy is actually in front.
+    if os.getenv("DJANGO_BEHIND_TLS_PROXY", "false").lower() == "true":
+        SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Certificates carry the student's full name and often an identification
+# number, so they are stored OUTSIDE MEDIA_ROOT -- the static() helper in
+# config/urls.py serves everything under MEDIA_ROOT with no authentication.
+# They are read back only through CertificateFileView, which checks ownership.
+#
+# Configurable because the default sits inside the checkout, which is the
+# wrong place for anything that must survive a redeploy: a container rebuild
+# or a fresh `git clone` would take every stored certificate with it. Point
+# DJANGO_PRIVATE_MEDIA_ROOT at a mounted volume in production.
+#
+# Transcripts are not stored at all -- the upload reads the subjects and
+# deletes the PDF before it responds -- so only certificates live here.
+PRIVATE_MEDIA_ROOT = Path(
+    os.getenv("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / 'private_media'))
+
 AUTH_USER_MODEL = 'accounts.User'
 
+# Read from the environment like ALLOWED_HOSTS and FRONTEND_URL. The default
+# is the local dev pair, so a fresh clone still works without a .env; a
+# deployment sets CORS_ALLOWED_ORIGINS rather than editing this file.
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
 ]
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -183,3 +331,11 @@ DEFAULT_FROM_EMAIL = os.getenv(
     f"MomentumQuest <{EMAIL_HOST_USER}>"
 )
 VERIFICATION_TIMEOUT = int(os.getenv("VERIFICATION_TIMEOUT", 60 * 15))
+
+# Published in the privacy notice as the address students write to about their
+# personal data. Injected at read time rather than baked into the notice text,
+# so changing it does not require publishing a new notice version.
+PRIVACY_CONTACT_EMAIL = os.getenv(
+    "PRIVACY_CONTACT_EMAIL",
+    EMAIL_HOST_USER or "privacy@momentumquest.local"
+)

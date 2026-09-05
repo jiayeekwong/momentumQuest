@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle2, XCircle, Award, ChevronDown, ExternalLink } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Award, ChevronDown, ExternalLink, ShieldCheck, Lock } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
-import { Card, Badge, Button } from '@/src/components/ui';
+import { Card, Badge, Button, Checkbox } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
 
@@ -12,12 +12,49 @@ type EndorseStatus = 'pending' | 'endorsed' | 'rejected';
 interface EndorsementRequest {
   id: number;
   student_name: string | null;
+  student_email: string;
+  matric_number: string;
+  department: string;
   skill: string | null;
   cert_url: string;
   source: string;
+  certificate_type: string;
+  certificate_name: string;
+  original_name: string;
+  has_file: boolean;
   uploaded_time: string;
   verified_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  verified_at: string | null;
+  rejection_reason: string;
+  verification_notes: string;
+  reviewed_by: string | null;
+  consent_recorded_at: string | null;
 }
+
+/**
+ * What the reviewer confirms before approving.
+ *
+ * There is deliberately no "IC/passport number matches" item. MomentumQuest
+ * stores no identification number, so there is nothing to compare the one on
+ * the document against — offering the check would imply a verification the
+ * system cannot actually perform. The name on the document against the
+ * registered name is the identity check that is genuinely available.
+ */
+const VERIFICATION_CHECKS = [
+  'Name on the document matches the student\'s registered name',
+  'Document is readable and legible',
+  'Issuing institution or organisation is identifiable',
+  'Qualification or skill information matches the submission',
+] as const;
+
+const REJECTION_REASONS = [
+  ['NAME_MISMATCH', 'Name does not match'],
+  ['UNREADABLE_DOCUMENT', 'Document is unreadable'],
+  ['INCORRECT_DOCUMENT', 'Incorrect document'],
+  ['INSUFFICIENT_INFORMATION', 'Insufficient information'],
+  ['SUSPECTED_INVALID_DOCUMENT', 'Suspected invalid document'],
+  ['OTHER', 'Other'],
+] as const;
 
 const toUiStatus = (vs: string): EndorseStatus => {
   if (vs === 'APPROVED') return 'endorsed';
@@ -41,6 +78,30 @@ export default function EndorsePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
+  // The checklist is a reviewer's working aid, not stored data: it exists to
+  // make the approval deliberate, so it gates the Approve button and is
+  // cleared whenever a different submission is opened.
+  const [checks, setChecks] = useState<boolean[]>(() => VERIFICATION_CHECKS.map(() => false));
+  const [decision, setDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState('');
+
+  const resetDecisionForm = () => {
+    setChecks(VERIFICATION_CHECKS.map(() => false));
+    setDecision(null);
+    setRejectionReason('');
+    setNotes('');
+    setFormError('');
+  };
+
+  const openPanel = (id: number) => {
+    resetDecisionForm();
+    setExpanded(expanded === id ? null : id);
+  };
+
+  const allChecked = checks.every(Boolean);
+
   useEffect(() => {
     apiFetch('/api/resources/certificates/')
       .then(r => r.json())
@@ -49,19 +110,57 @@ export default function EndorsePage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const endorse = async (id: number, verdict: 'APPROVED' | 'REJECTED') => {
+  const openCertificate = async (id: number) => {
+    try {
+      const res = await apiFetch(`/api/resources/certificates/${id}/file/`);
+      if (!res.ok) return;
+      const url = URL.createObjectURL(await res.blob());
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      /* the button simply does nothing if the file cannot be read */
+    }
+  };
+
+  const submitDecision = async (id: number) => {
+    if (!decision) {
+      setFormError('Choose whether to approve or reject this submission.');
+      return;
+    }
+    if (decision === 'APPROVED' && !allChecked) {
+      setFormError('Complete every item on the verification checklist before approving.');
+      return;
+    }
+    if (decision === 'REJECTED' && !rejectionReason) {
+      setFormError('Select a reason so the student is told why.');
+      return;
+    }
+
+    setFormError('');
     setActionLoading(id);
     try {
       const res = await apiFetch(`/api/resources/certificates/${id}/endorse/`, {
         method: 'PATCH',
-        body: JSON.stringify({ verified_status: verdict }),
+        body: JSON.stringify({
+          verified_status: decision,
+          rejection_reason: decision === 'REJECTED' ? rejectionReason : '',
+          verification_notes: notes.trim(),
+        }),
       });
       if (res.ok) {
-        setRequests(prev => prev.map(r => r.id === id ? { ...r, verified_status: verdict } : r));
+        const updated = await res.json();
+        setRequests(prev => prev.map(r => (r.id === id ? { ...r, ...updated } : r)));
         setExpanded(null);
+        resetDecisionForm();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const first = Object.values(data)[0];
+        setFormError(
+          Array.isArray(first) ? String(first[0]) : String(first ?? 'The decision could not be saved.')
+        );
       }
     } catch {
-      // silent
+      setFormError('The decision could not be saved.');
     } finally {
       setActionLoading(null);
     }
@@ -129,7 +228,7 @@ export default function EndorsePage() {
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge variant={statusVariants[uiStatus]} className="capitalize text-[10px] font-black tracking-widest">{uiStatus}</Badge>
                           <Button variant="outline" size="sm" className="h-8 w-8 p-0"
-                            onClick={() => setExpanded(expanded === req.id ? null : req.id)}>
+                            onClick={() => openPanel(req.id)}>
                             <ChevronDown size={15} className={cn('transition-transform', expanded === req.id ? 'rotate-180' : '')} />
                           </Button>
                         </div>
@@ -141,8 +240,45 @@ export default function EndorsePage() {
                     <div className="px-5 pb-5 border-t border-neutral-100">
                       <div className="pt-4 space-y-4">
                         <div>
+                          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1.5">Student</p>
+                          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                            <div className="flex gap-2">
+                              <dt className="text-neutral-400">Name</dt>
+                              <dd className="font-medium text-neutral-800">{req.student_name ?? '—'}</dd>
+                            </div>
+                            <div className="flex gap-2">
+                              <dt className="text-neutral-400">Matric ID</dt>
+                              <dd className="font-medium text-neutral-800">{req.matric_number || '—'}</dd>
+                            </div>
+                            <div className="flex gap-2">
+                              <dt className="text-neutral-400">Email</dt>
+                              <dd className="font-medium text-neutral-800 truncate">{req.student_email || '—'}</dd>
+                            </div>
+                            <div className="flex gap-2">
+                              <dt className="text-neutral-400">Department</dt>
+                              <dd className="font-medium text-neutral-800">{req.department || '—'}</dd>
+                            </div>
+                          </dl>
+                          {req.consent_recorded_at && (
+                            <p className="mt-2 text-[11px] text-neutral-400">
+                              Upload consent recorded {formatDate(req.consent_recorded_at)}.
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
                           <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1.5">Certificate / Evidence</p>
-                          {req.cert_url ? (
+                          {req.has_file ? (
+                            <button type="button" onClick={() => openCertificate(req.id)}
+                              className="inline-flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
+                              <ExternalLink size={13} />
+                              View Certificate
+                              <span className="text-neutral-400 font-normal">
+                                — {req.original_name || 'uploaded file'}
+                                {req.source ? ` · ${req.source}` : ''}
+                              </span>
+                            </button>
+                          ) : req.cert_url ? (
                             <a href={req.cert_url} target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
                               <ExternalLink size={13} />
@@ -150,24 +286,141 @@ export default function EndorsePage() {
                               {req.source && <span className="text-neutral-400 font-normal">— {req.source}</span>}
                             </a>
                           ) : (
-                            <p className="text-sm text-neutral-400 italic bg-neutral-50 p-4 rounded-xl border border-neutral-100">No certificate URL provided.</p>
+                            <p className="text-sm text-neutral-400 italic bg-neutral-50 p-4 rounded-xl border border-neutral-100">No certificate evidence provided.</p>
                           )}
                         </div>
-                        {uiStatus === 'pending' && (
-                          <div className="flex gap-3">
-                            <Button size="sm"
-                              className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"
-                              disabled={actionLoading === req.id}
-                              onClick={() => endorse(req.id, 'APPROVED')}>
-                              <CheckCircle2 size={14} />
-                              {actionLoading === req.id ? 'Saving…' : 'Endorse Skill'}
-                            </Button>
-                            <Button size="sm" variant="outline"
-                              className="h-9 text-xs text-danger border-danger/30 hover:bg-danger/5 flex items-center gap-1.5"
-                              disabled={actionLoading === req.id}
-                              onClick={() => endorse(req.id, 'REJECTED')}>
-                              <XCircle size={14} /> Reject
-                            </Button>
+                        {uiStatus === 'pending' ? (
+                          <>
+                            <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck size={14} className="text-primary" />
+                                <p className="text-[10px] font-black text-neutral-900 uppercase tracking-widest">
+                                  Verification Checklist
+                                </p>
+                              </div>
+                              {VERIFICATION_CHECKS.map((item, i) => (
+                                <Checkbox
+                                  key={item}
+                                  checked={checks[i]}
+                                  onChange={(e) => setChecks(prev => {
+                                    const next = [...prev];
+                                    next[i] = e.target.checked;
+                                    return next;
+                                  })}
+                                  label={item}
+                                />
+                              ))}
+                              <p className="flex items-start gap-1.5 pt-1 text-[11px] leading-relaxed text-neutral-400">
+                                <Lock size={12} className="mt-0.5 shrink-0" />
+                                MomentumQuest stores no NRIC/MyKad or passport number, so there is
+                                nothing to compare an identification number against. Check the name
+                                instead. Any identification number visible on the document stays
+                                inside it — do not copy it anywhere.
+                              </p>
+                            </div>
+
+                            <div className="space-y-3">
+                              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">
+                                Verification Decision
+                              </p>
+                              <div className="flex gap-2">
+                                {([
+                                  ['APPROVED', 'Approve', CheckCircle2],
+                                  ['REJECTED', 'Reject', XCircle],
+                                ] as const).map(([value, label, Icon]) => (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setDecision(value)}
+                                    className={cn(
+                                      'flex items-center gap-1.5 rounded-lg border-2 px-4 py-2 text-xs font-bold transition-all',
+                                      decision === value
+                                        ? value === 'APPROVED'
+                                          ? 'border-success bg-emerald-50 text-success'
+                                          : 'border-danger bg-red-50 text-danger'
+                                        : 'border-neutral-200 text-neutral-500 hover:border-neutral-300'
+                                    )}
+                                  >
+                                    <Icon size={14} /> {label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {decision === 'REJECTED' && (
+                                <div className="space-y-1.5">
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                                    Reason
+                                  </label>
+                                  <select
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                    className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  >
+                                    <option value="">Select a reason…</option>
+                                    {REJECTION_REASONS.map(([value, label]) => (
+                                      <option key={value} value={value}>{label}</option>
+                                    ))}
+                                  </select>
+                                  <p className="text-[11px] text-neutral-400">
+                                    The student is shown a plain-language explanation, not this code.
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="space-y-1.5">
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                                  Internal notes <span className="font-medium normal-case tracking-normal text-neutral-400">(optional)</span>
+                                </label>
+                                <textarea
+                                  value={notes}
+                                  onChange={(e) => setNotes(e.target.value)}
+                                  rows={2}
+                                  placeholder="Visible only to administrators."
+                                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                />
+                                <p className="text-[11px] text-neutral-400">
+                                  Never shown to the student. Do not record identification numbers here.
+                                </p>
+                              </div>
+
+                              {formError && (
+                                <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-danger">
+                                  {formError}
+                                </div>
+                              )}
+
+                              <div className="flex gap-3">
+                                <Button size="sm" variant="outline" className="h-9 text-xs"
+                                  onClick={() => { setExpanded(null); resetDecisionForm(); }}>
+                                  Cancel
+                                </Button>
+                                <Button size="sm"
+                                  className="h-9 text-xs flex items-center gap-1.5"
+                                  disabled={actionLoading === req.id}
+                                  onClick={() => submitDecision(req.id)}>
+                                  {actionLoading === req.id ? 'Saving…' : 'Submit Decision'}
+                                </Button>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4 space-y-1.5">
+                            <p className="text-sm font-semibold text-neutral-800">
+                              {uiStatus === 'endorsed' ? 'Endorsed' : 'Rejected'}
+                              {req.reviewed_by ? ` by ${req.reviewed_by}` : ''}
+                              {req.verified_at ? ` on ${formatDate(req.verified_at)}` : ''}
+                            </p>
+                            {req.rejection_reason && (
+                              <p className="text-xs text-neutral-500">
+                                Reason: {REJECTION_REASONS.find(([v]) => v === req.rejection_reason)?.[1]
+                                         ?? req.rejection_reason}
+                              </p>
+                            )}
+                            {req.verification_notes && (
+                              <p className="text-xs italic text-neutral-500">
+                                Internal note: {req.verification_notes}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>

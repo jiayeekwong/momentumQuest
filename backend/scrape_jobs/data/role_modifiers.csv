@@ -1,0 +1,22 @@
+# Seniority and rank words that may be removed from a job title before role
+# matching. Reviewed, source-controlled, and never extended automatically from
+# advert text -- a modifier list that grows by itself eventually removes a
+# functional word and collapses two real roles into one.
+#
+# Removal is conditional, not unconditional: a modifier comes off only when
+# what remains is ALREADY an approved Market Role or reviewed alias. That rule
+# is what stops "Chief Information Officer" becoming "Information Officer",
+# an occupation that does not exist in our vocabulary.
+#
+# seniority_level is metadata about the advert, never part of the role.
+modifier,seniority_level,notes
+chief,CHIEF,"Executive rank. Strictest handling: see safety rule."
+senior,SENIOR,
+sr,SENIOR,"Abbreviated form"
+sr.,SENIOR,"Abbreviated form with full stop"
+snr,SENIOR,
+junior,JUNIOR,
+jr,JUNIOR,"Abbreviated form"
+jr.,JUNIOR,"Abbreviated form with full stop"
+jnr,JUNIOR,
+associate,ASSOCIATE,"An IMDA entry rung, not a distinct occupation"

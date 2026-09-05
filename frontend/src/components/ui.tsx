@@ -153,3 +153,45 @@ export function Input({
     </div>
   );
 }
+
+/**
+ * A labelled checkbox.
+ *
+ * Built on a real `<input type="checkbox">` rather than a styled div so that
+ * it is keyboard-operable and announced correctly by screen readers. That
+ * matters more here than elsewhere: the first two of these in the app record
+ * a person's consent, and a control that cannot be reached by keyboard cannot
+ * meaningfully be agreed to.
+ */
+export function Checkbox({
+  label,
+  description,
+  className,
+  id,
+  ...props
+}: {
+  label: React.ReactNode;
+  description?: React.ReactNode;
+  className?: string;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
+
+  return (
+    <div className={cn('flex items-start gap-3', className)}>
+      <input
+        id={inputId}
+        type="checkbox"
+        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-neutral-300 text-primary
+                   accent-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-primary/30"
+        {...props}
+      />
+      <label htmlFor={inputId} className="cursor-pointer select-none text-sm leading-snug text-neutral-700">
+        {label}
+        {description && (
+          <span className="mt-0.5 block text-xs text-neutral-400">{description}</span>
+        )}
+      </label>
+    </div>
+  );
+}

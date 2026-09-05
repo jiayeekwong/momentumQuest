@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, CheckCircle2, XCircle, Clock, ChevronDown, Star } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Clock, ChevronDown, Star, BadgeCheck } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
@@ -9,14 +9,35 @@ import { apiFetch } from '@/src/lib/apiFetch';
 
 type AppStatus = 'PENDING' | 'REVIEWED' | 'SHORTLISTED' | 'ACCEPTED' | 'REJECTED';
 
+interface StudentSkill {
+  skill_name: string;
+  skill_level: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  verified: boolean;
+}
+
+interface ApplicantSnapshot {
+  skills: { skill_id: number; skill_name: string; skill_level: string | null }[];
+  education: string[];
+  experience: string[];
+  captured_at?: string;
+}
+
 interface Application {
   id: number;
   student_name: string;
   student_email: string;
-  student_skills: string[];
-  match_score: number;
+  // An employer sees the verification *result* and nothing behind it. A
+  // verified skill is one an administrator approved a certificate for; the
+  // certificate, the document and any identification number on it are never
+  // part of this payload.
+  student_skills: StudentSkill[];
+  // Null when the advert lists no skills — there is nothing to score against,
+  // and 0% would read as "this applicant matches none of it".
+  match_score: number | null;
   job_title: string;
-  cv_url: string;
+  // The applicant as submitted. There is no CV file to open: it is
+  // parsed at upload and deleted, so what remains is this.
+  applicant_snapshot: ApplicantSnapshot;
   status: AppStatus;
   applied_time: string;
   is_read: boolean;
@@ -114,7 +135,21 @@ export default function ReviewApplicationsPage() {
                       <p className="text-sm font-medium text-neutral-500">{app.job_title} · Applied {formatDate(app.applied_time)}</p>
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {app.student_skills.slice(0, 3).map(s => (
-                          <span key={s} className="px-2 py-0.5 bg-neutral-100 rounded-full text-[10px] font-bold text-neutral-600">{s}</span>
+                          <span
+                            key={s.skill_name}
+                            title={s.verified
+                              ? 'Verified — an administrator reviewed the supporting document.'
+                              : 'Self-reported, not verified.'}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                              s.verified
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-neutral-100 text-neutral-600'
+                            )}
+                          >
+                            {s.verified && <BadgeCheck size={11} />}
+                            {s.skill_name}
+                          </span>
                         ))}
                       </div>
                     </div>
@@ -122,10 +157,14 @@ export default function ReviewApplicationsPage() {
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-center">
                       <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Match</p>
-                      <p className={cn('text-xl font-black',
-                        app.match_score > 70 ? 'text-success' : app.match_score > 40 ? 'text-warning' : 'text-danger')}>
-                        {app.match_score}%
-                      </p>
+                      {app.match_score === null ? (
+                        <p className="text-xl font-black text-neutral-300" title="This listing has no required skills to score against.">—</p>
+                      ) : (
+                        <p className={cn('text-xl font-black',
+                          app.match_score > 70 ? 'text-success' : app.match_score > 40 ? 'text-warning' : 'text-danger')}>
+                          {app.match_score}%
+                        </p>
+                      )}
                     </div>
                     <Badge variant={statusVariants[app.status]} className="capitalize text-[10px] font-black tracking-widest px-3 py-1.5">
                       {app.status.toLowerCase()}
@@ -166,12 +205,34 @@ export default function ReviewApplicationsPage() {
                         <p className="text-sm text-neutral-700 whitespace-pre-line bg-neutral-50 rounded-lg p-3">{app.cover_note}</p>
                       </div>
                     )}
+                    {(app.applicant_snapshot?.education?.length > 0 ||
+                      app.applicant_snapshot?.experience?.length > 0) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                        {app.applicant_snapshot.education?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Education</p>
+                            <ul className="text-xs text-neutral-600 space-y-0.5">
+                              {app.applicant_snapshot.education.slice(0, 5).map((line, i) => (
+                                <li key={i}>{line}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {app.applicant_snapshot.experience?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Experience</p>
+                            <ul className="text-xs text-neutral-600 space-y-0.5">
+                              {app.applicant_snapshot.experience.slice(0, 5).map((line, i) => (
+                                <li key={i}>{line}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-3 pt-4 items-center">
-                      {app.cv_url && (
-                        <a href={app.cv_url} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" variant="outline" className="h-9 text-xs">View CV</Button>
-                        </a>
-                      )}
+
                       <div className="flex gap-2 ml-auto">
                         <Button size="sm"
                           className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"

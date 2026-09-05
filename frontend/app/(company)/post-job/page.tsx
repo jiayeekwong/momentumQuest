@@ -7,7 +7,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Button, Input } from '@/src/components/ui';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
-import { apiFetch } from '@/src/lib/apiFetch';
+import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
+
+// Mirrors accounts.StudentSkill.SkillLevel — the same scale the match score
+// weighs a candidate's proficiency on.
+type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+interface RequiredSkill {
+  name: string;
+  level: SkillLevel;
+}
+
+const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
+  { value: 'BEGINNER',     label: 'Beginner' },
+  { value: 'INTERMEDIATE', label: 'Intermediate' },
+  { value: 'ADVANCED',     label: 'Advanced' },
+];
 
 const workModes = ['On-site', 'Hybrid', 'Remote'];
 const experienceLevels = ['Entry Level', 'Mid Level', 'Senior Level', 'Internship'];
@@ -29,11 +44,15 @@ export default function PostJobPage() {
   const [closing, setClosing] = useState('');
   const [description, setDescription] = useState('');
   const [skillInput, setSkillInput] = useState('');
-  const [skills, setSkills] = useState<string[]>([]);
+  // Each required skill carries the proficiency the role needs. The match
+  // score weighs a candidate's own level against this, so "Advanced Python"
+  // and "Beginner Python" are different requirements.
+  const [skills, setSkills] = useState<RequiredSkill[]>([]);
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>('INTERMEDIATE');
   const [categories, setCategories] = useState<JobCategory[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/scrape-jobs/categories/')
+    fetch(`${API_BASE}/api/scrape-jobs/categories/`)
       .then(r => r.json())
       .then(data => setCategories(Array.isArray(data) ? data : (data.results ?? [])))
       .catch(() => {});
@@ -41,13 +60,16 @@ export default function PostJobPage() {
 
   const addSkill = () => {
     const trimmed = skillInput.trim();
-    if (trimmed && !skills.includes(trimmed)) {
-      setSkills(prev => [...prev, trimmed]);
-      setSkillInput('');
-    }
+    if (!trimmed || skills.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) return;
+    setSkills(prev => [...prev, { name: trimmed, level: skillLevel }]);
+    setSkillInput('');
   };
 
-  const removeSkill = (skill: string) => setSkills(prev => prev.filter(s => s !== skill));
+  const removeSkill = (name: string) =>
+    setSkills(prev => prev.filter(s => s.name !== name));
+
+  const setLevelFor = (name: string, level: SkillLevel) =>
+    setSkills(prev => prev.map(s => (s.name === name ? { ...s, level } : s)));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +87,7 @@ export default function PostJobPage() {
       work_mode:        workMode,
       experience_level: experience,
       closing_date:     closing || null,
-      required_skills:  skills,
+      required_skills:  skills.map(s => ({ name: s.name, level: s.level })),
     };
     if (categoryId) payload.category = Number(categoryId);
     if (salaryMin)  payload.salary_min = Number(salaryMin);
@@ -156,20 +178,40 @@ export default function PostJobPage() {
 
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Required Skills</label>
+                    <p className="text-xs text-neutral-500 -mt-1">
+                      The level you set here is what candidates are scored against.
+                    </p>
                     <div className="flex gap-2">
                       <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                         placeholder="Type a skill and press Enter"
                         className="flex-1 h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      <select value={skillLevel} onChange={e => setSkillLevel(e.target.value as SkillLevel)}
+                        aria-label="Required proficiency for the next skill"
+                        className="h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        {SKILL_LEVELS.map(level => (
+                          <option key={level.value} value={level.value}>{level.label}</option>
+                        ))}
+                      </select>
                       <Button type="button" variant="outline" size="sm" className="h-10" onClick={addSkill}>
                         <Plus size={16} />
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {skills.map(skill => (
-                        <span key={skill} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
-                          {skill}
-                          <button type="button" onClick={() => removeSkill(skill)} className="hover:text-danger"><X size={12} /></button>
+                        <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
+                          {skill.name}
+                          <select
+                            value={skill.level}
+                            onChange={e => setLevelFor(skill.name, e.target.value as SkillLevel)}
+                            aria-label={`Required proficiency for ${skill.name}`}
+                            className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
+                          >
+                            {SKILL_LEVELS.map(level => (
+                              <option key={level.value} value={level.value}>{level.label}</option>
+                            ))}
+                          </select>
+                          <button type="button" onClick={() => removeSkill(skill.name)} className="hover:text-danger"><X size={12} /></button>
                         </span>
                       ))}
                     </div>

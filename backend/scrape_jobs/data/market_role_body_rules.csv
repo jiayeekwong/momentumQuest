@@ -1,0 +1,31 @@
+# Reviewed body-text signals that override skill-profile scoring.
+#
+# Skill profiles alone confused IT Support with Network Engineer: both ask for
+# LAN, WiFi and Operating Systems, and an advert reading "provide daily IT
+# support for hardware, software, network and email" scored as Network
+# Engineer because it also mentioned VPN and DNS. The skills were right; the
+# job was not.
+#
+# These rules are phrases a reviewer confirmed distinguish the roles, taken
+# from Malaysian adverts already classified, not invented. They are applied
+# after scoring and only ever make the resolver *more* conservative: a
+# POSITIVE phrase redirects to the named role, an EXCLUDE phrase forbids it.
+#
+# signal_type:
+#   POSITIVE  the phrase indicates this role
+#   EXCLUDE   the phrase means the advert is NOT this role
+market_role,signal_type,phrase,notes
+IT Support,POSITIVE,"provide daily it support","end-user support framing"
+IT Support,POSITIVE,"end[- ]user (?:computing|support)",
+IT Support,POSITIVE,"help ?desk",
+IT Support,POSITIVE,"service desk",
+IT Support,POSITIVE,"desktop support",
+IT Support,POSITIVE,"hands[- ]on it support",
+IT Support,POSITIVE,"troubleshoot(?:ing)? (?:hardware|printer|laptop|desktop)",
+Network Engineer,EXCLUDE,"provide daily it support","a support role that happens to touch the network"
+Network Engineer,EXCLUDE,"hands[- ]on it support",
+Network Engineer,EXCLUDE,"end[- ]user computing",
+Network Engineer,EXCLUDE,"help ?desk",
+Network Engineer,EXCLUDE,"service desk",
+Full Stack Developer,EXCLUDE,"it support",
+Full Stack Developer,EXCLUDE,"help ?desk",

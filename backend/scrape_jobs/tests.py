@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from job_listings.models import JobListing, MarketRoleCandidate
 from .market_role_classifier import (
@@ -1887,3 +1888,109 @@ class DotNetCoreSeedDecisionTests(TestCase):
                          and row["source"] == "MALAYSIA_JD")
         self.assertEqual(malaysian["source_type"], "market-evidence")
         self.assertIn("4 employers", malaysian["source_version"])
+
+
+class MarketRoleAliasControlTests(TestCase):
+    """Every control on the alias table must actually gate classification.
+
+    The resolver filtered on ``reviewed`` alone while the table carries three
+    more controls. Nothing misbehaved, because all 231 rows were active and
+    approved -- so the failure was latent: the first time somebody retired an
+    alias or marked one pending, it would have kept classifying adverts and
+    the deactivation would have looked applied.
+    """
+
+    def setUp(self):
+        self.role = MarketRole.objects.create(name="Data Analyst",
+                                              normalized_name="data analyst")
+
+    def _alias(self, title, **kwargs):
+        return MarketRoleAlias.objects.create(
+            normalized_title=title, market_role=self.role, **kwargs)
+
+    def test_an_active_approved_alias_classifies(self):
+        self._alias("data analytics specialist")
+
+        index = build_index()
+
+        self.assertEqual(index.lookup("data analytics specialist")[0], self.role)
+
+    def test_a_deactivated_alias_does_not_classify(self):
+        self._alias("retired title", is_active=False)
+
+        self.assertEqual(build_index().lookup("retired title"), (None, None))
+
+    def test_a_pending_alias_does_not_classify(self):
+        """Pending means nobody has looked at it yet.
+
+        Classifying on it would make review a formality applied after the fact.
+        """
+        self._alias("pending title",
+                    review_status=MarketRoleAlias.ReviewStatus.PENDING)
+
+        self.assertEqual(build_index().lookup("pending title"), (None, None))
+
+    def test_a_rejected_alias_does_not_classify(self):
+        self._alias("rejected title",
+                    review_status=MarketRoleAlias.ReviewStatus.REJECTED)
+
+        self.assertEqual(build_index().lookup("rejected title"), (None, None))
+
+    def test_a_body_context_alias_does_not_fire_on_the_title(self):
+        """The flag means "too weak to fire on the title alone".
+
+        Nothing reads it yet -- resolve_from_description scores the body rules
+        and consults by_role only -- so leaving these in the title index made
+        the flag mean the opposite of what it says.
+        """
+        self._alias("weak title", requires_body_context=True)
+
+        self.assertEqual(build_index().lookup("weak title"), (None, None))
+
+    def test_an_alias_of_a_retired_role_does_not_classify(self):
+        self.role.is_active = False
+        self.role.save(update_fields=["is_active"])
+        self._alias("orphaned title")
+
+        self.assertEqual(build_index().lookup("orphaned title"), (None, None))
+
+
+class SkillDemandParameterTests(TestCase):
+    """?top= is caller input and is validated as such.
+
+    int("abc") raised straight out of the view and surfaced as a 500, which
+    reads as a server fault: it pages whoever is on call for somebody else's
+    typo, and buries real faults in the same signal.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/api/scrape-jobs/skills/demand/"
+
+    def test_a_non_numeric_top_is_rejected_not_crashed(self):
+        response = self.client.get(self.url, {"top": "abc"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("top", response.data)
+
+    def test_a_zero_or_negative_top_is_rejected(self):
+        for value in ("0", "-5"):
+            with self.subTest(top=value):
+                self.assertEqual(
+                    self.client.get(self.url, {"top": value}).status_code, 400)
+
+    def test_an_unbounded_top_is_rejected(self):
+        """The ranking is a dashboard panel, not an export.
+
+        Without a ceiling, ?top=999999 asks an anonymous request to rank the
+        whole catalogue.
+        """
+        response = self.client.get(self.url, {"top": "999999"})
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_valid_top_still_works(self):
+        Skill.objects.create(skill_name="Python")
+
+        self.assertEqual(self.client.get(self.url, {"top": "5"}).status_code, 200)
+        self.assertEqual(self.client.get(self.url).status_code, 200)

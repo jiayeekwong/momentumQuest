@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui';
+import { API_BASE } from '@/src/lib/apiFetch';
 
 type State = 'loading' | 'success' | 'error';
 
-export default function ConfirmEmailChangePage() {
+function ConfirmEmailChangePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [state, setState] = useState<State>('loading');
-  const [message, setMessage] = useState('');
+  const token = searchParams.get('token');
+  // A missing token is knowable during render, so it seeds the initial state
+  // instead of being set synchronously inside the effect below (which causes
+  // a cascading render).
+  const [state, setState] = useState<State>(token ? 'loading' : 'error');
+  const [message, setMessage] = useState(
+    token ? '' : 'Invalid confirmation link. No token found.'
+  );
   const [countdown, setCountdown] = useState(3);
 
   const clearSession = () => {
@@ -21,14 +28,9 @@ export default function ConfirmEmailChangePage() {
   };
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (!token) {
-      setState('error');
-      setMessage('Invalid confirmation link. No token found.');
-      return;
-    }
+    if (!token) return;
 
-    fetch('http://localhost:8000/api/auth/email-change/confirm/', {
+    fetch(`${API_BASE}/api/auth/email-change/confirm/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
@@ -48,8 +50,7 @@ export default function ConfirmEmailChangePage() {
         setState('error');
         setMessage('Network error. Please try again.');
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [token]);
 
   // Auto-redirect countdown after success
   useEffect(() => {
@@ -100,5 +101,24 @@ export default function ConfirmEmailChangePage() {
         )}
       </div>
     </div>
+  );
+}
+
+
+// useSearchParams() reads the ?token= query string, which does not exist when
+// Next.js pre-renders this page at build time. The Suspense boundary defers
+// that part to the browser; without it `next build` fails.
+export default function ConfirmEmailChangePage() {
+  return (
+    <Suspense fallback={
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-10 max-w-md w-full text-center">
+        <Loader2 size={48} className="mx-auto text-primary animate-spin mb-6" />
+        <h2 className="text-xl font-bold text-neutral-900">Loading…</h2>
+      </div>
+    </div>
+    }>
+      <ConfirmEmailChangePageContent />
+    </Suspense>
   );
 }

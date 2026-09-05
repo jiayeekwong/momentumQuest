@@ -1,17 +1,50 @@
+# Pinned to the versions this project was built and tested against.
+# Unpinned dependencies mean a deployment can install a different Django or
+# DRF than the test suite ever ran on, and the failure surfaces in production
+# rather than in CI. Regenerate deliberately, not by accident:
+#     pip install -U <package> && pip freeze | grep <package>
+
 # Django core
-Django
-djangorestframework
-django-cors-headers
-djangorestframework-simplejwt
+Django==6.0.5
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+djangorestframework-simplejwt==5.5.1
 
 # Database (binary version avoids needing C build tools on Windows)
-psycopg2-binary
+psycopg2-binary==2.9.12
 
 # Environment variables
-python-dotenv
+python-dotenv==1.2.2
 
 # Web scraping
-selenium
-beautifulsoup4
-webdriver-manager
-lxml
+selenium==4.44.0
+beautifulsoup4==4.14.3
+webdriver-manager==4.1.1
+lxml==6.1.1
+
+# Transcript parsing (reads the PDF text layer — no OCR needed)
+pdfplumber==0.11.10
+
+# HTML sanitization for stored rich text (job descriptions, training
+# programme descriptions, announcements). All three are rendered with
+# dangerouslySetInnerHTML, and JWTs live in localStorage, so an unsanitized
+# payload can steal accounts. nh3 binds the Rust `ammonia` sanitizer: an
+# allowlist parse-and-reserialize filter, not a regex over markup.
+nh3==0.3.7
+
+# Serves Django Admin's own CSS and JS when DEBUG is false. Django only
+# serves them itself in development, so without this the admin renders as
+# unstyled HTML behind waitress -- and a separate static server for a handful
+# of admin assets is more moving parts than the deployment needs.
+whitenoise==6.12.0
+
+# Production WSGI server.
+#
+# `manage.py runserver` is a development server: single-threaded by default,
+# no process supervision, and Django's own documentation says not to use it
+# for anything resembling production. Waitress rather than gunicorn because
+# this project is developed and scheduled on Windows, where gunicorn does not
+# run at all.
+#
+#     waitress-serve --port=8000 config.wsgi:application
+waitress==3.0.2

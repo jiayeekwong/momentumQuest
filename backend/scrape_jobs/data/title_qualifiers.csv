@@ -1,0 +1,48 @@
+# Trailing clauses that decorate a job title without changing which role it
+# names. Removing them lets an exact match reach the role underneath.
+#
+# Reviewed and source-controlled. This list is never extended from scraped
+# text: a rule that grows by itself eventually deletes a functional word and
+# silently changes which role an advert means.
+#
+# Only *trailing* clauses and whole parenthetical groups matching these
+# patterns are removed. Arbitrary bracketed text is left alone -- "(.NET/C#)"
+# is a technology qualifier and belongs to skills, not to the bin.
+#
+# Every pattern is quoted, because several contain commas.
+#
+# category:
+#   RECRUITMENT_NOTE  hiring urgency, graduate openness, headcount
+#   EMPLOYMENT_TYPE   contract shape
+#   LOCATION          where the work happens
+#   SHIFT             working pattern
+#   COMPENSATION      pay ranges
+category,pattern,notes
+RECRUITMENT_NOTE,"open to fresh grad\w*","'Open to Fresh Graduates'"
+RECRUITMENT_NOTE,"fresh grad\w*( are)?( welcome\w*)?","'Fresh Grads Welcomed'"
+RECRUITMENT_NOTE,"urgent\w*( hiring)?",
+RECRUITMENT_NOTE,"immediate\w*( hiring| joiner\w*)?",
+RECRUITMENT_NOTE,"hiring now",
+RECRUITMENT_NOTE,"walk[- ]?in( interview)?",
+RECRUITMENT_NOTE,"\d+ (?:headcount|vacanc\w+|position\w*)",
+RECRUITMENT_NOTE,"no experience( required)?",
+RECRUITMENT_NOTE,"training provided",
+EMPLOYMENT_TYPE,"contract( basis)?",
+EMPLOYMENT_TYPE,"permanent",
+EMPLOYMENT_TYPE,"full[- ]?time",
+EMPLOYMENT_TYPE,"part[- ]?time",
+EMPLOYMENT_TYPE,"internship",
+EMPLOYMENT_TYPE,"outsourc\w+",
+LOCATION,"based in [a-z .'-]+",
+LOCATION,"remote",
+LOCATION,"hybrid",
+LOCATION,"onsite",
+LOCATION,"work from home",
+LOCATION,"(?:kuala lumpur|selangor|penang|johor|cyberjaya|puchong|petaling jaya|shah alam|melaka|ipoh|kuching)",
+SHIFT,"night shift",
+SHIFT,"rotating shift",
+SHIFT,"\d+ ?(?:am|pm) ?[-] ?\d+ ?(?:am|pm)",
+SHIFT,"us hours",
+COMPENSATION,"rm ?[\d]+[\d,]*(?: ?[-] ?rm ?[\d]+[\d,]*)?",
+COMPENSATION,"salary( range)?[ :].*",
+COMPENSATION,"up to rm ?[\d]+[\d,]*",

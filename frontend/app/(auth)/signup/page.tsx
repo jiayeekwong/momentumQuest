@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, CheckCircle2, Mail, User, Building2 } from 'lucide-react';
-import { Button, Input, Card } from '@/src/components/ui';
+import { ChevronLeft, ChevronRight, CheckCircle2, Mail, User, Building2, ShieldCheck } from 'lucide-react';
+import { Button, Input, Card, Checkbox } from '@/src/components/ui';
+import { usePrivacyNotice, useDepartments, toParagraphs } from '@/src/lib/privacyNotice';
 import { Logo } from '@/src/components/Logo';
 import { cn } from '@/src/lib/utils';
 
@@ -16,6 +17,7 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=/\
 const PASSWORD_RULE_MESSAGE = 'Password must be 8+ chars with a letter, digit, and special character.';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+
 export default function SignupPage() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<SignupRole>('STUDENT');
@@ -24,8 +26,19 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [department, setDepartment] = useState('');
+  const [matricNumber, setMatricNumber] = useState('');
+  // Both default to false and are never pre-selected: a pre-ticked consent
+  // box is not consent.
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [documentConsent, setDocumentConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // The wording shown and the notice version recorded must come from the
+  // same place, or a student could be recorded as accepting text they never
+  // saw. Both come from the server.
+  const { notice, isLoading: noticeLoading, error: noticeError } = usePrivacyNotice();
+  const { departments } = useDepartments();
 
   const steps = [
     { title: 'Account Details', icon: Mail },
@@ -54,6 +67,8 @@ export default function SignupPage() {
     setStep(2);
   }
 
+  const consentGiven = Boolean(notice) && privacyAccepted && documentConsent;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -64,6 +79,17 @@ export default function SignupPage() {
     }
     if (role === 'STUDENT' && !department) {
       setError('Please select your department.');
+      return;
+    }
+    // The button is disabled without both consents, but this page has no
+    // <form> element and therefore no native validation, so the gate is
+    // re-checked here rather than trusted to the disabled attribute.
+    if (!notice) {
+      setError('The privacy notice could not be loaded. Please refresh and try again.');
+      return;
+    }
+    if (!consentGiven) {
+      setError('Please read and accept both privacy statements to create your account.');
       return;
     }
 
@@ -81,6 +107,9 @@ export default function SignupPage() {
         body: JSON.stringify({
           email, password, confirm_password: confirmPassword, role, name,
           department: role === 'STUDENT' ? department : '',
+          matric_number: role === 'STUDENT' ? matricNumber.trim() : '',
+          privacy_notice_accepted: privacyAccepted,
+          document_verification_consent: documentConsent,
         }),
       });
       const data = await res.json();
@@ -181,6 +210,12 @@ export default function SignupPage() {
                   <h3 className="text-xl font-bold text-neutral-900">{role === 'STUDENT' ? 'Student Details' : 'Company Details'}</h3>
                   {role === 'STUDENT' ? (
                     <>
+                      <Input
+                        label="Student / Matric ID"
+                        placeholder="S123456"
+                        value={matricNumber}
+                        onChange={(e) => setMatricNumber(e.target.value)}
+                      />
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Department</label>
                         <select
@@ -189,17 +224,83 @@ export default function SignupPage() {
                           onChange={(e) => setDepartment(e.target.value)}
                         >
                           <option value="">Select department</option>
-                          <option>Artificial Intelligence</option>
-                          <option>Software Engineering</option>
-                          <option>Information Systems</option>
-                          <option>Computer System &amp; Networking</option>
-                          <option>Multimedia</option>
+                          {departments.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
                         </select>
                       </div>
                     </>
                   ) : (
                     <p className="text-sm text-neutral-500">Your company account will be created with the name: <strong>{name}</strong></p>
                   )}
+
+
+                  <div className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-50 p-5">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck size={16} className="text-primary" />
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                        Privacy &amp; Personal Data
+                      </h4>
+                    </div>
+
+                    {noticeLoading && (
+                      <div className="space-y-2">
+                        <div className="h-3 w-full animate-pulse rounded bg-neutral-200" />
+                        <div className="h-3 w-4/5 animate-pulse rounded bg-neutral-200" />
+                      </div>
+                    )}
+
+                    {noticeError && (
+                      <p className="text-xs leading-relaxed text-danger">
+                        The privacy notice could not be loaded, so the account cannot be
+                        created yet. Please refresh and try again.
+                      </p>
+                    )}
+
+                    {notice && toParagraphs(notice.summary).map((paragraph) => (
+                      <p key={paragraph} className="text-xs leading-relaxed text-neutral-600">
+                        {paragraph}
+                      </p>
+                    ))}
+
+                    {/* Opened in a new tab on purpose: this wizard keeps every
+                        field in component state, so navigating away in the same
+                        tab would discard the half-filled form. */}
+                    <a
+                      href="/privacy-notice"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block text-xs font-bold text-primary hover:underline"
+                    >
+                      Read Full Privacy Notice →
+                    </a>
+
+                    {/* Disabled until the text arrives: a box ticked against
+                        wording that has not loaded is not informed consent. */}
+                    <div className="space-y-3 border-t border-neutral-200 pt-4">
+                      <Checkbox
+                        checked={privacyAccepted}
+                        disabled={!notice}
+                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                        label={notice?.consent_statements.PRIVACY_NOTICE_ACKNOWLEDGEMENT
+                               ?? 'Loading the privacy notice…'}
+                      />
+                      <Checkbox
+                        checked={documentConsent}
+                        disabled={!notice}
+                        onChange={(e) => setDocumentConsent(e.target.checked)}
+                        label={notice?.consent_statements.DOCUMENT_VERIFICATION_CONSENT
+                               ?? 'Loading the consent statement…'}
+                      />
+                    </div>
+
+                    {notice && (
+                      <p className="text-[10px] text-neutral-400">
+                        Privacy Notice version {notice.version} · effective{' '}
+                        {notice.effective_date}
+                      </p>
+                    )}
+                  </div>
 
                   {error && (
                     <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-danger whitespace-pre-line">
@@ -211,8 +312,14 @@ export default function SignupPage() {
                     <Button variant="outline" fullWidth onClick={() => { setStep(1); setError(''); }} className="h-12">
                       <ChevronLeft size={18} className="mr-1" /> Back
                     </Button>
-                    <Button fullWidth isLoading={isLoading} onClick={(e) => handleSubmit(e as React.FormEvent)} className="h-12">
-                      Create Account
+                    <Button
+                      fullWidth
+                      isLoading={isLoading}
+                      disabled={!consentGiven || isLoading}
+                      onClick={(e) => handleSubmit(e as React.FormEvent)}
+                      className="h-12"
+                    >
+                      I Agree &amp; Create Account
                     </Button>
                   </div>
                 </motion.div>

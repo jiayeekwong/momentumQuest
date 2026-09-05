@@ -7,7 +7,7 @@ import { Card, Badge, Button, Input } from '@/src/components/ui';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
-import { apiFetch } from '@/src/lib/apiFetch';
+import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
 import { cn } from '@/src/lib/utils';
 
 interface Listing {
@@ -33,6 +33,7 @@ interface ListingDetail {
   closing_date: string | null;
   status: string;
   required_skills: string[];
+  required_skill_levels: { skill: string; required_level: SkillLevel }[];
 }
 
 interface JobCategory { id: number; category_name: string; }
@@ -43,6 +44,21 @@ const statusVariants: Record<string, 'success' | 'neutral' | 'warning'> = {
 
 const workModes = ['On-site', 'Hybrid', 'Remote'];
 const experienceLevels = ['Entry Level', 'Mid Level', 'Senior Level', 'Internship'];
+
+// Mirrors accounts.StudentSkill.SkillLevel — the scale the match score weighs
+// a candidate's proficiency on.
+type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+interface RequiredSkill {
+  name: string;
+  level: SkillLevel;
+}
+
+const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
+  { value: 'BEGINNER',     label: 'Beginner' },
+  { value: 'INTERMEDIATE', label: 'Intermediate' },
+  { value: 'ADVANCED',     label: 'Advanced' },
+];
 
 export default function ManageListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -63,7 +79,8 @@ export default function ManageListingsPage() {
   const [postClosing, setPostClosing] = useState('');
   const [postDescription, setPostDescription] = useState('');
   const [postSkillInput, setPostSkillInput] = useState('');
-  const [postSkills, setPostSkills] = useState<string[]>([]);
+  const [postSkills, setPostSkills] = useState<RequiredSkill[]>([]);
+  const [postSkillLevel, setPostSkillLevel] = useState<SkillLevel>('INTERMEDIATE');
 
   // Edit panel state
   const [editOpen, setEditOpen] = useState(false);
@@ -81,8 +98,9 @@ export default function ManageListingsPage() {
   const [eExperience, setEExperience] = useState('');
   const [eClosing, setEClosing] = useState('');
   const [eDescription, setEDescription] = useState('');
-  const [eSkills, setESkills] = useState<string[]>([]);
+  const [eSkills, setESkills] = useState<RequiredSkill[]>([]);
   const [eSkillInput, setESkillInput] = useState('');
+  const [eSkillLevel, setESkillLevel] = useState<SkillLevel>('INTERMEDIATE');
 
   const skillInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,7 +111,7 @@ export default function ManageListingsPage() {
       .catch(() => {})
       .finally(() => setIsLoading(false));
 
-    fetch('http://localhost:8000/api/scrape-jobs/categories/')
+    fetch(`${API_BASE}/api/scrape-jobs/categories/`)
       .then(r => r.json())
       .then(data => setCategories(Array.isArray(data) ? data : (data.results ?? [])))
       .catch(() => {});
@@ -122,7 +140,14 @@ export default function ManageListingsPage() {
       setEExperience(detail.experience_level);
       setEClosing(detail.closing_date ?? '');
       setEDescription(detail.description);
-      setESkills(detail.required_skills);
+      // Read the levels the listing actually holds, so saving preserves them
+      // instead of resetting every requirement to the default.
+      setESkills(
+        (detail.required_skill_levels ?? []).map(row => ({
+          name: row.skill,
+          level: row.required_level,
+        }))
+      );
     } catch {
       setEditError('Failed to load listing details.');
     } finally {
@@ -139,22 +164,20 @@ export default function ManageListingsPage() {
 
   const addSkill = () => {
     const trimmed = eSkillInput.trim();
-    if (trimmed && !eSkills.includes(trimmed)) {
-      setESkills(prev => [...prev, trimmed]);
-      setESkillInput('');
-      skillInputRef.current?.focus();
-    }
+    if (!trimmed || eSkills.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) return;
+    setESkills(prev => [...prev, { name: trimmed, level: eSkillLevel }]);
+    setESkillInput('');
+    skillInputRef.current?.focus();
   };
 
   const addPostSkill = () => {
     const trimmed = postSkillInput.trim();
-    if (trimmed && !postSkills.includes(trimmed)) {
-      setPostSkills(prev => [...prev, trimmed]);
-      setPostSkillInput('');
-    }
+    if (!trimmed || postSkills.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) return;
+    setPostSkills(prev => [...prev, { name: trimmed, level: postSkillLevel }]);
+    setPostSkillInput('');
   };
 
-  const removePostSkill = (skill: string) => setPostSkills(prev => prev.filter(s => s !== skill));
+  const removePostSkill = (name: string) => setPostSkills(prev => prev.filter(s => s.name !== name));
 
   const handlePostJob = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +195,7 @@ export default function ManageListingsPage() {
       work_mode:        postWorkMode,
       experience_level: postExperience,
       closing_date:     postClosing || null,
-      required_skills:  postSkills,
+      required_skills:  postSkills.map(s => ({ name: s.name, level: s.level })),
     };
     if (postCategoryId) payload.category = Number(postCategoryId);
     if (postSalaryMin)  payload.salary_min = Number(postSalaryMin);
@@ -224,7 +247,7 @@ export default function ManageListingsPage() {
       work_mode:        eWorkMode,
       experience_level: eExperience,
       closing_date:     eClosing || null,
-      required_skills:  eSkills,
+      required_skills:  eSkills.map(s => ({ name: s.name, level: s.level })),
     };
     if (eCategoryId) payload.category = Number(eCategoryId);
     if (eSalaryMin)  payload.salary_min = Number(eSalaryMin);
@@ -458,15 +481,33 @@ export default function ManageListingsPage() {
                         placeholder="Type a skill and press Enter"
                         className="flex-1 h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
+                      <select value={eSkillLevel} onChange={e => setESkillLevel(e.target.value as SkillLevel)}
+                        aria-label="Required proficiency for the next skill"
+                        className="h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        {SKILL_LEVELS.map(level => (
+                          <option key={level.value} value={level.value}>{level.label}</option>
+                        ))}
+                      </select>
                       <Button type="button" variant="outline" size="sm" className="h-10" onClick={addSkill}>
                         <Plus size={16} />
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {eSkills.map(skill => (
-                        <span key={skill} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
-                          {skill}
-                          <button type="button" onClick={() => setESkills(prev => prev.filter(s => s !== skill))}
+                        <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
+                          {skill.name}
+                          <select
+                            value={skill.level}
+                            onChange={e => setESkills(prev => prev.map(s =>
+                              s.name === skill.name ? { ...s, level: e.target.value as SkillLevel } : s))}
+                            aria-label={`Required proficiency for ${skill.name}`}
+                            className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
+                          >
+                            {SKILL_LEVELS.map(level => (
+                              <option key={level.value} value={level.value}>{level.label}</option>
+                            ))}
+                          </select>
+                          <button type="button" onClick={() => setESkills(prev => prev.filter(s => s.name !== skill.name))}
                             className="hover:text-danger">
                             <X size={11} />
                           </button>
@@ -569,15 +610,33 @@ export default function ManageListingsPage() {
                         onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addPostSkill())}
                         placeholder="Type a skill and press Enter"
                         className="flex-1 h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      <select value={postSkillLevel} onChange={e => setPostSkillLevel(e.target.value as SkillLevel)}
+                        aria-label="Required proficiency for the next skill"
+                        className="h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        {SKILL_LEVELS.map(level => (
+                          <option key={level.value} value={level.value}>{level.label}</option>
+                        ))}
+                      </select>
                       <Button type="button" variant="outline" size="sm" className="h-10" onClick={addPostSkill}>
                         <Plus size={16} />
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {postSkills.map(skill => (
-                        <span key={skill} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
-                          {skill}
-                          <button type="button" onClick={() => removePostSkill(skill)} className="hover:text-danger"><X size={12} /></button>
+                        <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
+                          {skill.name}
+                          <select
+                            value={skill.level}
+                            onChange={e => setPostSkills(prev => prev.map(s =>
+                              s.name === skill.name ? { ...s, level: e.target.value as SkillLevel } : s))}
+                            aria-label={`Required proficiency for ${skill.name}`}
+                            className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
+                          >
+                            {SKILL_LEVELS.map(level => (
+                              <option key={level.value} value={level.value}>{level.label}</option>
+                            ))}
+                          </select>
+                          <button type="button" onClick={() => removePostSkill(skill.name)} className="hover:text-danger"><X size={12} /></button>
                         </span>
                       ))}
                     </div>

@@ -1,8 +1,27 @@
 export type UserRole = 'student' | 'company' | 'admin';
 
+export interface TargetRole {
+  role_name: string;
+  added_time?: string;
+}
+
 export interface TargetJob {
   id: number;
   title_name: string;
+}
+
+export interface TargetOccupation {
+  id: number;
+  code: string;
+  preferred_label: string;
+  version: string;
+  preferred_seniority?: string;
+  preferred_specialization?: string;
+  esco_mappings?: Array<{
+    uri: string;
+    preferred_label: string;
+    relation: string;
+  }>;
 }
 
 export interface User {
@@ -12,7 +31,8 @@ export interface User {
   role: UserRole;
   avatar?: string;
   department?: string;
-  targetJobs?: TargetJob[];
+  targetRoles?: TargetRole[];
+  targetOccupations?: TargetOccupation[];
   companyName?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -78,48 +98,12 @@ export interface Certificate {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-// Job and application types
-export interface JobListing {
-  id: string;
-  title: string;
-  company: string;
-  companyLogo?: string;
-  description: string;
-  category: string;
-  salary: string;
-  salaryMin?: number;
-  salaryMax?: number;
-  location?: string;
-  closingDate: string;
-  requiredSkills: string[];
-  matchScore?: number;
-  applicants?: number;
-  postedDate?: string;
-  status?: 'open' | 'closed' | 'filled';
-}
-
-export interface JobApplication {
-  id: string;
-  jobId: string;
-  studentId: string;
-  jobTitle: string;
-  companyName: string;
-  submittedDate: string;
-  status: 'pending' | 'shortlisted' | 'interview' | 'accepted' | 'rejected';
-  lastUpdated: string;
-  notes?: string;
-}
-
-export interface Candidate {
-  id: string;
-  name: string;
-  email: string;
-  matchScore: number;
-  skills: string[];
-  appliedDate: string;
-  status: 'pending' | 'shortlisted' | 'interview' | 'accepted' | 'rejected';
-  avatar?: string;
-}
+// The mock-era JobListing, JobApplication and Candidate interfaces were
+// removed here. Nothing imported them, and they had drifted from the API they
+// claimed to describe: lowercase status unions ('pending', 'shortlisted')
+// where the backend sends PENDING/REVIEWED/SHORTLISTED/ACCEPTED/REJECTED, and
+// a non-nullable matchScore where match_score is null for any advert that
+// lists no skills. Each page declares the shape it actually fetches.
 
 // Training and workshop types
 export interface TrainingWorkshop {

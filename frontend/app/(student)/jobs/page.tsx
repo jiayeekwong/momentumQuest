@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, Bookmark, Briefcase, Sparkles, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, AlertCircle, Bookmark, Briefcase, Sparkles, ExternalLink } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
-import { apiFetch } from '@/src/lib/apiFetch';
+import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
 
 interface ScrapedJob {
   id: number;
@@ -21,6 +21,11 @@ interface ScrapedJob {
   source_portal: string;
   job_category: string | null;
   skills: string[];
+  required_skill_levels: { skill: string; required_level: string }[];
+  // Proficiency-weighted, computed server-side against the logged-in student.
+  // Null when the advert lists no skills, so the UI can show nothing at all
+  // rather than a misleading 0%.
+  match_score: number | null;
 }
 
 interface CompanyJob {
@@ -34,6 +39,8 @@ interface CompanyJob {
   salary_max: number | null;
   work_mode: string;
   required_skills: string[];
+  required_skill_levels: { skill: string; required_level: string }[];
+  match_score: number | null;
   posted_time: string;
   closing_date: string;
 }
@@ -48,12 +55,49 @@ interface MappedJob {
   postedDate: string;
   job_type: string;
   requiredSkills: string[];
+  requiredSkillLevels: { skill: string; required_level: string }[];
   source_url: string;
   category: string;
-  matchScore: number;
+  matchScore: number | null;
   companyJobId?: number;
   description?: string;
 }
+
+// Mirrors backend/job_listings/matching.py: Beginner 1, Intermediate 2,
+// Advanced 3, and a skill scores min(student, required). The per-skill verdict
+// below has to use the same scale as the percentage shown beside it — when it
+// was a name-only check, a student holding every skill at Beginner saw a green
+// tick on each one next to a 33% match.
+const PROFICIENCY_VALUE: Record<string, number> = {
+  BEGINNER: 1,
+  INTERMEDIATE: 2,
+  ADVANCED: 3,
+};
+
+type SkillVerdict = 'met' | 'partial' | 'missing';
+
+const skillVerdict = (
+  requiredLevel: string | undefined,
+  studentLevel: string | undefined,
+): SkillVerdict => {
+  if (!studentLevel) return 'missing';
+  // No stated requirement means holding the skill is all that is asked.
+  if (!requiredLevel) return 'met';
+  const held = PROFICIENCY_VALUE[studentLevel] ?? 0;
+  const needed = PROFICIENCY_VALUE[requiredLevel] ?? 0;
+  return held >= needed ? 'met' : 'partial';
+};
+
+const LEVEL_LABEL: Record<string, string> = {
+  BEGINNER: 'Beginner',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
+
+const requiredLevelFor = (job: MappedJob, skill: string): string | undefined =>
+  job.requiredSkillLevels.find(
+    row => row.skill.toLowerCase() === skill.toLowerCase()
+  )?.required_level;
 
 const stringToColor = (str: string): string => {
   let hash = 0;
@@ -67,20 +111,12 @@ const formatSalary = (min: number | null, max: number | null, text?: string): st
   return 'Salary not disclosed';
 };
 
-// Real skill-based match — preserved for when student-skill data is fully wired.
-const calcMatch = (requiredSkills: string[], mySkills: string[]): number => {
-  if (requiredSkills.length === 0) return 0;
-  const lower = mySkills.map(s => s.toLowerCase());
-  const matched = requiredSkills.filter(s => lower.includes(s.toLowerCase())).length;
-  return Math.round((matched / requiredSkills.length) * 100);
-};
+// The match score is no longer computed here. It used to be a client-side
+// count of overlapping skill names, which ignored proficiency and disagreed
+// with the score the employer saw for the same pairing. Both sides now read
+// job_listings/matching.py, and the API returns the result as match_score.
 
-// DEMO: until real matching is connected, show a stable, realistic-looking match
-// score per job (62–98%) derived from the job id so it stays consistent across
-// renders/sorting. Swap back to calcMatch(...) in the mappers to restore real logic.
-const hardcodedMatch = (seed: number): number => 62 + ((seed * 41) % 37);
-
-const mapScrapedJob = (job: ScrapedJob, mySkills: string[]): MappedJob => ({
+const mapScrapedJob = (job: ScrapedJob): MappedJob => ({
   id: String(job.id),
   sourceType: 'scraped',
   title: job.job_title,
@@ -92,12 +128,13 @@ const mapScrapedJob = (job: ScrapedJob, mySkills: string[]): MappedJob => ({
     : 'Recently',
   job_type: job.job_type || 'Full-time',
   requiredSkills: job.skills ?? [],
+  requiredSkillLevels: job.required_skill_levels ?? [],
   source_url: job.source_url,
   category: job.job_category ?? 'General',
-  matchScore: hardcodedMatch(job.id),
+  matchScore: job.match_score,
 });
 
-const mapCompanyJob = (job: CompanyJob, mySkills: string[]): MappedJob => {
+const mapCompanyJob = (job: CompanyJob): MappedJob => {
   return {
     id: `company-${job.id}`,
     sourceType: 'company',
@@ -109,34 +146,56 @@ const mapCompanyJob = (job: CompanyJob, mySkills: string[]): MappedJob => {
     postedDate: new Date(job.posted_time).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     job_type: job.work_mode || 'Full-time',
     requiredSkills: job.required_skills || [],
+    requiredSkillLevels: job.required_skill_levels ?? [],
     source_url: '', // N/A for company jobs
     category: job.category_name,
-    matchScore: hardcodedMatch(job.id),
+    matchScore: job.match_score,
     description: job.description,
   };
 };
 
-async function uploadCv(file: File): Promise<string | null> {
+interface ParsedSkill {
+  skill_id: number;
+  skill_name: string;
+  skill_category: string;
+}
+
+interface ParsedCv {
+  readable: boolean;
+  skills: ParsedSkill[];
+  education: string[];
+  experience: string[];
+  detail: string;
+}
+
+// The CV is read on the server and deleted immediately; only what the student
+// confirms below is ever stored. So this returns extracted content, not a URL
+// to a file that is now sitting somewhere.
+async function parseCv(file: File): Promise<{ data?: ParsedCv; error?: string }> {
   try {
     const form = new FormData();
     form.append('file', file);
     // apiFetch attaches the bearer token, refreshes it on 401, and leaves
     // Content-Type unset for FormData (so the multipart boundary is correct).
-    const response = await apiFetch('/api/job-listings/cv/upload/', {
+    const response = await apiFetch('/api/job-listings/cv/parse/', {
       method: 'POST',
       body: form,
     });
-    if (!response.ok) return null;
     const data = await response.json();
-    return data.url ?? null;
+    if (!response.ok) return { error: data.detail ?? 'We could not read that CV.' };
+    return { data };
   } catch {
-    return null;
+    return { error: 'We could not read that CV. Please try again.' };
   }
 }
 
 interface ApplicationPayload {
   job: number;
-  cv_url: string;
+  applicant_snapshot: {
+    skills: { skill_id: number }[];
+    education: string[];
+    experience: string[];
+  };
   needs_work_permit: boolean;
   available_from: string | null;
   phone: string;
@@ -160,12 +219,14 @@ async function submitJobApplication(payload: ApplicationPayload): Promise<{ ok: 
 export default function JobListingsPage() {
   const [scrapedJobs, setScrapedJobs] = useState<ScrapedJob[]>([]);
   const [companyJobs, setCompanyJobs] = useState<CompanyJob[]>([]);
-  const [mySkills, setMySkills] = useState<string[]>([]);
+  // Keyed by lowercased skill name -> the student's proficiency. The level is
+  // what makes the per-skill verdict agree with the match percentage.
+  const [myLevels, setMyLevels] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [description, setDescription] = useState<string>('');
-  const [descLoading, setDescLoading] = useState(false);
+  const [fetchedDescription, setFetchedDescription] =
+    useState<{ id: string; text: string } | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
   // Application modal (company-posted jobs only)
@@ -173,6 +234,11 @@ export default function JobListingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
+  // Parsed content awaiting the student's confirmation. Nothing is stored
+  // until they submit, and the CV file itself never was.
+  const [parsedCv, setParsedCv] = useState<ParsedCv | null>(null);
+  const [parsingCv, setParsingCv] = useState(false);
+  const [excludedSkillIds, setExcludedSkillIds] = useState<number[]>([]);
   const [needsWorkPermit, setNeedsWorkPermit] = useState<'' | 'yes' | 'no'>('');
   const [availableFrom, setAvailableFrom] = useState('');
   const [phone, setPhone] = useState('');
@@ -196,22 +262,21 @@ export default function JobListingsPage() {
 
   const submitApplication = async () => {
     if (!applyModalJob) return;
-    if (!cvFile) { setFormError('Please attach your CV (PDF or Word).'); return; }
+    if (!parsedCv) { setFormError('Please attach your CV and confirm what we found.'); return; }
     if (!needsWorkPermit) { setFormError('Please answer the work-permit question.'); return; }
 
     setSubmitting(true);
     setFormError('');
 
-    const cvUrl = await uploadCv(cvFile);
-    if (!cvUrl) {
-      setSubmitting(false);
-      setFormError('CV upload failed. Use a PDF or Word file and try again.');
-      return;
-    }
-
     const result = await submitJobApplication({
       job: applyModalJob.id,
-      cv_url: cvUrl,
+      applicant_snapshot: {
+        skills: parsedCv.skills
+          .filter(skill => !excludedSkillIds.includes(skill.skill_id))
+          .map(skill => ({ skill_id: skill.skill_id })),
+        education: parsedCv.education,
+        experience: parsedCv.experience,
+      },
       needs_work_permit: needsWorkPermit === 'yes',
       available_from: availableFrom || null,
       phone,
@@ -230,46 +295,58 @@ export default function JobListingsPage() {
 
   const jobs = useMemo(() => {
     const mapped = [
-      ...scrapedJobs.map(j => mapScrapedJob(j, mySkills)),
-      ...companyJobs.map(j => mapCompanyJob(j, mySkills)),
+      ...scrapedJobs.map(mapScrapedJob),
+      ...companyJobs.map(mapCompanyJob),
     ];
-    // Sort by match score descending
-    return mapped.sort((a, b) => b.matchScore - a.matchScore);
-  }, [scrapedJobs, companyJobs, mySkills]);
+    // Scored jobs first, best match first. Unmatched jobs keep the order the
+    // API returned them in (newest first) rather than being ranked arbitrarily.
+    return mapped.sort((a, b) => {
+      if (a.matchScore === null && b.matchScore === null) return 0;
+      if (a.matchScore === null) return 1;
+      if (b.matchScore === null) return -1;
+      return b.matchScore - a.matchScore;
+    });
+  }, [scrapedJobs, companyJobs]);
 
   const selectedJob = useMemo(() => jobs.find(j => j.id === selectedId) ?? null, [jobs, selectedId]);
 
-  // Fetch full job detail (including description) when selection changes
+  // Company jobs arrive with their description already; only scraped ones need
+  // a second request. Both the text and the loading flag are derived rather
+  // than set inside the effect, which also stops a stale description showing
+  // while a new one loads.
+  const needsDescriptionFetch = Boolean(selectedJob) && !selectedJob?.description;
+  const descLoading = needsDescriptionFetch && fetchedDescription?.id !== selectedId;
+  const description =
+    selectedJob?.description ??
+    (fetchedDescription?.id === selectedId ? fetchedDescription.text : '');
+
   useEffect(() => {
-    if (!selectedId) { setDescription(''); return; }
-    setDescLoading(true);
+    if (!selectedId || !needsDescriptionFetch) return;
+    let cancelled = false;
 
-    // If it's a company job, use the pre-fetched description
-    const companyJob = jobs.find(j => j.id === selectedId);
-    if (companyJob?.sourceType === 'company' && companyJob.description) {
-      setDescription(companyJob.description);
-      setDescLoading(false);
-      return;
-    }
-
-    // Otherwise, fetch from scraped endpoint
-    fetch(`http://localhost:8000/api/scrape-jobs/scraped/${selectedId}/`)
-      .then(r => r.json())
-      .then(data => setDescription(data.description ?? ''))
-      .catch(() => setDescription(''))
-      .finally(() => setDescLoading(false));
-  }, [selectedId, jobs]);
-
-  // Fetch student skills once on mount for match score calculation
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
-    fetch('http://localhost:8000/api/accounts/student/skills/', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`${API_BASE}/api/scrape-jobs/scraped/${selectedId}/`)
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) setMySkills(data.map((s: { skill_name: string }) => s.skill_name));
+        if (!cancelled) setFetchedDescription({ id: selectedId, text: data.description ?? '' });
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedDescription({ id: selectedId, text: '' });
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedId, needsDescriptionFetch]);
+
+  // Fetch the student's skills and proficiencies once on mount. Both the
+  // per-skill verdict and the level captions read from this.
+  useEffect(() => {
+    if (!localStorage.getItem('accessToken')) return;
+    apiFetch('/api/auth/student/skills/')
+      .then(r => r.json())
+      .then((data: { skill_name: string; skill_level: string }[]) => {
+        if (!Array.isArray(data)) return;
+        setMyLevels(Object.fromEntries(
+          data.map(row => [row.skill_name.toLowerCase(), row.skill_level])
+        ));
       })
       .catch(() => {});
   }, []);
@@ -278,13 +355,15 @@ export default function JobListingsPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(true);
-      const token = localStorage.getItem('accessToken');
       const params = new URLSearchParams();
       if (search) params.set('search', search);
 
-      // Fetch both scraped and company jobs in parallel
+      // Both requests go through apiFetch so they carry the bearer token. The
+      // scraped endpoint is public, but match_score is computed against the
+      // logged-in student — fetching it anonymously returned null for every
+      // scraped job, which is most of the feed.
       Promise.all([
-        fetch(`http://localhost:8000/api/scrape-jobs/scraped/?${params}`)
+        apiFetch(`/api/scrape-jobs/scraped/?${params}`)
           .then(r => r.json())
           .then(data => {
             const list: ScrapedJob[] = Array.isArray(data) ? data : (data.results ?? []);
@@ -292,18 +371,14 @@ export default function JobListingsPage() {
             return list;
           })
           .catch(() => []),
-        token
-          ? fetch(`http://localhost:8000/api/job-listings/public/?${params}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-              .then(r => r.json())
-              .then(data => {
-                const list: CompanyJob[] = Array.isArray(data) ? data : (data.results ?? []);
-                setCompanyJobs(list);
-                return list;
-              })
-              .catch(() => [])
-          : Promise.resolve([]),
+        apiFetch(`/api/job-listings/public/?${params}`)
+          .then(r => r.json())
+          .then(data => {
+            const list: CompanyJob[] = Array.isArray(data) ? data : (data.results ?? []);
+            setCompanyJobs(list);
+            return list;
+          })
+          .catch(() => []),
       ]).then(([scraped]) => {
         // Select first job if none selected
         setSelectedId(prev => {
@@ -332,11 +407,90 @@ export default function JobListingsPage() {
                 <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Resume / CV <span className="text-danger">*</span></label>
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={e => setCvFile(e.target.files?.[0] ?? null)}
+                  accept=".pdf"
+                  onChange={async e => {
+                    const file = e.target.files?.[0] ?? null;
+                    setCvFile(file);
+                    setParsedCv(null);
+                    setExcludedSkillIds([]);
+                    if (!file) return;
+                    setParsingCv(true);
+                    setFormError('');
+                    const { data, error } = await parseCv(file);
+                    setParsingCv(false);
+                    if (error) setFormError(error);
+                    else setParsedCv(data ?? null);
+                  }}
                   className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer"
                 />
-                {cvFile && <p className="text-xs text-success font-medium">Selected: {cvFile.name}</p>}
+                <p className="text-xs text-neutral-500">
+                  PDF only. We read your CV to fill in the details below and then
+                  delete it — the file itself is never stored.
+                </p>
+                {parsingCv && <p className="text-xs text-neutral-500">Reading your CV…</p>}
+
+                {parsedCv && (
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-3">
+                    <p className="text-xs font-bold text-neutral-900">
+                      Check what we found. Untick anything that is wrong.
+                    </p>
+
+                    <div>
+                      <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Skills</p>
+                      {parsedCv.skills.length === 0 ? (
+                        <p className="text-xs text-neutral-500">
+                          No skills we recognise were found in this CV.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {parsedCv.skills.map(skill => {
+                            const excluded = excludedSkillIds.includes(skill.skill_id);
+                            return (
+                              <button
+                                key={skill.skill_id}
+                                type="button"
+                                onClick={() => setExcludedSkillIds(prev =>
+                                  excluded
+                                    ? prev.filter(id => id !== skill.skill_id)
+                                    : [...prev, skill.skill_id])}
+                                className={cn(
+                                  'px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
+                                  excluded
+                                    ? 'bg-white text-neutral-400 border-neutral-200 line-through'
+                                    : 'bg-indigo-50 text-primary border-indigo-100'
+                                )}
+                              >
+                                {skill.skill_name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {parsedCv.education.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Education</p>
+                        <ul className="text-xs text-neutral-600 space-y-0.5">
+                          {parsedCv.education.slice(0, 5).map((line, index) => (
+                            <li key={index}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {parsedCv.experience.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Experience</p>
+                        <ul className="text-xs text-neutral-600 space-y-0.5">
+                          {parsedCv.experience.slice(0, 5).map((line, index) => (
+                            <li key={index}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -449,9 +603,14 @@ export default function JobListingsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="font-bold text-neutral-900 leading-tight truncate">{job.title}</h4>
-                      <Badge variant={job.matchScore > 70 ? 'success' : job.matchScore > 40 ? 'warning' : 'danger'} className="shrink-0">
-                        {job.matchScore}%
-                      </Badge>
+                      {job.matchScore !== null && (
+                        <Badge
+                          variant={job.matchScore > 70 ? 'success' : job.matchScore > 40 ? 'warning' : 'danger'}
+                          className="shrink-0"
+                        >
+                          {job.matchScore}% match
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm font-medium text-neutral-600 mt-1 truncate">{job.company}</p>
                     <div className="flex items-center gap-3 mt-2">
@@ -465,11 +624,16 @@ export default function JobListingsPage() {
                     {job.requiredSkills.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {job.requiredSkills.slice(0, 4).map(skill => {
-                          const has = mySkills.map(s => s.toLowerCase()).includes(skill.toLowerCase());
+                          const verdict = skillVerdict(
+                            requiredLevelFor(job, skill),
+                            myLevels[skill.toLowerCase()],
+                          );
                           return (
                             <span key={skill} className={cn(
                               'px-2 py-0.5 rounded-full text-[10px] font-bold',
-                              has ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-500'
+                              verdict === 'met' && 'bg-emerald-100 text-emerald-700',
+                              verdict === 'partial' && 'bg-amber-100 text-amber-700',
+                              verdict === 'missing' && 'bg-neutral-100 text-neutral-500',
                             )}>
                               {skill}
                             </span>
@@ -580,11 +744,33 @@ export default function JobListingsPage() {
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       {selectedJob.requiredSkills.map(skill => {
-                        const has = mySkills.map(s => s.toLowerCase()).includes(skill.toLowerCase());
+                        const requiredLevel = requiredLevelFor(selectedJob, skill);
+                        const studentLevel = myLevels[skill.toLowerCase()];
+                        const verdict = skillVerdict(requiredLevel, studentLevel);
                         return (
-                          <div key={skill} className={cn('p-4 rounded-xl border flex items-center justify-between', has ? 'bg-emerald-50 border-emerald-100 text-success' : 'bg-neutral-50 border-neutral-100 text-neutral-400')}>
-                            <span className="text-sm font-bold">{skill}</span>
-                            {has ? <CheckCircle2 size={18} /> : <XCircle size={18} className="text-neutral-300" />}
+                          <div key={skill} className={cn(
+                            'p-4 rounded-xl border flex items-center justify-between gap-3',
+                            verdict === 'met' && 'bg-emerald-50 border-emerald-100 text-success',
+                            verdict === 'partial' && 'bg-amber-50 border-amber-100 text-amber-700',
+                            verdict === 'missing' && 'bg-neutral-50 border-neutral-100 text-neutral-400',
+                          )}>
+                            <div className="min-w-0">
+                              <span className="text-sm font-bold block truncate">{skill}</span>
+                              {verdict === 'partial' && (
+                                <span className="text-[11px] font-semibold">
+                                  You are {LEVEL_LABEL[studentLevel!] ?? studentLevel} · asks for{' '}
+                                  {LEVEL_LABEL[requiredLevel!] ?? requiredLevel}
+                                </span>
+                              )}
+                              {verdict === 'met' && requiredLevel && (
+                                <span className="text-[11px] font-semibold opacity-70">
+                                  {LEVEL_LABEL[requiredLevel] ?? requiredLevel} required
+                                </span>
+                              )}
+                            </div>
+                            {verdict === 'met' && <CheckCircle2 size={18} className="shrink-0" />}
+                            {verdict === 'partial' && <AlertCircle size={18} className="shrink-0" />}
+                            {verdict === 'missing' && <XCircle size={18} className="text-neutral-300 shrink-0" />}
                           </div>
                         );
                       })}

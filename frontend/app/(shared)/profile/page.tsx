@@ -1,26 +1,58 @@
 'use client';
 
-import { useState } from 'react';
-import { User, Mail, Building2, GraduationCap, CheckCircle2, Clock, Plus, Edit3, Award, Briefcase, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { User, Mail, Building2, GraduationCap, CheckCircle2, Clock, Edit3, Award, Briefcase, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button, Input } from '@/src/components/ui';
 import { useAuth } from '@/src/context/AuthContext';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { SkillValidation } from '@/src/components/SkillValidation';
 import { cn } from '@/src/lib/utils';
 
-const skills = [
-  { name: 'Python', status: 'verified', endorsements: 12 },
-  { name: 'SQL', status: 'verified', endorsements: 9 },
-  { name: 'Tableau', status: 'verified', endorsements: 7 },
-  { name: 'Excel', status: 'verified', endorsements: 5 },
-  { name: 'Communication', status: 'pending', endorsements: 0 },
-  { name: 'Machine Learning', status: 'pending', endorsements: 0 },
-];
+interface StudentSkill {
+  skill_name: string;
+  skill_level: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+}
+
+const LEVEL_VARIANT: Record<string, 'success' | 'secondary' | 'neutral'> = {
+  ADVANCED:     'success',
+  INTERMEDIATE: 'secondary',
+  BEGINNER:     'neutral',
+};
 
 export default function ProfilePage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   const isCompany = user?.role === 'company';
+
+  const [skills, setSkills] = useState<StudentSkill[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(true);
+
+  const loadSkills = useCallback(() => {
+    apiFetch('/api/auth/student/skills/')
+      .then(r => (r.ok ? r.json() : []))
+      .then((data: StudentSkill[]) => setSkills(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setSkillsLoading(false));
+  }, []);
+
+  // The company branch simply skips the fetch — setting state synchronously
+  // here would trigger a cascading render.
+  useEffect(() => {
+    if (isCompany) return;
+    loadSkills();
+  }, [isCompany, loadSkills]);
+
+  // Profile completion measured from real signals, not a fixed number.
+  const completionItems = [
+    { label: 'Basic Info',            done: Boolean(user?.name && user?.email) },
+    { label: 'Department Set',        done: Boolean(user?.department) },
+    { label: 'Target Role Selected',  done: Boolean(user?.targetRoles?.length || user?.targetOccupations?.length) },
+    { label: 'Skills Validated',      done: skills.length > 0 },
+  ];
+  const completion = Math.round(
+    completionItems.filter(item => item.done).length / completionItems.length * 100
+  );
 
   // Student header edit
   const [editMode, setEditMode] = useState(false);
@@ -198,43 +230,59 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                     <Award size={20} className="text-primary" /> Skill Portfolio
+                    {skills.length > 0 && (
+                      <span className="text-sm font-semibold text-neutral-400">({skills.length})</span>
+                    )}
                   </h3>
-                  <Button variant="outline" size="sm" className="h-8 text-xs">
-                    <Plus size={14} className="mr-1.5" /> Add Skill
-                  </Button>
+                  <span className="text-xs text-neutral-400 font-medium">
+                    Added automatically from validated evidence
+                  </span>
                 </div>
                 <div className="space-y-3">
-                  {skills.map((skill, i) => (
-                    <motion.div
-                      key={skill.name}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      className={cn(
-                        'p-4 rounded-xl border flex items-center justify-between',
-                        skill.status === 'verified'
-                          ? 'bg-emerald-50/60 border-emerald-100'
-                          : 'bg-neutral-50 border-neutral-100'
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        {skill.status === 'verified'
-                          ? <CheckCircle2 size={18} className="text-success" />
-                          : <Clock size={18} className="text-neutral-400" />}
-                        <span className="font-bold text-neutral-900">{skill.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {skill.status === 'verified' && (
-                          <span className="text-xs font-semibold text-neutral-500">{skill.endorsements} endorsements</span>
+                  {skillsLoading ? (
+                    <p className="text-sm text-neutral-400 py-6 text-center">Loading your skills…</p>
+                  ) : skills.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Clock size={22} className="mx-auto text-neutral-300" />
+                      <p className="text-sm text-neutral-500 mt-3">No skills recorded yet.</p>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Upload your exam results under Skill Validation and your skills
+                        are recognised automatically.
+                      </p>
+                    </div>
+                  ) : (
+                    skills.map((skill, i) => (
+                      <motion.div
+                        key={skill.skill_name}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: Math.min(i, 10) * 0.04 }}
+                        className={cn(
+                          'p-4 rounded-xl border flex items-center justify-between',
+                          skill.skill_level === 'ADVANCED'
+                            ? 'bg-emerald-50/60 border-emerald-100'
+                            : 'bg-neutral-50 border-neutral-100'
                         )}
-                        <Badge variant={skill.status === 'verified' ? 'success' : 'neutral'} className="text-[9px] capitalize">
-                          {skill.status}
+                      >
+                        <div className="flex items-center gap-3">
+                          <CheckCircle2
+                            size={18}
+                            className={skill.skill_level === 'ADVANCED' ? 'text-success' : 'text-neutral-400'}
+                          />
+                          <span className="font-bold text-neutral-900">{skill.skill_name}</span>
+                        </div>
+                        <Badge variant={LEVEL_VARIANT[skill.skill_level] ?? 'neutral'} className="text-[9px]">
+                          {skill.skill_level}
                         </Badge>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))
+                  )}
                 </div>
               </Card>
+
+              {/* Evidence behind the portfolio above — uploading a transcript
+                  writes StudentSkill rows, so the list refreshes on success. */}
+              <SkillValidation onSkillsChanged={loadSkills} />
             </div>
 
             <div className="space-y-6">
@@ -244,17 +292,12 @@ export default function ProfilePage() {
                   <svg className="w-28 h-28 transform -rotate-90">
                     <circle cx="56" cy="56" r="48" stroke="#f3f4f6" strokeWidth="8" fill="transparent" />
                     <circle cx="56" cy="56" r="48" stroke="#4f46e5" strokeWidth="8" fill="transparent"
-                      strokeDasharray="301.6" strokeDashoffset={301.6 * (1 - 0.75)} strokeLinecap="round" />
+                      strokeDasharray="301.6" strokeDashoffset={301.6 * (1 - completion / 100)} strokeLinecap="round" />
                   </svg>
-                  <span className="absolute text-2xl font-black text-neutral-900">75%</span>
+                  <span className="absolute text-2xl font-black text-neutral-900">{completion}%</span>
                 </div>
                 <div className="space-y-2 text-sm">
-                  {[
-                    { label: 'Basic Info', done: true },
-                    { label: 'Skills Added', done: true },
-                    { label: 'Skills Verified', done: false },
-                    { label: 'Resume Uploaded', done: false },
-                  ].map(item => (
+                  {completionItems.map(item => (
                     <div key={item.label} className="flex items-center gap-2">
                       {item.done
                         ? <CheckCircle2 size={14} className="text-success" />
@@ -269,18 +312,37 @@ export default function ProfilePage() {
                 <h3 className="text-base font-bold text-neutral-900 mb-4 flex items-center gap-2">
                   <Briefcase size={16} className="text-primary" /> Target Roles
                 </h3>
-                {user?.targetJobs && user.targetJobs.length > 0 ? (
+                {user?.targetRoles && user.targetRoles.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {user.targetJobs.map((t) => (
-                      <span key={t.id} className="px-3 py-1.5 rounded-full bg-indigo-50 text-primary text-xs font-bold">
-                        {t.title_name}
+                    {user.targetRoles.map((target) => (
+                      <span key={target.role_name} className="px-3 py-1.5 rounded-full bg-indigo-50 text-primary text-xs font-bold">
+                        {target.role_name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-neutral-400 font-medium">No target roles selected yet.</p>
+                  <p className="text-sm text-neutral-400 font-medium">No target role selected yet.</p>
                 )}
-                <p className="text-xs text-neutral-500 mt-3 font-medium">The job titles you&apos;re aiming for</p>
+
+                {/* The occupation is derived from the role, so it is shown as
+                    supporting detail rather than as a second target. Absent
+                    when the role has no reviewed MASCO bridge yet, which is
+                    the common case. */}
+                {user?.targetOccupations && user.targetOccupations.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-neutral-100">
+                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2">
+                      Matched MASCO occupation
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {user.targetOccupations.map((target) => (
+                        <span key={target.id} className="px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-600 text-xs font-bold">
+                          {target.code} — {target.preferred_label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-neutral-500 mt-3 font-medium">IMDA career role used for skill-gap analysis</p>
               </Card>
             </div>
           </div>

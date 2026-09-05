@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function VerifyEmailPage() {
+function VerifyEmailPageContent() {
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Verifying your email...");
   const [success, setSuccess] = useState(false);
@@ -73,5 +73,23 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </main>
+  );
+}
+
+
+// useSearchParams() reads the ?token= query string, which does not exist when
+// Next.js pre-renders this page at build time. The Suspense boundary defers
+// that part to the browser; without it `next build` fails.
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-600 to-sky-500 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+        <p className="text-sm font-medium text-gray-500">Loading…</p>
+      </div>
+    </main>
+    }>
+      <VerifyEmailPageContent />
+    </Suspense>
   );
 }
