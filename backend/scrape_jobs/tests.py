@@ -1994,3 +1994,130 @@ class SkillDemandParameterTests(TestCase):
 
         self.assertEqual(self.client.get(self.url, {"top": "5"}).status_code, 200)
         self.assertEqual(self.client.get(self.url).status_code, 200)
+
+
+class GenericTermGuardTests(TestCase):
+    """Terms that are ordinary words, product families, or English idioms.
+
+    Each of these matched as a technology skill in the live corpus and was
+    wrong. They share one shape -- a real skill whose name is also something
+    else -- and one failure mode: the generic context gate passes them, because
+    a cabling advert and a Spark advert both read as technical.
+
+    Both directions are fixtures here. A guard that only rejected would be
+    indistinguishable from deleting the skill, and the true positives are what
+    make these guards worth having rather than blunt removals.
+    """
+
+    def setUp(self):
+        for name in ("Backbone.js", "Chart.js", "Sage", "Apache", "REST API",
+                     "Xamarin.Essentials"):
+            Skill.objects.get_or_create(skill_name=name)
+        for alias, canonical in (("backbone", "Backbone.js"),
+                                 ("charts", "Chart.js"),
+                                 ("apache", "Apache"),
+                                 ("REST", "REST API")):
+            SkillAlias.objects.get_or_create(
+                alias_name=alias,
+                defaults={"skill": Skill.objects.get(skill_name=canonical),
+                          "requires_context": True})
+
+    def _names(self, text):
+        from .skill_extractor import extract_skills_from_text
+        return {skill.skill_name for skill in extract_skills_from_text(text)}
+
+    # ---- Apache: the Foundation's name, worn by hundreds of projects -------
+
+    def test_apache_web_server_context_is_accepted(self):
+        self.assertIn("Apache", self._names(
+            "Configure Apache HTTP Server virtual hosts and mod_rewrite rules"))
+        self.assertIn("Apache", self._names(
+            "Experience administering Nginx and Apache on Linux web servers"))
+
+    def test_other_apache_projects_are_rejected(self):
+        """43 of 44 corpus occurrences were a different project."""
+        for text in (
+            "Exposure to Databricks, Apache Spark, cloud platforms and analytics",
+            "Kafka Connect and Apache Flink writing to Iceberg tables on S3",
+            "Experience with Dubbo (Apache or Alibaba) and service discovery",
+            "Build pipelines with Apache Airflow and Apache Hadoop",
+        ):
+            with self.subTest(text=text[:40]):
+                self.assertNotIn("Apache", self._names(text))
+
+    def test_apache_tomcat_is_not_the_http_server(self):
+        """Tomcat is an Apache project and a web server, and neither is httpd.
+
+        An advert asking for Tomcat is asking for a servlet container with its
+        own skill identity, so it must not satisfy Apache HTTP Server.
+        """
+        self.assertNotIn("Apache", self._names(
+            "Deploy Java applications to Apache Tomcat application servers"))
+
+    # ---- REST: an API style, and an ordinary English word -----------------
+
+    def test_rest_with_api_context_is_accepted(self):
+        for text in (
+            "Basic understanding of REST APIs and client-server architecture",
+            "Build interfaces including REST API, JSON, TCP/IP and OPC UA",
+            # Not "RESTful": REST cannot match inside it, and the
+            # catalogue has no RESTful alias -- a gap worth its own review,
+            # not something to assert as working here.
+            "Develop REST endpoints returning JSON payloads",
+        ):
+            with self.subTest(text=text[:40]):
+                self.assertIn("REST API", self._names(text))
+
+    def test_ordinary_english_rest_is_rejected(self):
+        """The five corpus occurrences that were the English word."""
+        for text in (
+            "Handle requests on Sat/Sun and Public Holidays (rest day given in lieu)",
+            "Object storage is a strong plus (trainable for the rest)",
+        ):
+            with self.subTest(text=text[:40]):
+                self.assertNotIn("REST API", self._names(text))
+
+    # ---- The three fixed earlier, kept as regressions ----------------------
+
+    def test_backbone_is_cabling_and_metaphor_more_often_than_javascript(self):
+        self.assertIn("Backbone.js", self._names(
+            "Experience with Backbone and Underscore in a JavaScript front-end"))
+        for text in (
+            "Coordinate fiber optic, backbone, and horizontal cabling scope",
+            "Build and manage the data backbone that powers our AI capability",
+            "You will serve as the technical backbone for global operations",
+        ):
+            with self.subTest(text=text[:40]):
+                self.assertNotIn("Backbone.js", self._names(text))
+
+    def test_charts_is_reporting_vocabulary(self):
+        self.assertIn("Chart.js", self._names(
+            "Build interactive charts with Chart.js and D3 in a web app"))
+        for text in (
+            "Help create project timelines (Gantt charts) and workflows",
+            "Author and review Kubernetes manifests, Helm charts and configs",
+            "Skills you'll gain: Microsoft Excel, Pivot Tables And Charts",
+        ):
+            with self.subTest(text=text[:40]):
+                self.assertNotIn("Chart.js", self._names(text))
+
+    def test_sage_is_accounting_software_not_a_publisher(self):
+        self.assertIn("Sage", self._names(
+            "Working understanding of ERP systems (ideally SAP, Sage, etc.)"))
+        self.assertIn("Sage", self._names(
+            "Support MAS 200 / Sage 100 accounting and payroll applications"))
+        self.assertNotIn("Sage", self._names(
+            "Sage Publications Advanced Project Management: Managing Stakeholders"))
+
+    def test_essentials_no_longer_reaches_the_xamarin_library(self):
+        """Deactivated rather than guarded: no context makes it the library.
+
+        Every corpus hit was a title noun -- "The essentials of the role",
+        "Google AI Essentials", "Jira Essentials" -- so a guard would have been
+        a rule with no true positives to protect.
+        """
+        for text in ("The essentials of the role: convert designs into code",
+                     "Google Prompting Essentials",
+                     "Microsoft SQL Server: Performance Tuning Essentials"):
+            with self.subTest(text=text[:40]):
+                self.assertNotIn("Xamarin.Essentials", self._names(text))

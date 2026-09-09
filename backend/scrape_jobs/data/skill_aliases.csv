@@ -736,7 +736,7 @@ RDS for MySQL,Amazon RDS for MySQL,MTO,false,true
 RDS for Oracle,Amazon RDS for Oracle,MTO,false,true
 RDS for PostgreSQL,Amazon RDS for PostgreSQL,MTO,false,true
 RDS for SQL Server,Amazon RDS for SQL Server,MTO,false,true
-REST,REST API,INTERNAL,false,true
+REST,REST API,INTERNAL,true,true
 REST (Representational State Transfer),REST API,MTO,false,false
 REST APIs,REST API,INTERNAL,false,true
 RESTful API,REST API,MTO,false,false
@@ -1109,7 +1109,7 @@ antd-mobile,Ant Design Mobile,MTO,false,true
 antdesign,Ant Design,MTO,false,true
 anthos platform,Anthos,MTO,false,true
 anthos service,Anthos,MTO,false,true
-apache,Apache,MTO,false,false
+apache,Apache,MTO,true,false
 apache 2.2,Apache,MTO,false,false
 apache 2.4,Apache,MTO,false,false
 apache echarts,ECharts,MTO,false,true
@@ -1230,7 +1230,7 @@ azure resource manager templates,ARM Templates,MTO,false,true
 azure sql,Azure SQL Database,MTO,false,true
 azure synapse analytics,Azure Synapse,MTO,false,true
 azurearc,Azure Arc,MTO,false,true
-backbone,Backbone.js,MTO,false,true
+backbone,Backbone.js,MTO,true,true
 backbone js,Backbone.js,MTO,false,true
 backstop js,BackstopJS,MTO,false,true
 bandit security,bandit,MTO,false,true
@@ -1359,7 +1359,7 @@ changeset,Changesets,MTO,false,true
 charles,Charles Proxy,MTO,false,true
 chart php,pChart,MTO,false,true
 chartjs,Chart.js,MTO,false,true
-charts,Chart.js,MTO,false,true
+charts,Chart.js,MTO,true,true
 charts swift,iOS Charts,MTO,false,true
 chatgpt,ChatGPT.js,MTO,false,true
 chatgpt-node,ChatGPT.js,MTO,false,true
@@ -1659,7 +1659,7 @@ espresso testing,Espresso,MTO,false,true
 esri arcgis,ArcGIS,MTO,false,true
 essentia,Essentia.js,MTO,false,true
 essential js 2,Syncfusion Essential JS 2,MTO,false,true
-essentials,Xamarin.Essentials,MTO,false,true
+essentials,Xamarin.Essentials,MTO,false,false
 estimote,Estimote SDK,MTO,false,true
 estimote beacons,Estimote SDK,MTO,false,true
 estimote kotlin,Estimote SDK,MTO,false,true

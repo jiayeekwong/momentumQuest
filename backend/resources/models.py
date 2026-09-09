@@ -62,6 +62,15 @@ class CourseCatalogue(models.Model):
     #: because it is the only evidence of what a course teaches that the listing
     #: page offers, and the mapping pass must be re-runnable without the network.
     card_text  = models.TextField(blank=True)
+    #: The search phrases that surfaced this course. Retrieval provenance, not
+    #: meaning: a course found by searching "Root Cause Analysis" is not thereby
+    #: a Root Cause Analysis course. Recorded so mapping precision can be
+    #: audited -- which query produced which mapping -- rather than assumed.
+    discovered_via = models.JSONField(default=list, blank=True)
+    #: True, False, or NULL where the provider does not say. Three states on
+    #: purpose: turning "not stated" into "paid" would tell a student a free
+    #: course costs money, and turning it into "free" is worse.
+    is_free    = models.BooleanField(null=True, blank=True)
     is_active  = models.BooleanField(default=True)
     scraped_at = models.DateTimeField(auto_now=True)
 

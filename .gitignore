@@ -66,3 +66,4 @@ research/skill_alias_viability/.cache/
 research/onet_skill_catalog_viability/.cache/
 research/datamata_skill_catalog_viability/.cache/
 research/mto_cso_viability/.cache/
+backend/.scrape_state/

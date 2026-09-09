@@ -106,15 +106,34 @@ def save_course_catalogue(courses):
         url = (data.get("url") or "").strip()
         if not url:
             continue
+        # Two vocabularies reach this function. The Coursera scraper predates
+        # the provider adapters and speaks platform/card_text; adapters speak
+        # provider/description, which is the shape providers.normalize
+        # enforces. Accepting both here keeps one persistence path rather than
+        # two, and one path is what makes every provider's rows identical
+        # downstream.
+        platform = data.get("platform") or data.get("provider") or "Coursera"
+        card_text = data.get("card_text")
+        if card_text is None:
+            card_text = data.get("description") or ""
+        row = CourseCatalogue.objects.filter(url=url).first()
+        # Retrieval provenance accumulates rather than being overwritten: a
+        # course found again by a different search has been found by both, and
+        # replacing the list would erase the evidence a precision audit reads.
+        via = list(data.get("discovered_via") or [])
+        if row is not None:
+            via = list(dict.fromkeys(list(row.discovered_via or []) + via))
         row, was_created = CourseCatalogue.objects.update_or_create(
             url=url,
             defaults={
-                "title":      (data.get("title") or "")[:255],
-                "platform":   data.get("platform") or "Coursera",
-                "type":       data.get("type") or "Course",
-                "categories": data.get("categories") or [],
-                "card_text":  data.get("card_text") or "",
-                "is_active":  True,
+                "title":          (data.get("title") or "")[:255],
+                "platform":       platform,
+                "type":           data.get("type") or "Course",
+                "categories":     data.get("categories") or [],
+                "discovered_via": via,
+                "card_text":      card_text,
+                "is_free":        data.get("is_free"),
+                "is_active":      bool(data.get("is_active", True)),
             },
         )
         if was_created:
@@ -142,27 +161,26 @@ def map_catalogue_to_skills(platform_name="Coursera", categories=None):
     Returns (created, updated, unmapped_course_count).
     """
     from resources.models import CourseCatalogue
-    from resources.scraper import skill_matches_title
+    # The advert extractor, not a second matcher. resources.scraper carried its
+    # own copy of the boundary logic, and the copy still had the bug the
+    # extractor was fixed for: "C#" and "C++" matched nothing, because  after
+    # '#' demands a word character; while ".NET" matched *inside* "ASP.NET
+    # Core" via its alias, refiling a web-framework course under the platform.
+    # A course and an advert are both prose about skills, so they get the same
+    # reader -- which also means alias handling, contextual-alias gating and
+    # the C#/C++/.NET fixes apply here for free.
+    from scrape_jobs.skill_extractor import extract_skills_from_text
 
     rows = CourseCatalogue.objects.filter(platform=platform_name, is_active=True)
-    if categories:
-        matching = CourseCatalogue.objects.none()
-        for category in categories:
-            matching = matching | rows.filter(categories__contains=[category])
-        rows = matching.distinct()
-
-    # Read once, not once per course: this loop is O(courses x skills) and the
-    # Skill table is ~2,100 rows.
-    skills = list(Skill.objects.values_list("id", "skill_name"))
-
-    created = updated = unmapped = 0
+    created = updated = unmapped = removed = 0
     for course in rows:
+        # Title and card text only -- never the phrase that found the course.
+        # A search for "Root Cause Analysis" surfacing a Six Sigma course is
+        # evidence about the search, not about the course, and filing it under
+        # RCA on that basis is the mistake this whole pass exists to avoid.
         haystack = f"{course.title} {course.card_text}"
-        matched_any = False
-        for skill_id, skill_name in skills:
-            if not skill_matches_title(skill_name, haystack):
-                continue
-            matched_any = True
+        matched_ids = {skill.id for skill in extract_skills_from_text(haystack)}
+        for skill_id in matched_ids:
             _, was_created = LearningResource.objects.update_or_create(
                 skill_id=skill_id,
                 url=course.url,
@@ -177,13 +195,25 @@ def map_catalogue_to_skills(platform_name="Coursera", categories=None):
                 created += 1
             else:
                 updated += 1
-        if not matched_any:
+        # Synchronise, do not merely add. An extractor fix that could only ever
+        # create rows would never undo a false positive: the 19 "Pivot Tables
+        # And Charts" mappings would outlive the guard that stopped producing
+        # them. Scoped to this course's own rows, so a resource from a platform
+        # that does not go through the catalogue is untouched.
+        stale = (LearningResource.objects
+                 .filter(url=course.url, platform=course.platform)
+                 .exclude(skill_id__in=matched_ids))
+        removed += stale.count()
+        stale.delete()
+
+        if not matched_ids:
             unmapped += 1
 
     logger.info(
-        "%s: mapped %d new and %d existing resource(s); %d course(s) matched "
-        "no known skill and stay in the catalogue.",
-        platform_name, created, updated, unmapped,
+        "%s: mapped %d new and %d existing resource(s), removed %d that no "
+        "longer match; %d course(s) matched no known skill and stay in the "
+        "catalogue.",
+        platform_name, created, updated, removed, unmapped,
     )
     return created, updated, unmapped
 

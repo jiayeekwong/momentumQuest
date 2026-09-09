@@ -53,6 +53,105 @@ NEGATIVE_CONTEXT = (
 )
 NEGATIVE_PATTERN = re.compile("|".join(NEGATIVE_CONTEXT), re.IGNORECASE)
 
+#: Per-term homonym guards: what a term must be near, and what rules it out.
+#:
+#: The global POSITIVE_CONTEXT below is deliberately broad -- it only has to
+#: separate a requirements paragraph from prose about attitude -- and that is
+#: exactly why it cannot police these. A data-centre cabling advert says
+#: "engineer", "infrastructure" and "network", so a generic context gate on
+#: "backbone" passes it and still files the advert under a JavaScript library.
+#: These terms need to be judged against their own domain, not against
+#: technology in general.
+#:
+#: ``reject`` wins over ``require``: the whole point is that the term has a
+#: common non-skill meaning, and finding that meaning settles it.
+TERM_GUARDS = {
+    # "backbone" is structured-cabling vocabulary. Observed in advert 269,
+    # "Project Engineer - IT/Fiber Optic (Data Center)": "Coordinate fiber
+    # optic, backbone, and horizontal cabling scope across all areas".
+    "backbone": {
+        "require": r"\b(?:javascript|js|jquery|underscore|node|npm|spa|mvc|"
+                   r"front[- ]?end|web\s+app\w*|single[- ]page|marionette|"
+                   r"ember|angular|react|framework|library)\b",
+        "reject": r"\b(?:fib(?:re|er)|cabl\w*|containment|patch\s+panel|"
+                  r"mdf|idf|mmr|data\s+hall|riser|conduit|copper|"
+                  r"backbone\s+(?:cabling|link|circuit|network|switch)|"
+                  r"network\s+backbone|lan|wan|switch\w*|router\w*)\b",
+    },
+    # "charts" is ordinary reporting vocabulary. Observed on a Coursera card:
+    # "Skills you'll gain: Microsoft Excel, Pivot Tables And Charts".
+    "charts": {
+        "require": r"\b(?:chart\.js|chartjs|javascript|js|d3|canvas|npm|"
+                   r"front[- ]?end|web\s+app\w*|library|plugin)\b",
+        "reject": r"\b(?:excel|pivot|spreadsheet|powerpoint|report\w*|"
+                  r"dashboard|org\w*\s+chart|gantt|flow\s*chart|"
+                  r"pie\s+chart|bar\s+chart|tableau|power\s?bi)\b",
+    },
+    # "Sage" is accounting software, a herb, a publisher and an adjective.
+    # Observed on a Coursera card: "Sage Publications Advanced Project
+    # Management". Canonical rather than an alias, so requires_context cannot
+    # reach it -- membership here is what gates it.
+    # "Apache" alone is the Apache Software Foundation's name, worn by
+    # hundreds of unrelated projects. The canonical skill is the HTTP Server
+    # (its aliases are httpd, apache 2.2, apache 2.4), but the bare word
+    # matched "Apache Spark", "Apache Kafka", "Apache Flink", "Apache Polaris"
+    # and "Dubbo (Apache or Alibaba)": 43 of 44 corpus occurrences were some
+    # other project, the worst rate found in the exposure sweep.
+    #
+    # Tomcat is rejected too. It is an Apache project and a web server, but it
+    # is a servlet container with its own skill identity -- an advert asking
+    # for Tomcat is not asking for httpd.
+    "apache": {
+        "require": r"\b(?:httpd|apache\s*(?:http|web\s*server|2\.[24])|"
+                   r"web\s+server|virtual\s+host|mod_\w+|\.htaccess|"
+                   r"reverse\s+proxy|nginx|lamp\s+stack|"
+                   # Siblings in a web/application server list. Advert 549
+                   # reads "PHP, Apache, Redhat Jboss, Websphere, Weblogic,
+                   # IIS" -- unmistakably the HTTP server, and rejected by the
+                   # first version of this rule because none of its own
+                   # vocabulary appears.
+                   r"iis|jboss|websphere|weblogic|xampp|wamp|php)\b",
+        "reject": r"\bapache\s+(?:spark|kafka|flink|hadoop|airflow|cassandra|"
+                  r"hive|beam|nifi|solr|lucene|maven|tomcat|camel|pulsar|"
+                  r"iceberg|polaris|superset|zookeeper|storm|druid|arrow|"
+                  r"parquet|dubbo|struts|groovy|ant|poi|jmeter|mesos|kylin|"
+                  r"ignite|geode|couchdb|activemq|karaf|ranger|atlas|oozie|"
+                  r"sqoop|impala|drill|phoenix|accumulo)\b",
+    },
+    # "REST" is REST API in 84 of 89 corpus occurrences and ordinary English in
+    # the other five: "rest day given in lieu", "Rest assured, we handle every
+    # application", "trainable for the rest".
+    #
+    # The idioms are rejected narrowly and everything else leans on the
+    # require list, because a broad reject would also swallow "REST Assured",
+    # which is a real Java testing library.
+    "rest": {
+        "require": r"\b(?:api|apis|ful|endpoint\w*|http|https|json|xml|soap|"
+                   r"web\s*service\w*|microservice\w*|crud|swagger|openapi|"
+                   r"postman|graphql|payload|request\w*|"
+                   # Integration vocabulary. Advert 279 reads "REST,
+                   # event-driven, and protocol-based integrations", which
+                   # names the API style without ever saying "API".
+                   r"integration\w*|architecture|protocol\w*|"
+                   r"event[- ]driven|soa)\b",
+        "reject": r"\b(?:rest\s+(?:day|period|break)|the\s+rest\b|"
+                  r"rest\s+of\s+the|rest\s+and\s+recreation)",
+    },
+    "sage": {
+        "require": r"\b(?:accounting|account\w*\s+software|payroll|ledger|"
+                   r"bookkeep\w*|erp|invoic\w*|sage\s*(?:50|100|200|300|x3|"
+                   r"intacct|one)|financial\s+software)\b",
+        "reject": r"\b(?:publication\w*|publish\w*|journal|press|handbook|"
+                  r"sage\s+(?:advice|green|leaf|tea)|herb\w*)\b",
+    },
+}
+
+TERM_GUARD_PATTERNS = {
+    term: (re.compile(rule["require"], re.IGNORECASE),
+           re.compile(rule["reject"], re.IGNORECASE))
+    for term, rule in TERM_GUARDS.items()
+}
+
 #: Signals that the surrounding text is discussing technology, so an
 #: ambiguous name in it plausibly means the skill. Deliberately broad: the
 #: negative list above is what does the precise work, and this only has to
@@ -74,6 +173,16 @@ def _accepted_in_context(text, match):
     """Whether an ambiguous match is really the skill, given its surroundings."""
     start = max(0, match.start() - CONTEXT_WINDOW)
     window = text[start:match.end() + CONTEXT_WINDOW]
+
+    # A term with its own guard is judged by that guard alone. The generic
+    # positive list would pass a cabling advert on the word "engineer", which
+    # is the failure these exist to stop.
+    guard = TERM_GUARD_PATTERNS.get(match.group(0).strip().lower())
+    if guard is not None:
+        require, reject = guard
+        if reject.search(window):
+            return False
+        return bool(require.search(window))
 
     # An idiom that explains the match rules it out, wherever it sits.
     if NEGATIVE_PATTERN.search(window):
@@ -184,8 +293,13 @@ def extract_skill_matches(text):
             if term.lower() not in lowered:
                 continue
             pattern = _term_pattern(term)
+            # A guarded term is gated however it matched. "Sage" is a
+            # canonical name, so requires_context cannot reach it and
+            # AMBIGUOUS_SKILLS would subject it to the generic gate it needs
+            # to bypass.
             gated = (method == CONTEXTUAL_ALIAS
-                     or (method == DIRECT_CANONICAL and ambiguous_name))
+                     or (method == DIRECT_CANONICAL and ambiguous_name)
+                     or term.strip().lower() in TERM_GUARD_PATTERNS)
 
             for found in pattern.finditer(text):
                 if gated and not _accepted_in_context(text, found):

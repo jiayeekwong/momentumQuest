@@ -46,6 +46,20 @@ def is_blocked(page_source, page_title=""):
     return any(indicator in combined for indicator in BOT_INDICATORS)
 
 
+#: Resolved once per process. ChromeDriverManager().install() reaches
+#: googlechromelabs.github.io to check for a newer driver, and the runner now
+#: rebuilds the browser deliberately after a failure -- so without caching,
+#: every recovery attempt would depend on the very network that just failed.
+_CHROMEDRIVER_PATH = None
+
+
+def _chromedriver_path():
+    global _CHROMEDRIVER_PATH
+    if _CHROMEDRIVER_PATH is None:
+        _CHROMEDRIVER_PATH = ChromeDriverManager().install()
+    return _CHROMEDRIVER_PATH
+
+
 def create_driver():
     """
     Headless Chrome with full anti-detection stack.
@@ -64,7 +78,7 @@ def create_driver():
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
-    service = Service(ChromeDriverManager().install())
+    service = Service(_chromedriver_path())
     driver = webdriver.Chrome(service=service, options=options)
 
     # Hide navigator.webdriver — same CDP trick as scraper.py
@@ -570,113 +584,260 @@ def scrape_coursera(skill_names):
 
 
 # ============================================================
-# Coursera — category listings, paginated, nothing discarded
+# Coursera — one search per skill, first page only
 # ============================================================
 #
-# The difference from scrape_coursera above is what gets kept. That one
-# searched 12 job-role names, read only the first page of each, and then threw
-# a course away unless a Skill name appeared literally in its title. Three
-# limits compounding: ~12 searches x ~12 first-page results, filtered down to
-# 59 stored rows.
+# Two earlier designs failed here, and the reasons are worth keeping because
+# they constrain what is possible.
 #
-# This walks the three categories the platform actually files courses under,
-# follows pagination to the end, and keeps every course it sees. Deciding what
-# a course teaches is a separate pass over CourseCatalogue -- see
-# resources.services.map_catalogue_to_skills -- so a course whose title names
-# no skill is stored rather than lost.
+# The original scrape_coursera above searched 12 *job-role* names, read the
+# first page of each, and discarded a course unless a Skill name appeared in
+# its title. 59 rows survived, covering 25 skills.
+#
+# The replacement walked Coursera's own Computer Science, Information
+# Technology and Data Science categories and followed ``&page=N`` to the end.
+# It found 108 courses -- exactly 36 x 3 -- because Coursera does not paginate
+# by URL. Measured against the live site, page 2 returns a strict subset of
+# page 1:
+#
+#     page 1: 36 urls;  page 2: 24 urls;  new on page 2: 0
+#
+# and the same held for ``?query=&page=``, ``?topic=&page=`` and
+# ``&sortBy=BEST_MATCH``. So the pagination loop is gone rather than disabled:
+# code that loops over pages implies a capability the site does not offer, and
+# the next reader would have had to rediscover that the hard way.
+#
+# Breadth therefore has to come from more queries, not deeper pages. One search
+# per skill puts that skill's courses on the only page available -- a search for
+# "SAP ABAP" returns the ABAP courses at the top -- which is what neither
+# earlier design ever asked for.
+#
+# What the search phrase is, and what the course is then mapped to, are kept
+# strictly apart. The phrase is a retrieval device; mapping is decided
+# afterwards from the course's own text by map_catalogue_to_skills. A course is
+# never filed under the skill that found it merely because that skill found it.
 
-#: Only these three. Coursera files courses under eleven top-level categories;
-#: the rest (Arts and Humanities, Health, Language Learning ...) are outside
-#: what this project advises on and are deliberately not fetched.
-COURSERA_CATEGORIES = [
-    "Computer Science",
-    "Information Technology",
-    "Data Science",
-]
-
-#: The faceted search listing rather than /browse/<slug>: the browse pages are
-#: curated shelves behind a JS "Show more", while search exposes real
-#: pagination in the URL. Both the facet name and the page parameter are kept
-#: here as constants because they are the two things Coursera is most likely to
-#: rename, and a rename should be a one-line fix rather than a rewrite.
-COURSERA_CATEGORY_URL = (
-    "https://www.coursera.org/search?topic={topic}&page={page}&language=English"
+COURSERA_SKILL_SEARCH_URL = (
+    "https://www.coursera.org/search?query={query}&language=English"
 )
 
-#: A stop, not a target. Pagination ends when a page yields no course link that
-#: has not already been seen; this only bounds the damage if that never happens
-#: because the facet was silently ignored and every page looks the same.
-COURSERA_MAX_PAGES = 40
+
+#: Per-query attempt ceiling. A query that has failed three times with the
+#: browser rebuilt in between will not succeed on the fourth; the run is better
+#: off recording it FAILED and moving on, because a rerun retries it anyway.
+MAX_QUERY_ATTEMPTS = 3
+
+#: Consecutive network failures that stop the run. A dropped connection breaks
+#: every query equally, so continuing means burning 265 timeouts to learn once
+#: that the network is down -- which is precisely what happened: 0 of 265
+#: searches completed and the log filled with ERR_INTERNET_DISCONNECTED. The
+#: checkpoint survives, so recovery is rerunning the same command.
+NETWORK_FAILURE_CIRCUIT_BREAKER = 8
+
+#: Seconds between attempts, doubled per attempt, with jitter added.
+BACKOFF_BASE = 4
 
 
-def scrape_coursera_categories(categories=None, max_pages=COURSERA_MAX_PAGES):
-    """Every course under the given Coursera categories.
+class AcquisitionInterrupted(RuntimeError):
+    """The circuit breaker tripped. Progress is on disk; rerun to resume."""
 
-    Returns a list of catalogue dicts -- url, title, type, category, card_text.
-    No skill filtering happens here, deliberately: this function's only job is
-    to find courses. Mapping them to skills is a separate, re-runnable pass.
+
+def _is_fatal_driver_error(exc):
+    """Whether the WebDriver session itself is gone, rather than one page.
+
+    This distinction decides whether to retry the query or rebuild the browser
+    first, and getting it wrong is what wasted the previous run: the driver was
+    created once, so a network drop mid-run left every later query talking to a
+    dead chromedriver and timing out against it.
     """
-    categories = categories or COURSERA_CATEGORIES
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return any(marker in text for marker in (
+        "invalid session id", "session deleted", "no such session",
+        "chrome not reachable", "disconnected", "connection refused",
+        "connection aborted", "connection reset", "read timed out",
+        "max retries exceeded", "target crashed", "browser has closed",
+        "webdriverexception",
+    ))
+
+
+def _is_network_error(reason):
+    """Whether the failure was the network rather than the page or the site.
+
+    Driver-creation failures count. webdriver_manager resolves
+    googlechromelabs.github.io to check for a newer chromedriver, so a DNS
+    outage surfaces as a name-resolution error before any page is requested --
+    and it will break every remaining query exactly as a dropped connection
+    would, which is what the breaker is for.
+    """
+    text = str(reason).lower()
+    return any(marker in text for marker in (
+        "err_internet_disconnected", "err_name_not_resolved",
+        "err_connection", "err_network", "err_proxy",
+        "err_address_unreachable", "temporary failure in name resolution",
+        "getaddrinfo failed", "failed to resolve", "nameresolutionerror",
+        "max retries exceeded", "connectionerror",
+    ))
+
+
+def scrape_coursera_for_phrases(phrases, checkpoint=None, on_progress=None,
+                                on_courses=None,
+                                max_attempts=MAX_QUERY_ATTEMPTS):
+    """Search Coursera once per phrase, surviving a browser or network failure.
+
+    ``phrases`` is an iterable of ``(skill_name, search_phrase)`` -- the
+    canonical skill that motivated the search, and the words actually typed.
+    The two differ whenever an abbreviation searches badly ("RCA" finds
+    chemistry, "Root Cause Analysis" finds the courses), so they are carried
+    separately rather than conflated.
+
+    ``checkpoint`` records which queries have already succeeded. It is runtime
+    state and never catalogue data: it says what this machine has fetched, not
+    what the catalogue holds.
+
+    ``on_courses`` receives each query's courses as they are found, so a run
+    that dies has already persisted its work. Without it a checkpoint could
+    mark a query SUCCESS whose courses were then lost with the process, and the
+    rerun would skip it.
+
+    Returns catalogue dicts keyed by canonical URL. Raises
+    AcquisitionInterrupted when the circuit breaker trips.
+    """
+    plan = list(phrases)
     by_url = {}
-    driver = create_driver()
+    driver = None
+    consecutive_network_failures = 0
 
     try:
-        logger.info("Coursera: warming up session on homepage ...")
-        safe_load_page(driver, "https://www.coursera.org/", retries=2)
-        random_delay(4, 7)
+        for index, (skill_name, phrase) in enumerate(plan, start=1):
+            if checkpoint is not None and checkpoint.is_done(phrase):
+                if on_progress:
+                    on_progress(index, len(plan), skill_name, phrase,
+                                "skipped", 0, len(by_url))
+                continue
 
-        for category in categories:
-            logger.info("Coursera: category '%s'", category)
-            for page in range(1, max_pages + 1):
-                url = COURSERA_CATEGORY_URL.format(
-                    topic=quote_plus(category), page=page)
-                page_source = safe_load_page(driver, url, retries=2)
-                if not page_source:
-                    logger.warning("Coursera: '%s' page %d failed to load",
-                                   category, page)
-                    break
-
+            found, failure = 0, None
+            for attempt in range(1, max_attempts + 1):
                 try:
-                    WebDriverWait(driver, 15).until(
-                        EC.presence_of_element_located((
-                            By.CSS_SELECTOR,
-                            'a[href*="/learn/"], a[href*="/specializations/"], '
-                            'a[href*="/professional-certificates/"]',
-                        ))
-                    )
-                except Exception:
-                    logger.info("Coursera: '%s' page %d has no courses -- end "
-                                "of category.", category, page)
+                    if driver is None:
+                        # Inside the guarded region, not before it. Building a
+                        # browser is itself a network operation -- webdriver
+                        # manager fetches chromedriver metadata -- and the
+                        # first resilient run died here, outside the try, on a
+                        # DNS failure for googlechromelabs.github.io without
+                        # reaching a single search.
+                        logger.info("Coursera: starting a browser session")
+                        driver = create_driver()
+                        safe_load_page(driver, "https://www.coursera.org/",
+                                       retries=2)
+                        random_delay(3, 6)
+
+                    found, failure = _run_one_search(driver, phrase, by_url)
+                except Exception as exc:      # noqa: BLE001 -- classified below
+                    failure = f"{type(exc).__name__}: {exc}"
+                    if driver is None or _is_fatal_driver_error(exc):
+                        # Rebuild rather than retry into a dead session. A
+                        # driver that never started counts as fatal too.
+                        quit_driver(driver)
+                        driver = None
+
+                if failure is None:
                     break
 
-                random_delay(2, 4)
-                found = _parse_coursera_cards(driver.page_source, category, by_url)
+                if _is_network_error(failure):
+                    consecutive_network_failures += 1
+                    if (consecutive_network_failures
+                            >= NETWORK_FAILURE_CIRCUIT_BREAKER):
+                        if checkpoint is not None:
+                            checkpoint.record(phrase, checkpoint.FAILED,
+                                              attempt, failure)
+                        raise AcquisitionInterrupted(
+                            f"{consecutive_network_failures} consecutive "
+                            f"network failures; stopped with progress saved. "
+                            f"Rerun the same command to resume.")
+                else:
+                    consecutive_network_failures = 0
 
-                # The end of a category is a page that adds nothing new. Trusting
-                # a "no results" banner would mean trusting copy that changes;
-                # this holds whether the last page is empty or simply repeats the
-                # one before it, which is what a clamped page parameter does.
-                if not found:
-                    logger.info("Coursera: '%s' page %d added nothing new -- "
-                                "stopping.", category, page)
-                    break
+                if attempt < max_attempts:
+                    # Exponential with jitter: a site that is rate-limiting
+                    # wants a longer gap, and identical gaps look automated.
+                    time.sleep(BACKOFF_BASE * (2 ** (attempt - 1))
+                               + random.uniform(0, 3))
 
-                random_delay(8, 12)
+            if failure is None:
+                consecutive_network_failures = 0
+                # Persist before marking done, so SUCCESS never describes work
+                # that was lost with the process.
+                if on_courses:
+                    on_courses([row for row in by_url.values()
+                                if phrase in row["discovered_via"]])
+                if checkpoint is not None:
+                    checkpoint.record(phrase, checkpoint.SUCCESS, attempt, "")
+            elif checkpoint is not None:
+                checkpoint.record(phrase, checkpoint.FAILED, max_attempts,
+                                  failure)
+
+            if on_progress:
+                on_progress(index, len(plan), skill_name, phrase,
+                            "ok" if failure is None else "failed",
+                            found, len(by_url))
+            random_delay(8, 12)
 
     finally:
         quit_driver(driver)
 
-    logger.info("Coursera: %d distinct courses across %d categories.",
-                len(by_url), len(categories))
+    logger.info("Coursera: %d distinct courses from %d queries.",
+                len(by_url), len(plan))
     return list(by_url.values())
 
 
-def _parse_coursera_cards(page_source, category, by_url):
-    """Merge one listing page into ``by_url``. Returns how many were new.
+def _run_one_search(driver, phrase, by_url):
+    """One query. Returns ``(new_course_count, failure_reason_or_None)``."""
+    url = COURSERA_SKILL_SEARCH_URL.format(query=quote_plus(phrase))
+    page_source = safe_load_page(driver, url, retries=1)
+    if not page_source:
+        return 0, "page did not load"
+    if is_blocked(page_source, driver.title or ""):
+        return 0, "bot-detection page"
 
-    A course listed under two categories is one row carrying both, not two
-    rows: the catalogue is keyed by URL, and where a course came from is
-    recorded on it rather than duplicated.
+    try:
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((
+                By.CSS_SELECTOR,
+                'a[href*="/learn/"], a[href*="/specializations/"], '
+                'a[href*="/professional-certificates/"]',
+            ))
+        )
+    except Exception:
+        # No results is a legitimate answer for a narrow skill, not a failure
+        # to retry: retrying would spend three requests confirming an empty
+        # result set.
+        logger.info("Coursera: no courses for %r", phrase)
+        return 0, None
+
+    random_delay(2, 4)
+    return _parse_coursera_cards(driver.page_source, phrase, by_url), None
+
+
+def canonical_course_url(href):
+    """One stable identity per Coursera course.
+
+    The same course arrives under several URLs -- with tracking parameters,
+    with or without a trailing slash, occasionally with a fragment -- and each
+    variant would otherwise become its own catalogue row and its own set of
+    skill mappings. Identity is the path: /learn/<slug>,
+    /specializations/<slug>, /professional-certificates/<slug>.
+    """
+    url = href if href.startswith("http") else f"https://www.coursera.org{href}"
+    url = url.split("?")[0].split("#")[0].rstrip("/")
+    return url
+
+
+def _parse_coursera_cards(page_source, via, by_url):
+    """Merge one result page into ``by_url``. Returns how many were new.
+
+    ``via`` is the search phrase that produced this page, recorded on each
+    course as retrieval provenance. A course surfaced by two searches is one
+    row carrying both phrases, never two rows.
     """
     soup = BeautifulSoup(page_source, "html.parser")
     for element in soup.find_all(["nav", "header", "footer"]):
@@ -701,13 +862,12 @@ def _parse_coursera_cards(page_source, category, by_url):
             continue
         title = title[:255]
 
-        url = href if href.startswith("http") else f"https://www.coursera.org{href}"
-        url = url.split("?")[0]
+        url = canonical_course_url(href)
 
         existing = by_url.get(url)
         if existing:
-            if category not in existing["categories"]:
-                existing["categories"].append(category)
+            if via not in existing["discovered_via"]:
+                existing["discovered_via"].append(via)
             continue
 
         # The card's whole text, not just the title. "Google Data Analytics"
@@ -715,12 +875,13 @@ def _parse_coursera_cards(page_source, category, by_url):
         # and that line is the only evidence the listing page carries.
         card = link.find_parent(["li", "article"]) or link
         by_url[url] = {
-            "url":        url,
-            "title":      title,
-            "platform":   "Coursera",
-            "type":       resource_type,
-            "categories": [category],
-            "card_text":  card.get_text(separator=" ", strip=True)[:2000],
+            "url":            url,
+            "title":          title,
+            "platform":       "Coursera",
+            "type":           resource_type,
+            "categories":     [],
+            "discovered_via": [via],
+            "card_text":      card.get_text(separator=" ", strip=True)[:2000],
         }
         new_count += 1
 

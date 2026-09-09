@@ -24,7 +24,7 @@ from accounts.models import (
     User,
     UserConsent,
 )
-from scrape_jobs.models import Skill
+from scrape_jobs.models import Skill, SkillAlias
 from .file_validation import InvalidUpload, validate_document
 from .models import (
     Certificate,
@@ -2112,6 +2112,11 @@ class CourseCatalogueScrapeTests(TestCase):
     which is why 59 rows survived a ~145-link ceiling. These cover the two
     properties that changed: nothing is discarded at fetch time, and skills are
     decided separately and re-runnably.
+
+    The second argument to the parser is now the search phrase that surfaced
+    the page rather than a Coursera category -- the category walk was removed
+    when the site turned out not to paginate -- but what it records is the same
+    kind of thing: where a course was found, kept apart from what it teaches.
     """
 
     LISTING = """
@@ -2148,7 +2153,7 @@ class CourseCatalogueScrapeTests(TestCase):
         self.assertEqual(certificate["type"], "Professional Certificate")
         self.assertIn("Tableau", certificate["card_text"])
 
-    def test_course_in_two_categories_is_one_row_carrying_both(self):
+    def test_a_course_seen_twice_is_one_row_carrying_both_origins(self):
         from resources.scraper import _parse_coursera_cards
 
         by_url = {}
@@ -2158,7 +2163,7 @@ class CourseCatalogueScrapeTests(TestCase):
         self.assertEqual(added, 0)
         self.assertEqual(len(by_url), 3)
         self.assertEqual(
-            by_url["https://www.coursera.org/learn/python-basics"]["categories"],
+            by_url["https://www.coursera.org/learn/python-basics"]["discovered_via"],
             ["Data Science", "Computer Science"],
         )
 
@@ -2321,3 +2326,187 @@ class SkillQuarantineOnWriteTests(TestCase):
         self.assertIsNone(resolve_or_quarantine_skill("   "))
         self.assertIsNone(resolve_or_quarantine_skill(None))
         self.assertEqual(Skill.objects.count(), before)
+
+
+class SearchPhraseNormalisationTests(TestCase):
+    """The search phrase and the canonical skill are different strings.
+
+    "RCA" is the catalogue's name for the skill; typing it into a course search
+    returns chemistry. "Root Cause Analysis" returns the courses. Conflating
+    the two is why searching by skill would otherwise under-perform on exactly
+    the abbreviations Malaysian adverts use most.
+    """
+
+    def test_an_abbreviation_searches_by_its_reviewed_expansion(self):
+        from .search_terms import search_phrase
+
+        self.assertEqual(
+            search_phrase("UAT", ["User Acceptance Testing"]),
+            "User Acceptance Testing")
+        self.assertEqual(
+            search_phrase("RCA", ["Root Cause Analysis"]),
+            "Root Cause Analysis")
+
+    def test_a_spelled_out_name_is_left_alone(self):
+        """Only abbreviations are expanded.
+
+        "Microsoft SQL Server" already reads as a phrase; rewriting it could
+        only make the search worse.
+        """
+        from .search_terms import search_phrase
+
+        self.assertEqual(
+            search_phrase("Microsoft SQL Server", ["MSSQL", "SQL Server"]),
+            "Microsoft SQL Server")
+
+    def test_another_abbreviation_is_not_mistaken_for_an_expansion(self):
+        """MSSQL does not spell MS SQL out; it is a second abbreviation."""
+        from .search_terms import search_phrase
+
+        self.assertEqual(search_phrase("UAT", ["UATx", "UA"]), "UAT")
+
+    def test_an_override_beats_the_alias_table(self):
+        """SAP's longest alias is a product, not an expansion.
+
+        "SAP Business One" would narrow a vendor-wide search to one SMB
+        product, so the override refuses the expansion.
+        """
+        from .search_terms import search_phrase
+
+        self.assertEqual(
+            search_phrase("SAP", ["SAP B1", "SAP Business One", "SAP ERP"]),
+            "SAP")
+
+    def test_contextual_aliases_are_never_used_as_phrases(self):
+        from .search_terms import phrases_for_skills
+
+        skill = Skill.objects.create(skill_name="XYZ")
+        SkillAlias.objects.create(skill=skill, alias_name="Extended Yield Zone",
+                                  requires_context=True)
+
+        self.assertEqual(phrases_for_skills([skill]), [("XYZ", "XYZ")])
+
+
+class CourseIdentityTests(TestCase):
+    """One course is one row, however its URL arrived."""
+
+    def test_tracking_parameters_and_slashes_collapse_to_one_identity(self):
+        from .scraper import canonical_course_url
+
+        variants = [
+            "/learn/abap-fundamentals",
+            "/learn/abap-fundamentals/",
+            "https://www.coursera.org/learn/abap-fundamentals?msockid=abc",
+            "https://www.coursera.org/learn/abap-fundamentals#syllabus",
+        ]
+        canonical = {canonical_course_url(v) for v in variants}
+
+        self.assertEqual(
+            canonical, {"https://www.coursera.org/learn/abap-fundamentals"})
+
+    def test_one_course_found_by_two_searches_is_one_row_carrying_both(self):
+        from .scraper import _parse_coursera_cards
+
+        html = ('<li><a href="/learn/x"><h3>SAP ABAP Fundamentals</h3>'
+                '<p>Skills you will gain: ABAP</p></a></li>')
+        by_url = {}
+        _parse_coursera_cards(html, "SAP ABAP", by_url)
+        added = _parse_coursera_cards(html, "SAP", by_url)
+
+        self.assertEqual(added, 0)
+        self.assertEqual(len(by_url), 1)
+        self.assertEqual(
+            list(by_url.values())[0]["discovered_via"], ["SAP ABAP", "SAP"])
+
+
+class MappingUsesContentNotTheQueryTests(TestCase):
+    """A course is filed by what it teaches, never by what found it."""
+
+    def test_the_search_phrase_is_not_evidence(self):
+        """The whole point of separating retrieval from mapping.
+
+        A "Root Cause Analysis" search surfaces Six Sigma courses; filing them
+        under RCA because the search found them would record the search, not
+        the course.
+        """
+        from .services import map_catalogue_to_skills, save_course_catalogue
+
+        Skill.objects.create(skill_name="Kubernetes")
+        save_course_catalogue([{
+            "url": "https://www.coursera.org/learn/unrelated",
+            "title": "Introduction to Watercolour Painting",
+            "platform": "Coursera", "type": "Course",
+            "discovered_via": ["Kubernetes"],
+            "card_text": "Skills you will gain: Brushwork, Colour Theory",
+        }])
+
+        map_catalogue_to_skills(platform_name="Coursera")
+
+        self.assertFalse(
+            LearningResource.objects.filter(skill__skill_name="Kubernetes")
+            .exists())
+        # Kept, not deleted: a later re-map can pick it up if the catalogue grows.
+        self.assertTrue(
+            CourseCatalogue.objects.filter(url__endswith="unrelated").exists())
+
+    def test_content_evidence_does_map(self):
+        from .services import map_catalogue_to_skills, save_course_catalogue
+
+        Skill.objects.create(skill_name="ABAP")
+        save_course_catalogue([{
+            "url": "https://www.coursera.org/learn/abap",
+            "title": "Learn SAP ABAP Fundamentals",
+            "platform": "Coursera", "type": "Course",
+            "discovered_via": ["SAP ABAP"],
+            "card_text": "Skills you will gain: ABAP, SAP",
+        }])
+
+        map_catalogue_to_skills(platform_name="Coursera")
+
+        self.assertTrue(
+            LearningResource.objects.filter(skill__skill_name="ABAP").exists())
+
+
+class ResourceSeedReproducibilityTests(TestCase):
+    """A fresh database must rebuild what students are shown.
+
+    The scraper cannot be the production bootstrap: Coursera re-ranks results
+    and changes markup, so two deployments scraping on different days would
+    recommend different courses from identical code -- quite apart from needing
+    Chrome and outbound network access to deploy.
+    """
+
+    def test_seed_files_rebuild_the_catalogue_exactly(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from .seeds import (DATA_DIR, database_snapshot, file_snapshot,
+                            snapshot_digest)
+
+        CourseCatalogue.objects.all().delete()
+        LearningResource.objects.all().delete()
+
+        # The documented bootstrap order, and the reason it is an order: a
+        # resource names its skill by string, so a database without the skill
+        # catalogue silently drops every resource whose skill it cannot find.
+        # Importing resources alone rebuilt 146 of 2,165 rows and looked like a
+        # seeding bug rather than a missing prerequisite.
+        call_command("import_skills", verbosity=0)
+        call_command("import_resources", stdout=StringIO())
+
+        self.assertEqual(snapshot_digest(database_snapshot()),
+                         snapshot_digest(file_snapshot(DATA_DIR)))
+
+    def test_import_is_idempotent(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from .seeds import database_snapshot, snapshot_digest
+
+        CourseCatalogue.objects.all().delete()
+        LearningResource.objects.all().delete()
+        call_command("import_skills", verbosity=0)
+        call_command("import_resources", stdout=StringIO())
+        once = snapshot_digest(database_snapshot())
+
+        call_command("import_resources", stdout=StringIO())
+
+        self.assertEqual(snapshot_digest(database_snapshot()), once)
