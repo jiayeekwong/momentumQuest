@@ -2121,3 +2121,117 @@ class GenericTermGuardTests(TestCase):
                      "Microsoft SQL Server: Performance Tuning Essentials"):
             with self.subTest(text=text[:40]):
                 self.assertNotIn("Xamarin.Essentials", self._names(text))
+
+
+class AICodingAssistantGuardTests(TestCase):
+    """Product names that are evidence for a competence only in one sense.
+
+    ChatGPT, Copilot, Cursor, Claude, Codex, Amazon Q and Gemini are all used
+    far outside software development -- to draft email, to generate marketing
+    copy, to build Power Platform flows, and as an API to program against.
+    Only one of those uses is "AI Coding Assistants", so every product name is
+    a contextual trigger and none is a synonym.
+
+    Both directions are fixtures, and both are drawn from the Malaysian corpus
+    rather than invented: the accepted texts are adverts the re-extraction
+    linked, the rejected ones are adverts it deliberately left alone.
+    """
+
+    def setUp(self):
+        skill, _ = Skill.objects.get_or_create(
+            skill_name="AI Coding Assistants",
+            defaults={"skill_category": "Software Engineering",
+                      "catalogue_status": "MARKET_EXTENSION"})
+        for alias in ("chatgpt", "github copilot", "copilot", "cursor",
+                      "claude", "claude code", "codex", "amazon q", "gemini"):
+            SkillAlias.objects.get_or_create(
+                alias_name=alias,
+                defaults={"skill": skill, "source": "INTERNAL",
+                          "requires_context": True})
+
+    def _names(self, text):
+        from .skill_extractor import extract_skills_from_text
+        return {skill.skill_name for skill in extract_skills_from_text(text)}
+
+    def test_every_product_name_is_guarded_rather_than_unconditional(self):
+        """The property the whole design rests on.
+
+        An unguarded entry here would make one of these a plain alias, and an
+        advert mentioning ChatGPT for customer support would acquire a
+        software-engineering skill.
+        """
+        from .skill_extractor import AI_ASSISTANT_PRODUCTS, TERM_GUARDS
+
+        for product in AI_ASSISTANT_PRODUCTS:
+            with self.subTest(product=product):
+                self.assertIn(product, TERM_GUARDS)
+
+    def test_assistants_used_to_write_software_are_accepted(self):
+        for text in (
+            "Proficient in using AI coding assistants such as Claude Code, "
+            "GitHub, or OpenAI Codex",
+            "Productive from day one in a workflow where most code is written "
+            "with AI coding tools (Claude Code)",
+            "Active experience using AI-driven coding tools (e.g., GitHub "
+            "Copilot, ChatGPT, Cursor, or Amazon Q) to accelerate development",
+            "Experience using AI-assisted development tools such as GitHub "
+            "Copilot, Claude Code, Cursor, or equivalent",
+            "Use AI tools (e.g., GitHub Copilot, ChatGPT/Claude) to generate "
+            "and optimize test cases",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertIn("AI Coding Assistants", self._names(text))
+
+    def test_the_microsoft_business_stack_is_not_a_coding_assistant(self):
+        """Three adverts in the first shadow run were exactly this.
+
+        Copilot beside Power Apps or SharePoint is the M365 assistant or
+        Copilot Studio -- an automation product that happens to share a name.
+        """
+        for text in (
+            "Build low-code solutions with Power Apps, Power Automate and "
+            "Copilot Studio across SharePoint",
+            "Deploy Microsoft 365 Copilot agents with Purview DLP controls "
+            "and troubleshoot adoption",
+            "Support Microsoft Fabric and Copilot rollout for corporate "
+            "communications teams",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertNotIn("AI Coding Assistants", self._names(text))
+
+    def test_content_and_design_uses_are_not_a_coding_assistant(self):
+        for text in (
+            "Use ChatGPT and Adobe Firefly for content generation and social "
+            "media marketing",
+            "Produce marketing copy with ChatGPT and design assets in Figma",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertNotIn("AI Coding Assistants", self._names(text))
+
+    def test_programming_against_the_model_is_a_different_competence(self):
+        """The catalogue already carries this as LLM, GenAI and OpenAI API.
+
+        Someone integrating Claude's API is building an AI feature, not being
+        helped to write the code that does it.
+        """
+        for text in (
+            "Integrate LLM APIs such as OpenAI and Claude into backend "
+            "services",
+            "Experience consuming Gemini APIs from a Python codebase",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertNotIn("AI Coding Assistants", self._names(text))
+
+    def test_a_product_name_with_no_development_context_does_not_fire(self):
+        """The default is silence.
+
+        Most mentions in the corpus are neither coding nor an explicit reject
+        -- they are a passing reference -- and those must produce nothing
+        rather than falling through to a match.
+        """
+        for text in (
+            "Familiarity with ChatGPT and other generative AI tools",
+            "Comfortable using Gemini for day-to-day research",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertNotIn("AI Coding Assistants", self._names(text))

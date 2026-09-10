@@ -5,6 +5,7 @@ AB Tasty,MTO,ab tasty,AB Tasty,2367527d1a2f5665f595d6e0518294cc69dfb0fe,https://
 ABAP,INTERNAL,,ABAP,pre-mto-baseline,,Enterprise Systems
 ABAP,MTO,abap,ABAP,2367527d1a2f5665f595d6e0518294cc69dfb0fe,https://github.com/MIND-TechAI/MIND-tech-ontology,ProgrammingLanguage
 ACME,MTO,acme,ACME,2367527d1a2f5665f595d6e0518294cc69dfb0fe,https://github.com/MIND-TechAI/MIND-tech-ontology,T | o | o | l
+AI Coding Assistants,MALAYSIA_JD,ai coding assistants,AI Coding Assistants,16 Malaysian adverts across 16 employers,,market-evidence
 AIF360,MTO,aif360,AIF360,2367527d1a2f5665f595d6e0518294cc69dfb0fe,https://github.com/MIND-TechAI/MIND-tech-ontology,Library
 API,MALAYSIA_JD,api,API,89 Malaysian adverts,,market-evidence
 API,QARERA_2026,api,API,"1.15% of 360,336 postings",,market-evidence

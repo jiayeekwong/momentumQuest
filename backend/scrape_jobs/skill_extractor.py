@@ -146,6 +146,54 @@ TERM_GUARDS = {
     },
 }
 
+#: The AI assistant products, which are evidence for "AI Coding Assistants"
+#: only where the advert is talking about building software.
+#:
+#: One guard shared by all of them, because the question is identical for each:
+#: is this advert using the tool to write code, or to draft an email, generate
+#: marketing copy, or build against an API? The last is a different competence
+#: the catalogue already carries as LLM / GenAI / OpenAI API.
+#:
+#: Every rule below came from a shadow run over the 30 adverts that mention one
+#: of these products, not from guesswork:
+#:
+#:   * bare "develop" is absent from the trigger -- it fired on "application
+#:     development" in a Power Platform advert and "AI developments" in a
+#:     corporate-communications one;
+#:   * Power BI is absent from the reject -- it looked like a business-stack
+#:     signal until two adverts showed it beside genuine assistant-assisted
+#:     development, so it is not a reliable anti-signal;
+#:   * Copilot Studio and Copilot agents are rejected, because Microsoft uses
+#:     the same brand for a low-code bot builder.
+AI_ASSISTANT_PRODUCTS = (
+    "chatgpt", "github copilot", "copilot", "cursor", "claude", "claude code",
+    "codex", "amazon q", "gemini",
+)
+
+AI_CODING_REQUIRE = (
+    r"\b(?:cod(?:e|ing)|debug\w*|programming|software\s+develop\w*|"
+    r"software\s+engineer\w*|refactor\w*|unit\s+test\w*|test\s+case\w*|"
+    r"code\s+review|pull\s+request|ide|pair[- ]programming|boilerplate|"
+    r"backend|back[- ]end|frontend|front[- ]end|full[- ]?stack|"
+    r"source\s+code|codebase|troubleshoot\w*)\b"
+)
+
+AI_CODING_REJECT = (
+    r"\b(?:content\s+(?:generation|creation|creator|writer)|copywrit\w*|"
+    r"marketing|social\s+media|design\s+tool|figma|firefly|midjourney|canva|"
+    r"business\s+operation\w*|"
+    r"power\s+(?:apps|automate|platform)|sharepoint|microsoft\s+fabric|"
+    r"purview|copilot\s+(?:agent|studio)|microsoft\s+365|m365|"
+    r"corporate\s+communication\w*|data\s+loss\s+prevention|dlp|"
+    r"(?:integrat\w+|consum\w+|call\w*)\s+(?:the\s+)?(?:llm|openai|claude|"
+    r"gemini)?\s*apis?|llm\s+api|gemini\s+enterprise)\b"
+)
+
+TERM_GUARDS.update({
+    product: {"require": AI_CODING_REQUIRE, "reject": AI_CODING_REJECT}
+    for product in AI_ASSISTANT_PRODUCTS
+})
+
 TERM_GUARD_PATTERNS = {
     term: (re.compile(rule["require"], re.IGNORECASE),
            re.compile(rule["reject"], re.IGNORECASE))

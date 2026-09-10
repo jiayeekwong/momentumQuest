@@ -1059,6 +1059,7 @@ amazon deequ,Deequ,MTO,false,true
 amazon device farm,AWS Device Farm,MTO,false,true
 amazon dynamodb,AWS DynamoDB,MTO,false,true
 amazon lake formation,AWS Lake Formation,MTO,false,true
+amazon q,AI Coding Assistants,INTERNAL,true,true
 amazon rds,AWS RDS,MTO,false,true
 amazon sagemaker studio,Amazon SageMaker,MTO,false,true
 amazon secrets manager,AWS Secrets Manager,MTO,false,true
@@ -1361,7 +1362,7 @@ chart php,pChart,MTO,false,true
 chartjs,Chart.js,MTO,false,true
 charts,Chart.js,MTO,true,true
 charts swift,iOS Charts,MTO,false,true
-chatgpt,ChatGPT.js,MTO,false,false
+chatgpt,AI Coding Assistants,INTERNAL,true,true
 chatgpt-node,ChatGPT.js,MTO,false,true
 chef automation,Chef,MTO,false,true
 chef configuration,Chef,MTO,false,true
@@ -1381,6 +1382,8 @@ chromed p,chromedp,MTO,false,true
 circle ci,CircleCI,MTO,false,true
 circle continuous integration,CircleCI,MTO,false,true
 classic vb,Visual Basic,MTO,false,true
+claude,AI Coding Assistants,INTERNAL,true,true
+claude code,AI Coding Assistants,INTERNAL,true,true
 clear ml,ClearML,MTO,false,true
 clearml ops,ClearML,MTO,false,true
 clinic,Clinic.js,MTO,false,true
@@ -1401,6 +1404,7 @@ codahale metrics,Dropwizard Metrics,MTO,false,true
 code ception,Codeception,MTO,false,true
 code climate analytics,Code Climate,MTO,false,true
 codeclimate,Code Climate,MTO,false,true
+codex,AI Coding Assistants,INTERNAL,true,true
 coffee script,CoffeeScript,MTO,false,true
 colab,Google Colab,MTO,false,true
 comma-separated values,CSV,MTO,false,true
@@ -1425,6 +1429,7 @@ controls fx,ControlsFX,MTO,false,true
 controlsfx library,ControlsFX,MTO,false,true
 controltower,AWS Control Tower,MTO,false,true
 convnet.js,ConvNetJS,MTO,false,true
+copilot,AI Coding Assistants,INTERNAL,true,true
 cordova,Apache Cordova,MTO,false,true
 corenlp,Stanford NLP,MTO,false,true
 corona,Corona SDK (Solar2D),MTO,false,true
@@ -1461,6 +1466,7 @@ cucumber.js,Cucumber,MTO,false,true
 cucumberjs,Cucumber,MTO,false,true
 cuda toolkit,CUDA,MTO,false,true
 cuke,Cucumber,MTO,true,true
+cursor,AI Coding Assistants,INTERNAL,true,true
 custodian,Cloud Custodian,MTO,false,true
 cv2,OpenCV,MTO,true,false
 cyber ark,CyberArk,MTO,false,true
@@ -1805,6 +1811,7 @@ gcp pub/sub,Google Pub/Sub,MTO,false,true
 gcp pubsub,Google Pub/Sub,MTO,false,true
 gcp vertex ai,Google Vertex AI,MTO,false,true
 gdal julia,ArchGDAL.jl,MTO,false,true
+gemini,AI Coding Assistants,INTERNAL,true,true
 gen-sim,Gensim,MTO,false,true
 generalized linear models,GLM.jl,MTO,false,true
 geo,rust geo,MTO,true,false
@@ -1825,6 +1832,7 @@ git hub,GitHub,MTO,false,false
 git hub actions,GitHub Actions,MTO,false,false
 git lab,GitLab,MTO,false,false
 git python,GitPython,MTO,false,true
+github copilot,AI Coding Assistants,INTERNAL,true,true
 github package registry,GitHub Packages,MTO,false,true
 github workflows,GitHub Actions,MTO,false,false
 github.com,GitHub,MTO,false,false

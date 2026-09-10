@@ -4,6 +4,7 @@ skill_name,skill_category,skill_type,technical_domain,catalogue_status,is_active
 AB Tasty,,Service | Library,QA/Testing,MTO_EXTENSION,true
 ABAP,Enterprise Systems,,,ACTIVE_INTERNAL,true
 ACME,,Tool,DevOps,MTO_EXTENSION,true
+AI Coding Assistants,Software Engineering,,,MARKET_EXTENSION,true
 AIF360,,Library,MLOps | ML/AI,MTO_EXTENSION,true
 API,,,,MARKET_EXTENSION,true
 API Integration,Software Engineering,,,ACTIVE_INTERNAL,true
