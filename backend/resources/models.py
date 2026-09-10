@@ -81,6 +81,49 @@ class CourseCatalogue(models.Model):
         return f"{self.title} [{self.platform}]"
 
 
+class RejectedResourceMapping(models.Model):
+    """A Skill<->Resource pairing a person looked at and refused.
+
+    The mapper is lexical: it files a course under a skill when the skill's
+    name is in the course's own words. That is right nearly always and
+    occasionally wrong in a way no amount of lexical care can fix -- "2026 AI
+    SEO Tools And Techniques (LLM SEO, GEO, AEO)" genuinely contains "LLM", and
+    is a search-marketing course rather than anything about language models.
+
+    A judgement like that has to be recorded somewhere durable, because mapping
+    is re-run offline whenever the extractor changes and would otherwise
+    reinstate every rejection silently. Deactivating the LearningResource row
+    would not survive either: the mapper writes ``is_active=True`` on every
+    pass.
+
+    So the rejection is its own row, and mapping consults it. It is catalogue
+    data, not runtime state -- it travels in the seed files, so a fresh
+    deployment inherits the same reviewed decisions rather than re-learning
+    them.
+
+    Deliberately *not* a place for course-specific rules inside the extractor.
+    The extractor stays general; this records the exceptions a person has ruled
+    on, one pairing at a time, with the reason attached.
+    """
+
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE,
+                              related_name="rejected_resources")
+    #: The course's canonical URL rather than a LearningResource id: the row
+    #: this rejects may not exist yet, and must stay rejected if a later
+    #: acquisition re-discovers the same course.
+    url = models.URLField()
+    #: Why, in a person's words. Read by whoever revisits the decision.
+    reason = models.CharField(max_length=255, blank=True)
+    rejected_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("skill", "url")
+        ordering = ["skill__skill_name", "url"]
+
+    def __str__(self):
+        return f"{self.skill.skill_name} x {self.url} (rejected)"
+
+
 class Course(models.Model):
     """
     University's own internal courses, managed by admin (UC-27).

@@ -17,7 +17,9 @@ files and swallowing it loses a recommendation without saying so.
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from resources.models import CourseCatalogue, LearningResource
+from resources.models import (
+    CourseCatalogue, LearningResource, RejectedResourceMapping,
+)
 from resources.seeds import (
     COURSES_FILE, DATA_DIR, RESOURCES_FILE, file_snapshot,
 )
@@ -41,11 +43,16 @@ class Command(BaseCommand):
         seeds = file_snapshot(DATA_DIR)
 
         courses = self._load_courses(seeds["courses"])
+        # Rejections first: a refusal must be in place before the resources it
+        # refuses are considered, or the import would recreate a row that the
+        # next mapping pass then removes.
+        refusals = self._load_rejections(seeds.get("rejections", []))
         created, updated, skipped = self._load_resources(seeds["resources"])
 
         self.stdout.write(self.style.SUCCESS(
             f"Courses: {courses[0]} created, {courses[1]} updated. "
-            f"Resources: {created} created, {updated} updated."))
+            f"Resources: {created} created, {updated} updated. "
+            f"Reviewed rejections: {refusals}."))
 
         if options["prune"]:
             keep_courses = {row["url"] for row in seeds["courses"]}
@@ -89,6 +96,21 @@ class Command(BaseCommand):
             created += int(was_created)
             updated += int(not was_created)
         return created, updated
+
+    def _load_rejections(self, rows):
+        """Reviewed refusals, restored before anything is mapped."""
+        by_name = {s.skill_name.casefold(): s for s in Skill.objects.all()}
+        loaded = 0
+        for row in rows:
+            skill = by_name.get(row.get("skill_name", "").casefold())
+            url = row.get("url", "")
+            if skill is None or not url:
+                continue
+            RejectedResourceMapping.objects.update_or_create(
+                skill=skill, url=url,
+                defaults={"reason": row.get("reason", "")})
+            loaded += 1
+        return loaded
 
     def _load_resources(self, rows):
         # One query, then dict lookups: the file names skills by string and a

@@ -400,7 +400,9 @@ class SkillGapTests(TestCase):
 
         data = self.client.get('/api/dashboard/skill-gap/').data
 
-        titles = [row['title'] for row in data['recommended_resources']]
+        titles = [resource['title']
+                  for group in data['resources_by_skill']
+                  for resource in group['resources']]
         self.assertIn('SQL Basics', titles)
         self.assertNotIn('Python Basics', titles, 'already-held skills need no resource')
 
@@ -716,26 +718,68 @@ class SkillGapResourceRankingTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    def test_highest_demand_gap_is_recommended_first(self):
-        rows = self.client.get('/api/dashboard/skill-gap/').data['recommended_resources']
+    def test_the_most_in_demand_gap_is_listed_first(self):
+        groups = self.client.get(
+            '/api/dashboard/skill-gap/').data['resources_by_skill']
 
-        self.assertEqual(rows[0]['skill'], 'SQL')
+        self.assertEqual(groups[0]['skill'], 'SQL')
 
-    def test_one_skill_cannot_claim_every_slot(self):
-        rows = self.client.get('/api/dashboard/skill-gap/').data['recommended_resources']
+    def test_every_missing_skill_gets_its_own_list(self):
+        """Grouping is what removed the competition between skills.
 
-        # Six Zebra resources exist and would previously have filled the list,
-        # leaving the highest-priority gap with nothing.
-        zebra = [row for row in rows if row['skill'] == 'Zebra Framework']
-        self.assertLessEqual(len(zebra), MAX_RESOURCES_PER_SKILL)
-        self.assertIn('SQL', [row['skill'] for row in rows])
+        Six Zebra resources once filled a single pooled list and left the
+        highest-priority gap with nothing. A skill's resources can no longer
+        crowd out another skill's, because they are not in the same list.
+        """
+        groups = self.client.get(
+            '/api/dashboard/skill-gap/').data['resources_by_skill']
 
-    def test_priority_is_reported_with_each_resource(self):
-        rows = self.client.get('/api/dashboard/skill-gap/').data['recommended_resources']
+        by_skill = {group['skill']: group for group in groups}
+        self.assertIn('SQL', by_skill)
+        self.assertIn('Zebra Framework', by_skill)
+        # And the full count travels with each group, so "View more" knows.
+        self.assertEqual(by_skill['Zebra Framework']['total'], 6)
 
-        sql_row = next(row for row in rows if row['skill'] == 'SQL')
-        self.assertEqual(sql_row['skill_priority'], 'HIGH')
-        self.assertGreater(sql_row['skill_demand_percentage'], 0)
+    def test_priority_is_reported_with_each_group(self):
+        groups = self.client.get(
+            '/api/dashboard/skill-gap/').data['resources_by_skill']
+
+        sql = next(group for group in groups if group['skill'] == 'SQL')
+        self.assertEqual(sql['skill_priority'], 'HIGH')
+        self.assertGreater(sql['skill_demand_percentage'], 0)
+
+    def test_a_price_is_reported_only_when_the_provider_stated_one(self):
+        """Absent, not "Paid". Most providers never say, and inventing an
+        answer would tell a student a free course costs money."""
+        groups = self.client.get(
+            '/api/dashboard/skill-gap/').data['resources_by_skill']
+
+        for group in groups:
+            for resource in group['resources']:
+                self.assertNotIn('is_free', resource)
+
+    def test_view_more_returns_the_whole_list_for_one_skill(self):
+        """What the page holds back, not a different or looser list.
+
+        Admission is unchanged: a resource is here only because the canonical
+        extractor found this skill in the course's own words. A longer list is
+        more of the same evidence, never a weaker bar.
+        """
+        response = self.client.get('/api/dashboard/skill-resources/',
+                                   {'skill': self.low.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['total'], 6)
+        self.assertEqual(len(response.data['resources']), 6)
+        self.assertEqual(response.data['skill'], 'Zebra Framework')
+
+    def test_view_more_rejects_a_bad_skill_reference(self):
+        self.assertEqual(
+            self.client.get('/api/dashboard/skill-resources/',
+                            {'skill': 'abc'}).status_code, 400)
+        self.assertEqual(
+            self.client.get('/api/dashboard/skill-resources/',
+                            {'skill': 10 ** 9}).status_code, 404)
 
     def test_no_missing_skills_means_no_recommendations(self):
         self.assertEqual(pick_resources_for_gap([]), [])

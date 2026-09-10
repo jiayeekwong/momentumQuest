@@ -56,9 +56,20 @@ interface Resource {
   platform: string;
   url: string;
   type: string;
+  // Absent when the provider never stated a price. Absent is not "paid": the
+  // field is left out of the card entirely rather than guessed at.
+  is_free?: boolean;
+}
+
+interface SkillResourceGroup {
+  skill_id: number;
   skill: string;
   skill_priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   skill_demand_percentage: number | null;
+  // How many exist for this skill in total; the page shows a handful and
+  // offers the rest behind "View more".
+  total: number;
+  resources: Resource[];
 }
 
 interface MarketRoleOption {
@@ -91,7 +102,7 @@ interface SkillGap {
   missing_skills: DemandSkill[];
   soft_skills: SoftSkill[];
   other_skills: OwnedSkill[];
-  recommended_resources: Resource[];
+  resources_by_skill: SkillResourceGroup[];
   data_quality: {
     scope_level: 'ROLE' | 'BROAD_AREA' | 'MARKET';
     target_listing_count: number;
@@ -115,6 +126,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   'Cisco NetAcad':   'bg-blue-800',
   'Codecademy':      'bg-teal-700',
   'Coursera':        'bg-violet-700',
+  'edX':             'bg-red-800',
 };
 
 interface ScopeArea {
@@ -184,6 +196,29 @@ export default function SkillGapPage() {
   const [missingOpen, setMissingOpen] = useState(false);
   const [missingText, setMissingText] = useState('');
   const [missingSent, setMissingSent] = useState(false);
+  // Skills whose full resource list has been fetched, keyed by skill id. The
+  // page ships a handful per skill so it stays readable; the rest arrive only
+  // if a student asks, rather than sending 371 Python courses to everyone.
+  const [expandedSkills, setExpandedSkills] =
+    useState<Record<number, Resource[]>>({});
+  const [loadingSkillId, setLoadingSkillId] = useState<number | null>(null);
+
+  const loadAllResources = async (skillId: number) => {
+    setLoadingSkillId(skillId);
+    try {
+      const res = await apiFetch(
+        `/api/dashboard/skill-resources/?skill=${skillId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setExpandedSkills(prev => ({ ...prev, [skillId]: data.resources }));
+      }
+    } catch {
+      // Leaving the short list in place is the honest failure: the student
+      // still has the resources the page already showed them.
+    } finally {
+      setLoadingSkillId(null);
+    }
+  };
 
   // Loading is derived from whether the data on hand matches the current
   // selection, rather than set synchronously inside the effect (which causes
@@ -863,61 +898,118 @@ export default function SkillGapPage() {
               </section>
             )}
 
-            {/* Recommended learning */}
+            {/* Learning resources, grouped by the skill they teach.
+                Named for what it is. This was "Recommended Learning Paths"
+                over a flat list of six, which made two claims the data cannot
+                support: that those six skills mattered most, and that the
+                first course was the best one. The catalogue knows what a
+                course teaches -- not how long it takes, how well it teaches,
+                or whether it suits this student. So the page lists the
+                related courses per skill and lets the student choose. */}
             <section>
               <div className="flex items-center gap-2 mb-6">
                 <GraduationCap className="text-primary" size={24} />
                 <div>
-                  <h4 className="text-xl font-bold text-neutral-900">Recommended Learning Paths</h4>
+                  <h4 className="text-xl font-bold text-neutral-900">Learning Resources</h4>
                   <p className="text-xs text-neutral-500">
-                    Ordered by how much the market is asking for each missing skill.
+                    Courses related to each missing skill, most in-demand skill first.
+                    Pick whichever suits you.
                   </p>
                 </div>
               </div>
-              {gap.recommended_resources.length === 0 ? (
+              {gap.resources_by_skill.length === 0 ? (
                 <Card className="p-6 text-center text-sm text-neutral-500">
                   No learning resources are available for your missing skills yet.
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {gap.recommended_resources.map(resource => (
-                    <Card key={resource.id} className="p-0 overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
-                      <div className={cn(
-                        'h-32 flex items-center justify-center p-6 text-white relative',
-                        PLATFORM_COLORS[resource.platform] ?? 'bg-neutral-700'
-                      )}>
-                        <h5 className="text-base font-black text-center">{resource.title}</h5>
-                      </div>
-                      <div className="p-5 flex-1 flex flex-col">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">
-                            {resource.platform}
+                <div className="space-y-8">
+                  {gap.resources_by_skill.map(group => {
+                    const extra = expandedSkills[group.skill_id];
+                    const shown = extra ?? group.resources;
+                    const hasMore = group.total > shown.length;
+                    return (
+                      <div key={group.skill_id}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                          <div className="flex items-baseline gap-2">
+                            <h5 className="text-base font-bold text-neutral-900">
+                              Related courses for {group.skill}
+                            </h5>
+                            {group.skill_priority && (
+                              <span className={cn(
+                                'text-[10px] font-black uppercase tracking-wider',
+                                group.skill_priority === 'HIGH' ? 'text-danger'
+                                  : group.skill_priority === 'MEDIUM' ? 'text-warning'
+                                  : 'text-neutral-400'
+                              )}>
+                                {group.skill_priority} priority
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-neutral-400">
+                            {group.skill_demand_percentage !== null &&
+                              `asked for in ${group.skill_demand_percentage}% of listings · `}
+                            showing {shown.length} of {group.total}
                           </span>
-                          <Badge variant="primary">{resource.type}</Badge>
                         </div>
-                        <p className="text-xs text-neutral-500 mb-1">Builds: {resource.skill}</p>
-                        {resource.skill_priority && (
-                          <p className="text-[11px] text-neutral-400 mb-4">
-                            <span className={cn(
-                              'font-black uppercase tracking-wider',
-                              resource.skill_priority === 'HIGH' ? 'text-danger'
-                                : resource.skill_priority === 'MEDIUM' ? 'text-warning'
-                                : 'text-neutral-400'
-                            )}>
-                              {resource.skill_priority} priority
-                            </span>
-                            {resource.skill_demand_percentage !== null &&
-                              ` · asked for in ${resource.skill_demand_percentage}% of listings`}
-                          </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {shown.map(resource => (
+                            <Card key={resource.id} className="p-4 flex flex-col gap-2">
+                              <div className="flex items-start justify-between gap-2">
+                                {/* The provider, colour-coded. A student
+                                    scanning five platforms in one list needs
+                                    to tell them apart at a glance. */}
+                                <span className={cn(
+                                  'text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded text-white',
+                                  PLATFORM_COLORS[resource.platform] ?? 'bg-neutral-600'
+                                )}>
+                                  {resource.platform}
+                                </span>
+                                <Badge variant="neutral">{resource.type}</Badge>
+                              </div>
+                              <p className="text-sm font-bold text-neutral-900 leading-snug">
+                                {resource.title}
+                              </p>
+                              {/* Only when the provider actually said so.
+                                  Most do not, and an absent price shown as
+                                  "Paid" would be an invention. */}
+                              {resource.is_free !== undefined && (
+                                <span className={cn(
+                                  'text-[10px] font-black uppercase tracking-wider w-fit',
+                                  resource.is_free ? 'text-emerald-600' : 'text-neutral-500'
+                                )}>
+                                  {resource.is_free ? 'Free' : 'Paid'}
+                                </span>
+                              )}
+                              <a
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-auto pt-2"
+                              >
+                                <Button fullWidth variant="outline">
+                                  <ExternalLink size={14} /> Open
+                                </Button>
+                              </a>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {hasMore && (
+                          <button
+                            type="button"
+                            onClick={() => loadAllResources(group.skill_id)}
+                            disabled={loadingSkillId === group.skill_id}
+                            className="mt-3 text-xs font-semibold text-primary hover:underline disabled:text-neutral-400"
+                          >
+                            {loadingSkillId === group.skill_id
+                              ? 'Loading…'
+                              : `View more (${group.total - shown.length} more)`}
+                          </button>
                         )}
-                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="mt-auto">
-                          <Button fullWidth>
-                            <ExternalLink size={14} /> Open Resource
-                          </Button>
-                        </a>
                       </div>
-                    </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>

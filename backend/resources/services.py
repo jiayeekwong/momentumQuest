@@ -160,7 +160,7 @@ def map_catalogue_to_skills(platform_name="Coursera", categories=None):
 
     Returns (created, updated, unmapped_course_count).
     """
-    from resources.models import CourseCatalogue
+    from resources.models import CourseCatalogue, RejectedResourceMapping
     # The advert extractor, not a second matcher. resources.scraper carried its
     # own copy of the boundary logic, and the copy still had the bug the
     # extractor was fixed for: "C#" and "C++" matched nothing, because  after
@@ -172,7 +172,16 @@ def map_catalogue_to_skills(platform_name="Coursera", categories=None):
     from scrape_jobs.skill_extractor import extract_skills_from_text
 
     rows = CourseCatalogue.objects.filter(platform=platform_name, is_active=True)
-    created = updated = unmapped = removed = 0
+    # Reviewed refusals, read once. A person looked at one of these pairings
+    # and said no; mapping is re-run offline whenever the extractor changes,
+    # and without this every one of those decisions would be silently undone.
+    rejected = {
+        (skill_id, url)
+        for skill_id, url in RejectedResourceMapping.objects
+        .values_list("skill_id", "url")
+    }
+
+    created = updated = unmapped = removed = refusals = 0
     for course in rows:
         # Title and card text only -- never the phrase that found the course.
         # A search for "Root Cause Analysis" surfacing a Six Sigma course is
@@ -180,6 +189,13 @@ def map_catalogue_to_skills(platform_name="Coursera", categories=None):
         # RCA on that basis is the mistake this whole pass exists to avoid.
         haystack = f"{course.title} {course.card_text}"
         matched_ids = {skill.id for skill in extract_skills_from_text(haystack)}
+        # A refusal removes the pairing entirely, so the stale-row sweep below
+        # also deletes any row an earlier pass created for it.
+        refused = {skill_id for skill_id in matched_ids
+                   if (skill_id, course.url) in rejected}
+        refusals += len(refused)
+        matched_ids -= refused
+
         for skill_id in matched_ids:
             _, was_created = LearningResource.objects.update_or_create(
                 skill_id=skill_id,
@@ -211,9 +227,9 @@ def map_catalogue_to_skills(platform_name="Coursera", categories=None):
 
     logger.info(
         "%s: mapped %d new and %d existing resource(s), removed %d that no "
-        "longer match; %d course(s) matched no known skill and stay in the "
-        "catalogue.",
-        platform_name, created, updated, removed, unmapped,
+        "longer match, honoured %d reviewed rejection(s); %d course(s) matched "
+        "no known skill and stay in the catalogue.",
+        platform_name, created, updated, removed, refusals, unmapped,
     )
     return created, updated, unmapped
 

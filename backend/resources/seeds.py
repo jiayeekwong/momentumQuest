@@ -45,20 +45,27 @@ from pathlib import Path
 
 from scrape_jobs.catalogue import read_bool, read_rows, write_bool
 
-from .models import CourseCatalogue, LearningResource
+from .models import CourseCatalogue, LearningResource, RejectedResourceMapping
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 COURSE_FIELDS = ["url", "title", "platform", "type", "categories",
                  "discovered_via", "card_text", "is_free", "is_active"]
 RESOURCE_FIELDS = ["skill_name", "url", "title", "platform", "type", "is_active"]
+REJECTION_FIELDS = ["skill_name", "url", "reason"]
 
 COURSES_FILE = "course_catalogue.csv"
 RESOURCES_FILE = "learning_resources.csv"
+REJECTIONS_FILE = "rejected_resource_mappings.csv"
 
 FILES = {
     "courses": (COURSES_FILE, COURSE_FIELDS),
     "resources": (RESOURCES_FILE, RESOURCE_FIELDS),
+    # Third file, because a refusal is a reviewed decision and has to survive a
+    # rebuild. Mapping is re-run offline whenever the extractor changes, and a
+    # rejection that lived only in one database would be silently undone on
+    # every fresh deployment.
+    "rejections": (REJECTIONS_FILE, REJECTION_FIELDS),
 }
 
 #: Natural keys, and the single definition of order. Sorted in Python rather
@@ -68,6 +75,7 @@ FILES = {
 SORT_KEYS = {
     "courses": lambda row: row["url"],
     "resources": lambda row: (row["skill_name"], row["url"]),
+    "rejections": lambda row: (row["skill_name"], row["url"]),
 }
 
 #: JSON-encoded columns. Lists in a CSV cell need one encoding that survives a
@@ -109,8 +117,22 @@ def resource_rows():
     ]
 
 
+def rejection_rows():
+    return [
+        {
+            "skill_name": row.skill.skill_name,
+            "url": row.url,
+            "reason": row.reason,
+        }
+        # rejected_at is excluded for the reason scraped_at is: it records when
+        # somebody decided, not what they decided.
+        for row in RejectedResourceMapping.objects.select_related("skill")
+    ]
+
+
 def database_snapshot():
-    snapshot = {"courses": course_rows(), "resources": resource_rows()}
+    snapshot = {"courses": course_rows(), "resources": resource_rows(),
+                "rejections": rejection_rows()}
     for key, rows in snapshot.items():
         rows.sort(key=SORT_KEYS[key])
     return snapshot

@@ -20,6 +20,8 @@ from job_listings.matching import proficiency_value, skill_score
 from job_listings.models import JobListing, ScrapeLog
 from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate, LearningResource  # Certificate: admin dashboard only
+from resources.providers import authority_index, get_provider, provider_names
+from resources.relevance import DEFAULT_PER_SKILL, free_status, related_resources
 from resources.file_validation import InvalidUpload, validate_document
 
 from .models import Announcement
@@ -505,45 +507,44 @@ def priority_for(demand_percentage):
     return 'LOW'
 
 
-def pick_resources_for_gap(missing_ids,
-                           limit=MAX_RECOMMENDED_RESOURCES,
-                           per_skill=MAX_RESOURCES_PER_SKILL):
-    """Choose learning resources that follow the gap's own priority order.
+def pick_resources_for_gap(missing_ids, per_skill=DEFAULT_PER_SKILL):
+    """Related resources for each missing skill, grouped by skill.
 
-    ``missing_ids`` arrives in descending demand order, so the first skill is
-    the one worth learning first.
+    Grouped rather than pooled, because the page asks a different question than
+    it used to. It once chose six resources across all the gaps and presented
+    them as recommended learning, which forced two judgements it had no basis
+    for: which skills deserved a slot at all, and which single course was best.
+    A student closing a gap wants the courses for *this* skill, and to choose
+    among them.
 
-    This used to be ``order_by('platform', 'title')[:6]``, which is
-    alphabetical: whichever skill happened to sit early in the alphabet by
-    platform could take all six slots, and a student's highest-demand gap
-    could be recommended nothing at all. Selection now round-robins across
-    the missing skills in priority order, so the top gaps are served first
-    and no single skill can monopolise the list.
+    ``missing_ids`` arrives in demand order, so the groups come back in the
+    order worth working through.
+
+    Each group carries a ``total`` beside its slice, so the page can offer
+    "View more" without shipping 119 rows for C#.
     """
     if not missing_ids:
         return []
 
-    by_skill = defaultdict(list)
-    candidates = (
-        LearningResource.objects
-        .filter(is_active=True, skill_id__in=missing_ids)
-        .select_related('skill')
-        .order_by('platform', 'title')
-    )
-    for resource in candidates:
-        bucket = by_skill[resource.skill_id]
-        if len(bucket) < per_skill:
-            bucket.append(resource)
+    # Built once for the page. The index composes what every registered adapter
+    # claims to vendor, and rebuilding it per skill would repeat that work for
+    # no benefit.
+    authority = authority_index(
+        get_provider(name) for name in provider_names())
 
-    picked = []
-    for depth in range(per_skill):
-        for skill_id in missing_ids:
-            bucket = by_skill.get(skill_id, ())
-            if depth < len(bucket):
-                picked.append(bucket[depth])
-                if len(picked) == limit:
-                    return picked
-    return picked
+    groups = []
+    for skill in Skill.objects.filter(id__in=missing_ids):
+        resources, total = related_resources(skill, limit=per_skill,
+                                             authority=authority)
+        if resources:
+            groups.append({"skill": skill, "resources": resources,
+                           "total": total})
+
+    # Back into demand order: the queryset returns rows in whatever order the
+    # database chose, and the priority order is the whole point of the list.
+    position = {skill_id: index for index, skill_id in enumerate(missing_ids)}
+    groups.sort(key=lambda group: position.get(group["skill"].id, len(position)))
+    return groups
 
 
 def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
@@ -727,7 +728,10 @@ def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
     missing_ids = [row['skill_id'] for row in missing]
     priority_by_skill = {row['skill_id']: row['priority_level'] for row in missing}
     demand_by_skill = {row['skill_id']: row['demand_percentage'] for row in missing}
-    resources = pick_resources_for_gap(missing_ids)
+    resource_groups = pick_resources_for_gap(missing_ids)
+    prices = free_status(
+        resource.url
+        for group in resource_groups for resource in group['resources'])
 
     return {
         'mode': 'TARGET' if use_target else 'OVERVIEW',
@@ -744,20 +748,37 @@ def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
         'missing_skills': missing,
         'soft_skills': soft_skills,
         'other_skills': other_skills,
-        'recommended_resources': [
+        # Grouped by skill, and named for what it is: the courses that
+        # teach this skill, for the student to choose between. Not a best
+        # course -- nothing in the catalogue knows a course's length, teaching
+        # quality or fit, and an order implying otherwise would claim more than
+        # the evidence carries.
+        'resources_by_skill': [
             {
-                'id': resource.id,
-                'title': resource.title,
-                'platform': resource.platform,
-                'url': resource.url,
-                'type': resource.type,
-                'skill': resource.skill.skill_name,
-                # Surfaced so the student can see why this is recommended and
-                # in what order to work through the list.
-                'skill_priority': priority_by_skill.get(resource.skill_id),
-                'skill_demand_percentage': demand_by_skill.get(resource.skill_id),
+                'skill_id': group['skill'].id,
+                'skill': group['skill'].skill_name,
+                'skill_priority': priority_by_skill.get(group['skill'].id),
+                'skill_demand_percentage': demand_by_skill.get(group['skill'].id),
+                # How many exist in total, so "View more" knows whether it has
+                # anything left to show.
+                'total': group['total'],
+                'resources': [
+                    {
+                        'id': resource.id,
+                        'title': resource.title,
+                        'platform': resource.platform,
+                        'url': resource.url,
+                        'type': resource.type,
+                        # Present only when the provider actually stated a
+                        # price. Absent means unknown, and the page leaves it
+                        # out rather than rendering it as "Paid".
+                        **({'is_free': prices[resource.url]}
+                           if resource.url in prices else {}),
+                    }
+                    for resource in group['resources']
+                ],
             }
-            for resource in resources
+            for group in resource_groups
         ],
         'data_quality': {
             'scope_level': scope_level,
@@ -778,6 +799,56 @@ def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
             'student_skill_count': len(owned_levels),
         },
     }
+
+
+class SkillResourcesView(APIView):
+    """
+    GET /api/dashboard/skill-resources/?skill=<id>
+
+    Every resource related to one skill -- what "View more" opens. The skill
+    gap page carries a handful per skill so it stays readable; this is the rest
+    of them, in the same deterministic order.
+
+    Admission is unchanged and is not relaxed here: a resource appears only
+    because the canonical extractor found this skill in the course's own words.
+    A longer list is a longer list of the same evidence, never a weaker bar.
+    """
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        raw = request.query_params.get('skill')
+        try:
+            skill = Skill.objects.get(id=int(raw))
+        except (TypeError, ValueError):
+            return Response({'skill': ['Not a skill id.']},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Skill.DoesNotExist:
+            return Response({'skill': ['No such skill.']},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        authority = authority_index(
+            get_provider(name) for name in provider_names())
+        resources, total = related_resources(skill, limit=None,
+                                             authority=authority)
+        prices = free_status(resource.url for resource in resources)
+
+        return Response({
+            'skill_id': skill.id,
+            'skill': skill.skill_name,
+            'total': total,
+            'resources': [
+                {
+                    'id': resource.id,
+                    'title': resource.title,
+                    'platform': resource.platform,
+                    'url': resource.url,
+                    'type': resource.type,
+                    **({'is_free': prices[resource.url]}
+                       if resource.url in prices else {}),
+                }
+                for resource in resources
+            ],
+        })
 
 
 class StudentSkillGapView(APIView):

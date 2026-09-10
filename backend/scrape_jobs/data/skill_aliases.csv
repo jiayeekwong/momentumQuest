@@ -1361,7 +1361,7 @@ chart php,pChart,MTO,false,true
 chartjs,Chart.js,MTO,false,true
 charts,Chart.js,MTO,true,true
 charts swift,iOS Charts,MTO,false,true
-chatgpt,ChatGPT.js,MTO,false,true
+chatgpt,ChatGPT.js,MTO,false,false
 chatgpt-node,ChatGPT.js,MTO,false,true
 chef automation,Chef,MTO,false,true
 chef configuration,Chef,MTO,false,true
@@ -1807,7 +1807,7 @@ gcp vertex ai,Google Vertex AI,MTO,false,true
 gdal julia,ArchGDAL.jl,MTO,false,true
 gen-sim,Gensim,MTO,false,true
 generalized linear models,GLM.jl,MTO,false,true
-geo,rust geo,MTO,true,true
+geo,rust geo,MTO,true,false
 geo pandas,geopandas,MTO,false,true
 geo rust,rust geo,MTO,false,true
 geo tools,GeoTools,MTO,false,true
