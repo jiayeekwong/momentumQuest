@@ -1,3 +1,12 @@
 skill_name,url,reason
+AI Coding Assistants,https://www.coursera.org/learn/build-ai-chatbots-with-react-and-ai-apis,"Programming against the model's API, which the catalogue already carries as OpenAI API, LLM and GenAI -- not being assisted while writing code."
+AI Coding Assistants,https://www.coursera.org/learn/building-with-the-claude-api,"Programming against the model's API, which the catalogue already carries as OpenAI API, LLM and GenAI -- not being assisted while writing code."
+AI Coding Assistants,https://www.coursera.org/learn/generative-ai-for-sql,"Data analysis with an assistant, not software development."
+AI Coding Assistants,https://www.coursera.org/learn/intro-to-model-context-protocol-mcp,"Programming against the model's API, which the catalogue already carries as OpenAI API, LLM and GenAI -- not being assisted while writing code."
+AI Coding Assistants,https://www.coursera.org/learn/mcp-servers-agentic-ai-architecture,"Programming against the model's API, which the catalogue already carries as OpenAI API, LLM and GenAI -- not being assisted while writing code."
+AI Coding Assistants,https://www.coursera.org/learn/packt-ai-project-management-skills-scrum-master-ai-chatgpt-jira-oeq46,"Project management for software teams, not assisted development."
+AI Coding Assistants,https://www.coursera.org/learn/packt-claude-for-professional-productivity-and-task-automation-jddr4,"The business-productivity sense of the product, which this skill deliberately excludes."
+AI Coding Assistants,https://www.coursera.org/specializations/ai-seo,Search-marketing course; 'Frontend Performance' in its skill list is the only coding word near a product name.
+AI Coding Assistants,https://www.coursera.org/specializations/packt-craft-an-autogpt-code-generation-ai-instrument-leveraging-rust-and-gpt-4,"Programming against the model's API, which the catalogue already carries as OpenAI API, LLM and GenAI -- not being assisted while writing code."
 LLM,https://www.coursera.org/learn/ai-seo,"Search-marketing course. 'LLM' appears as SEO jargon, not as language-model engineering."
 LLM,https://www.coursera.org/specializations/ai-seo,"Search-marketing course. 'LLM' appears as SEO jargon (LLM SEO/GEO/AEO), not as language-model engineering."
