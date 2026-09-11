@@ -54,6 +54,11 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 
+# The test runner forces DEBUG=False, so anything keyed on DEBUG alone would
+# hand the suite its production configuration. Defined here because CACHES
+# below needs it; the throttle rates further down reuse it.
+_RUNNING_TESTS = "test" in sys.argv
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -163,17 +168,64 @@ USE_TZ = True
 
 #For JWT Authentication
 
+# The cache is shared state, not a speed-up. Throttle history lives here, so
+# with Django's default per-process LocMemCache every worker keeps its own
+# counters and the effective rate limit is the configured rate times the worker
+# count -- which is why this is configured rather than left to the default.
+#
+# Three cases, chosen by DJANGO_CACHE_URL:
+#
+#   redis://host:6379/0   a shared cache for more than one host or worker
+#   unset, DEBUG=false    the database, so a single-host deployment is correct
+#                         without running another service. Needs
+#                         "manage.py createcachetable" once; it is idempotent.
+#   unset, DEBUG=true     in-memory, so a local clone needs nothing installed
+#
+# The database backend is the deliberate default for production: it is slower
+# than Redis and it is *correct* across workers, and a throttle that under-
+# counts is a security property quietly lost, whereas a slow cache is visible.
+_CACHE_URL = os.getenv("DJANGO_CACHE_URL", "").strip()
+
+if _CACHE_URL.startswith(("redis://", "rediss://", "unix://")):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _CACHE_URL,
+            # A shared Redis can outlive a deploy and can be shared with other
+            # projects; the prefix keeps this application's keys its own.
+            "KEY_PREFIX": os.getenv("DJANGO_CACHE_PREFIX", "momentumquest"),
+        }
+    }
+elif DEBUG or _RUNNING_TESTS:
+    # The test runner lands here too, deliberately. It forces DEBUG=False, and
+    # the database backend needs a table that createcachetable makes rather
+    # than a migration -- so the suite would fail on the first throttled
+    # request, in a configuration no deployment runs.
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "momentumquest-dev",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": os.getenv("DJANGO_CACHE_TABLE", "django_cache"),
+            "KEY_PREFIX": os.getenv("DJANGO_CACHE_PREFIX", "momentumquest"),
+        }
+    }
+
+
 # Throttling is scoped rather than global: the public job feed is meant to be
 # browsed freely, while the endpoints that send mail, mint tokens or accept a
 # guessable token are the ones worth rate-limiting. Each rate is overridable by
 # environment variable so a deployment can tighten one without a code change.
 #
 # Counted per client IP for anonymous callers, which is what these endpoints
-# see. The history lives in Django's cache: with the default in-memory cache
-# each worker process keeps its own counter, so behind several workers the
-# effective limit is the rate times the worker count. That is a weaker
-# guarantee than it looks, and a deployment that runs more than one worker
-# should point CACHES at something shared before relying on these numbers.
+# see. The history lives in Django's cache, which CACHES above points at shared
+# storage whenever DEBUG is false -- without that, each worker counts alone and
+# the effective limit is the rate times the worker count.
 _THROTTLE_RATES = {
     # Credential stuffing is the thing being slowed here, so this is the
     # tightest of the set and is measured per minute.
@@ -203,7 +255,6 @@ _THROTTLE_RATES = {
 #
 # The limits themselves are exercised deliberately by AuthThrottleTests, which
 # patches these rates down to numbers a test can reach.
-_RUNNING_TESTS = "test" in sys.argv
 _TEST_RATE = "100000/min"
 
 REST_FRAMEWORK = {
@@ -308,6 +359,25 @@ CORS_ALLOWED_ORIGINS = [
     for origin in os.getenv(
         "CORS_ALLOWED_ORIGINS",
         "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
+
+# CSRF's companion to the list above, and a separate setting because it answers
+# a different question: CORS decides who may *read* a response, CSRF_TRUSTED_-
+# ORIGINS decides whose form posts and unsafe methods are believed. Django
+# compares the Origin header against this list for every unsafe request over
+# HTTPS, so the admin behind a TLS proxy needs its own origin here even though
+# no cross-site call is involved.
+#
+# Defaults to the CORS list rather than to empty: an origin already trusted to
+# make credentialed cross-origin requests is one whose posts are trusted too,
+# and an empty default fails closed at the first admin login on staging with a
+# message that does not name this setting. Entries must carry the scheme.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS", ",".join(CORS_ALLOWED_ORIGINS)
     ).split(",")
     if origin.strip()
 ]
