@@ -116,8 +116,8 @@ Verify, exactly:
 
 | | |
 |---|---|
-| MarketRole | 31 |
-| MarketRoleAlias | 228 |
+| MarketRole | 32 |
+| MarketRoleAlias | 231 |
 | CourseCatalogue | 5,794 |
 | LearningResource | 20,434 |
 | RejectedResourceMapping | 11 |
@@ -125,9 +125,10 @@ Verify, exactly:
 Then confirm the database matches the committed seeds:
 
     python manage.py export_skills --check
+    python manage.py load_market_roles --check
     python manage.py export_resources --check
 
-Both must report a match. They compare a deterministic sorted digest, not row
+All three must report a match. They compare a deterministic sorted digest, not row
 counts. **Do not continue if either disagrees** — a database that cannot
 reproduce its own seeds is not reproducible anywhere else either.
 

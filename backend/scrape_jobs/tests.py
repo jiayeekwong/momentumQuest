@@ -2472,3 +2472,130 @@ class RefreshMarketDataTests(TestCase):
 
         self.assertIsNone(error)
         self.assertIn("scrape_jobs", calls)
+
+
+class MarketRoleSeedReproducibilityTests(TestCase):
+    """A fresh database must reproduce the reviewed state, and say so if not.
+
+    Market roles had no seed check while skills and resources did, and they
+    drifted: three MALAYSIA_TITLE_REVIEW aliases and one IMDA_MARKET_EXTENSION
+    role were approved into a database and never written back to the file. A
+    fresh deployment would have classified those adverts differently from the
+    one the decision was reviewed on, and nothing would have reported it.
+    """
+
+    #: The reviewed decisions the seed did not carry until this was fixed.
+    REVIEWED = (
+        ("information technology product manager", "Product Manager"),
+        ("information technology application support analyst",
+         "Application Support Analyst"),
+        ("information technology software engineer", "Software Engineer"),
+    )
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_market_roles")
+
+    def test_a_fresh_load_produces_the_whole_reviewed_taxonomy(self):
+        self.assertEqual(MarketRole.objects.count(), 32)
+        self.assertEqual(MarketRoleAlias.objects.count(), 231)
+
+    def test_product_manager_exists_after_a_fresh_load(self):
+        """The role the seed was missing.
+
+        It reached the database as a reviewed market extension and lived only
+        there, so a fresh deployment had 31 roles and filed "IT Product Manager"
+        as unclassified.
+        """
+        role = MarketRole.objects.get(name="Product Manager")
+
+        self.assertEqual(role.catalogue_origin, "IMDA_MARKET_EXTENSION")
+        self.assertTrue(role.is_active)
+
+    def test_each_reviewed_alias_resolves_to_its_approved_role(self):
+        for title, role_name in self.REVIEWED:
+            with self.subTest(title=title):
+                alias = MarketRoleAlias.objects.select_related(
+                    "market_role").get(normalized_title=title)
+                self.assertEqual(alias.market_role.name, role_name)
+                self.assertEqual(alias.source, "MALAYSIA_TITLE_REVIEW")
+                self.assertEqual(alias.review_status, "APPROVED")
+                self.assertTrue(alias.reviewed)
+
+    def test_loading_twice_changes_nothing(self):
+        call_command("load_market_roles")
+
+        self.assertEqual(MarketRole.objects.count(), 32)
+        self.assertEqual(MarketRoleAlias.objects.count(), 231)
+
+    # ---- the check itself --------------------------------------------------
+
+    def test_the_check_passes_on_the_seeded_state(self):
+        call_command("load_market_roles", check=True)   # raises if it disagrees
+
+    def test_the_check_does_not_write(self):
+        """It must be safe to run against production."""
+        MarketRoleAlias.objects.filter(
+            normalized_title="information technology product manager").delete()
+
+        with self.assertRaises(CommandError):
+            call_command("load_market_roles", check=True)
+
+        # Still missing: the check reported, it did not repair.
+        self.assertFalse(MarketRoleAlias.objects.filter(
+            normalized_title="information technology product manager").exists())
+
+    def test_an_extra_role_in_the_database_fails_the_check(self):
+        MarketRole.objects.create(name="Invented Role",
+                                  normalized_name="invented role")
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("load_market_roles", check=True)
+
+        self.assertIn("not the seed", str(caught.exception))
+
+    def test_a_missing_alias_fails_the_check(self):
+        MarketRoleAlias.objects.filter(
+            normalized_title="information technology software engineer").delete()
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("load_market_roles", check=True)
+
+        self.assertIn("alias missing", str(caught.exception))
+
+    def test_an_alias_pointing_at_the_wrong_role_fails_the_check(self):
+        """The failure a row count cannot see.
+
+        Counts still agree; the classification is simply wrong, which is the
+        shape of drift most worth catching.
+        """
+        alias = MarketRoleAlias.objects.get(
+            normalized_title="information technology product manager")
+        alias.market_role = MarketRole.objects.get(name="Software Engineer")
+        alias.save()
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("load_market_roles", check=True)
+
+        self.assertIn("market_role", str(caught.exception))
+
+    def test_changed_review_metadata_fails_the_check(self):
+        """A reviewed decision downgraded in the database is a real difference,
+        even though every row is still present and pointing correctly."""
+        MarketRoleAlias.objects.filter(
+            normalized_title="information technology product manager"
+        ).update(source="LEGACY")
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("load_market_roles", check=True)
+
+        self.assertIn("source", str(caught.exception))
+
+    def test_a_changed_role_catalogue_origin_fails_the_check(self):
+        MarketRole.objects.filter(name="Product Manager").update(
+            catalogue_origin="MARKET_DERIVED")
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("load_market_roles", check=True)
+
+        self.assertIn("catalogue_origin", str(caught.exception))
