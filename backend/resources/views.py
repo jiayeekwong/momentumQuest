@@ -22,6 +22,7 @@ from accounts.permissions import (
 )
 from accounts.privacy_notice import CURRENT_VERSION
 from .file_validation import MAX_BYTES as MAX_UPLOAD_BYTES
+from .pagination import ResourceCataloguePagination
 from . import private_storage
 from .file_validation import InvalidUpload, validate_document
 from .models import (
@@ -70,6 +71,35 @@ class LearningResourceListView(generics.ListAPIView):
     search_fields      = ["title", "platform"]
     ordering_fields    = ["platform", "scraped_at"]
     ordering           = ["platform", "title"]
+    # 20,430 active rows serialised to 5.4MB in one response before this, and
+    # the page then rendered every one of them. See resources.pagination for
+    # why this is set per-view instead of globally.
+    pagination_class   = ResourceCataloguePagination
+
+    def list(self, request, *args, **kwargs):
+        """One page, plus the platform names the filter tabs are built from.
+
+        The tabs need every platform, which a single page cannot show -- and
+        downloading the whole table to derive five strings is what this change
+        exists to remove. One DISTINCT on an indexed column is the cheaper
+        answer, and it is deliberately unfiltered so selecting a platform does
+        not make the other tabs disappear.
+        """
+        response = super().list(request, *args, **kwargs)
+        if isinstance(response.data, dict):
+            response.data["platforms"] = sorted(
+                LearningResource.objects
+                .filter(is_active=True)
+                # order_by("platform") is load-bearing: the model's default
+                # ordering is ("platform", "title"), and an ORDER BY column
+                # joins the SELECT, so DISTINCT would apply to the pair and
+                # return one entry per course -- 20,430 strings, which is most
+                # of a payload this change exists to shrink.
+                .order_by("platform")
+                .values_list("platform", flat=True)
+                .distinct()
+            )
+        return response
 
     def get_queryset(self):
         qs       = LearningResource.objects.filter(is_active=True).select_related("skill")

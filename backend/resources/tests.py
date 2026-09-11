@@ -2510,3 +2510,180 @@ class ResourceSeedReproducibilityTests(TestCase):
         call_command("import_resources", stdout=StringIO())
 
         self.assertEqual(snapshot_digest(database_snapshot()), once)
+
+
+class ResourceCataloguePaginationTests(TestCase):
+    """The catalogue listing must never hand over the whole table.
+
+    Unpaginated, this endpoint served 20,430 rows as 5.4MB in 2.4 seconds, and
+    the page then rendered every row. These pin the properties that stop it
+    coming back: a bounded default, a ceiling the caller cannot raise, and
+    filters that survive paging so the client has no reason to fetch
+    everything and filter locally.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        python = Skill.objects.create(skill_name="Python")
+        java = Skill.objects.create(skill_name="Java")
+        for n in range(30):
+            LearningResource.objects.create(
+                skill=python, title=f"Python Course {n:02}", platform="Coursera",
+                url=f"https://example.com/py-{n}", type="Course")
+        for n in range(5):
+            LearningResource.objects.create(
+                skill=java, title=f"Copilot for Java {n}", platform="edX",
+                url=f"https://example.com/java-{n}", type="Course")
+        LearningResource.objects.create(
+            skill=java, title="Retired Course", platform="edX",
+            url="https://example.com/retired", type="Course", is_active=False)
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("learning-resources")
+
+    def test_the_default_request_is_paginated(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.data) >= {"count", "next", "previous", "results"}, True)
+        # 35 active rows exist; one page is 24 of them.
+        self.assertEqual(response.data["count"], 35)
+        self.assertEqual(len(response.data["results"]), 24)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    def test_retired_resources_are_not_counted_or_served(self):
+        """count drives "Page X of Y", so an inactive row would inflate it."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.data["count"], 35)
+        self.assertNotIn(
+            "Retired Course", [r["title"] for r in response.data["results"]])
+
+    def test_the_second_page_holds_the_remainder(self):
+        response = self.client.get(self.url, {"page": 2})
+
+        self.assertEqual(len(response.data["results"]), 11)
+        self.assertIsNone(response.data["next"])
+        self.assertIsNotNone(response.data["previous"])
+
+    def test_the_page_size_is_bounded(self):
+        """The whole point. page_size is caller-supplied, so without a ceiling
+        ?page_size=20430 reinstates the download this replaced."""
+        response = self.client.get(self.url, {"page_size": 20430})
+
+        self.assertLessEqual(len(response.data["results"]), 100)
+
+    def test_a_caller_may_still_ask_for_a_smaller_page(self):
+        response = self.client.get(self.url, {"page_size": 5})
+
+        self.assertEqual(len(response.data["results"]), 5)
+
+    def test_platform_filtering_survives_pagination(self):
+        response = self.client.get(self.url, {"platform": "edX"})
+
+        self.assertEqual(response.data["count"], 5)
+        self.assertEqual({r["platform"] for r in response.data["results"]},
+                         {"edX"})
+
+    def test_search_filtering_survives_pagination(self):
+        response = self.client.get(self.url, {"search": "copilot"})
+
+        self.assertEqual(response.data["count"], 5)
+        for row in response.data["results"]:
+            self.assertIn("Copilot", row["title"])
+
+    def test_skill_filtering_survives_pagination(self):
+        response = self.client.get(self.url, {"skill": "Java"})
+
+        self.assertEqual(response.data["count"], 5)
+        self.assertEqual({r["skill"] for r in response.data["results"]},
+                         {"Java"})
+
+    def test_filters_combine(self):
+        """What the page sends when a platform tab and a search are both set.
+
+        12, not 10: DRF's SearchFilter splits the phrase and requires every
+        term, so "1" matches "Python Course 01", 10 through 19, and 21. Worth
+        stating rather than rounding off -- the page shows this count as
+        "N resources" beside the pager.
+        """
+        response = self.client.get(
+            self.url, {"platform": "Coursera", "search": "Python Course 1"})
+
+        self.assertEqual(response.data["count"], 12)
+
+    def test_a_page_past_the_end_is_rejected(self):
+        self.assertEqual(self.client.get(self.url, {"page": 9999}).status_code,
+                         404)
+
+    def test_a_page_that_is_not_a_number_is_rejected(self):
+        """Would otherwise be the ?top=abc defect again, one endpoint over."""
+        for value in ("abc", "-1", "0", "1.5"):
+            with self.subTest(page=value):
+                self.assertEqual(
+                    self.client.get(self.url, {"page": value}).status_code, 404)
+
+    def test_an_empty_page_parameter_means_the_first_page(self):
+        """?page= is an absent value, not a bad one -- a cleared input box
+        should show page 1 rather than a 404."""
+        response = self.client.get(self.url, {"page": ""})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data["previous"])
+
+    def test_the_response_names_every_platform_not_only_this_page(self):
+        """The filter tabs are built from this.
+
+        Deriving them from the rows on screen would show only the platforms the
+        current page happens to contain -- page 1 is all Coursera here, so edX
+        would have no tab to select.
+        """
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.data["platforms"], ["Coursera", "edX"])
+        self.assertEqual({r["platform"] for r in response.data["results"]},
+                         {"Coursera"})
+
+    def test_the_platform_list_is_not_narrowed_by_the_current_filter(self):
+        """Otherwise choosing edX would remove every other tab, and with it the
+        way back."""
+        response = self.client.get(self.url, {"platform": "edX"})
+
+        self.assertEqual(response.data["platforms"], ["Coursera", "edX"])
+
+    def test_the_platform_list_holds_one_entry_per_platform(self):
+        """The model orders by ("platform", "title"), and an ORDER BY column
+        joins the SELECT -- so a DISTINCT taken without resetting the ordering
+        returns one entry per course. That bug shipped 20,430 strings."""
+        response = self.client.get(self.url)
+
+        platforms = response.data["platforms"]
+        self.assertEqual(len(platforms), len(set(platforms)))
+
+
+class OtherListEndpointsStayUnpaginatedTests(TestCase):
+    """Pagination is scoped to one view, and this is why.
+
+    Ten ListAPIViews return bare arrays and the frontend reads them in 28
+    places as `Array.isArray(data) ? data : []`. A global
+    DEFAULT_PAGINATION_CLASS would hand each an object, and those pages would
+    render empty with no error anywhere.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_the_public_job_feed_still_returns_a_list(self):
+        response = self.client.get("/api/job-listings/public/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+
+    def test_the_course_list_still_returns_a_list(self):
+        response = self.client.get(reverse("course-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)

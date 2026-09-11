@@ -116,46 +116,112 @@ function TrainingModal({ programme: p, onClose }: { programme: TrainingProgramme
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 24;
+const SEARCH_DEBOUNCE_MS = 350;
+
+/** One page of /api/resources/, plus the platform names for the filter tabs. */
+interface ResourcePage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: LearningResource[];
+  platforms: string[];
+}
+
 export default function ResourcesPage() {
   const [resources, setResources] = useState<LearningResource[]>([]);
+  const [count, setCount] = useState(0);
+  const [apiPlatforms, setApiPlatforms] = useState<string[]>([]);
   const [training, setTraining] = useState<TrainingProgramme[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Loading is derived, not stored: it is true exactly while the page on
+  // screen is not the page the current filters ask for. Storing it meant
+  // setting state synchronously in the fetch effect, which cascades a render.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [platform, setPlatform] = useState('All');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [detailItem, setDetailItem] = useState<TrainingProgramme | null>(null);
 
+  // Training programmes are company submissions and there are few of them, so
+  // one small unpaginated request is fine here. The scraped catalogue is not.
   useEffect(() => {
-    Promise.all([
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/resources/`)
-        .then(r => r.json())
-        .then((data: LearningResource[]) => setResources(Array.isArray(data) ? data : []))
-        .catch(() => {}),
-      apiFetch('/api/resources/training/approved/')
-        .then(r => r.json())
-        .then((data: TrainingProgramme[]) => setTraining(Array.isArray(data) ? data : []))
-        .catch(() => {}),
-    ]).finally(() => setIsLoading(false));
+    apiFetch('/api/resources/training/approved/')
+      .then(r => r.json())
+      .then((data: TrainingProgramme[]) => setTraining(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, []);
 
-  // Platform tabs: scraped platforms + Training Programme (if any exist)
-  const scrapedPlatforms = Array.from(new Set(resources.map(r => r.platform))).sort();
-  const platforms = ['All', ...scrapedPlatforms, ...(training.length > 0 ? [TRAINING_PLATFORM] : [])];
+  // Typing must not put a request on the wire per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const q = search.toLowerCase();
+  // A changed filter invalidates the page number -- page 7 of Coursera is not
+  // page 7 of edX, and a page past the end is a 404 -- so both setters reset
+  // it. Done here rather than in an effect watching the filters, which would
+  // render once with the stale page before correcting itself.
+  const choosePlatform = (next: string) => { setPlatform(next); setPage(1); };
+  const changeSearch = (next: string) => { setSearch(next); setPage(1); };
 
-  const filteredResources = resources.filter(r => {
-    const matchPlatform = platform === 'All' || r.platform === platform;
-    const matchSearch = !q || r.title.toLowerCase().includes(q) || r.skill.toLowerCase().includes(q);
-    return matchPlatform && matchSearch;
-  });
+  const showingTraining = platform === TRAINING_PLATFORM;
+  const requestKey = `${platform}|${debouncedSearch}|${page}`;
+  const isLoading = !showingTraining && loadedKey !== requestKey;
 
-  const filteredTraining = training.filter(t => {
-    const matchPlatform = platform === 'All' || platform === TRAINING_PLATFORM;
-    const matchSearch = !q || t.title.toLowerCase().includes(q) || (t.skill ?? '').toLowerCase().includes(q);
-    return matchPlatform && matchSearch;
-  });
+  // The catalogue is filtered and paged by the server. It holds 20,430 rows;
+  // fetching all of them to filter in the browser cost 5.4MB and rendered
+  // every row into the DOM.
+  useEffect(() => {
+    if (showingTraining) return;   // nothing to fetch; training is already in memory
 
-  const totalShown = filteredResources.length + filteredTraining.length;
+    const params = new URLSearchParams({ page: String(page) });
+    if (platform !== 'All') params.set('platform', platform);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+
+    // Aborted rather than merely ignored: a slow earlier response must not
+    // overwrite a newer one, and the work is wasted once superseded.
+    const controller = new AbortController();
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/resources/?${params.toString()}`,
+          { signal: controller.signal })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: ResourcePage) => {
+        setResources(Array.isArray(data.results) ? data.results : []);
+        setCount(typeof data.count === 'number' ? data.count : 0);
+        // Kept once received: a filtered page reports the same full list, but
+        // an error response reports none, and the tabs should not vanish.
+        if (data.platforms?.length) setApiPlatforms(data.platforms);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setResources([]);
+        setCount(0);
+      })
+      .finally(() => {
+        // Marks this key served, which is what clears the skeleton. Skipped on
+        // abort so a superseded request cannot present itself as the answer.
+        if (!controller.signal.aborted) setLoadedKey(requestKey);
+      });
+
+    return () => controller.abort();
+  }, [platform, debouncedSearch, page, showingTraining, requestKey]);
+
+  // The endpoint reports every platform in the catalogue. Deriving the tabs
+  // from the rows on screen would list only the ones this page happens to show.
+  const platforms = ['All', ...apiPlatforms,
+                     ...(training.length > 0 ? [TRAINING_PLATFORM] : [])];
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+
+  // Training is a short list already in memory, so filtering it here needs no
+  // request -- presentation state, not a query against the catalogue.
+  const q = debouncedSearch.toLowerCase();
+  const visibleTraining = (platform === 'All' || showingTraining)
+    ? training.filter(t => !q || t.title.toLowerCase().includes(q)
+                                || (t.skill ?? '').toLowerCase().includes(q))
+    : [];
+
+  const totalShown = resources.length + visibleTraining.length;
 
   return (
     <DashboardLayout title="Learning Resources">
@@ -173,7 +239,7 @@ export default function ResourcesPage() {
               type="text"
               placeholder="Search by title or skill..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => changeSearch(e.target.value)}
               className="w-full h-10 pl-10 pr-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
@@ -184,7 +250,7 @@ export default function ResourcesPage() {
           {platforms.map((p) => (
             <button
               key={p}
-              onClick={() => setPlatform(p)}
+              onClick={() => choosePlatform(p)}
               className={cn(
                 'px-4 py-2 rounded-full text-xs font-bold transition-all border',
                 platform === p
@@ -198,7 +264,7 @@ export default function ResourcesPage() {
         </div>
 
         {/* Loading skeleton */}
-        {isLoading && (
+        {isLoading && !showingTraining && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="p-0 overflow-hidden">
@@ -214,11 +280,11 @@ export default function ResourcesPage() {
         )}
 
         {/* Grid */}
-        {!isLoading && totalShown > 0 && (
+        {(!isLoading || showingTraining) && totalShown > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
             {/* Training programme cards */}
-            {filteredTraining.map((t) => (
+            {visibleTraining.map((t) => (
               <Card key={`t-${t.id}`} className="p-0 overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
                 <div className={cn('h-32 flex items-center justify-center p-6 text-white', PLATFORM_COLORS[TRAINING_PLATFORM])}>
                   <div className="text-center">
@@ -254,7 +320,7 @@ export default function ResourcesPage() {
             ))}
 
             {/* Scraped learning resource cards */}
-            {filteredResources.map((res) => {
+            {resources.map((res) => {
               const color = PLATFORM_COLORS[res.platform] ?? 'bg-neutral-700';
               return (
                 <Card key={`r-${res.id}`} className="p-0 overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
@@ -291,13 +357,45 @@ export default function ResourcesPage() {
           </div>
         )}
 
+        {/* Pagination — server-side; the grid above holds one page, never the
+            whole catalogue. Deliberately plain: no infinite scroll, no
+            virtualisation, so the page count is verifiable by looking at it. */}
+        {!isLoading && !showingTraining && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 text-xs"
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <p className="text-xs font-bold text-neutral-500 tabular-nums">
+              Page {page} of {totalPages}
+              <span className="text-neutral-400 font-medium">
+                {' '}· {count.toLocaleString()} resources
+              </span>
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 text-xs"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+
         {/* Empty state */}
-        {!isLoading && totalShown === 0 && (
+        {(!isLoading || showingTraining) && totalShown === 0 && (
           <div className="py-20 text-center">
             <BookOpen size={48} className="mx-auto text-neutral-200 mb-4" />
             <h3 className="text-lg font-bold text-neutral-900">No resources found</h3>
             <p className="text-neutral-500 mt-1 text-sm">
-              {resources.length === 0 && training.length === 0
+              {count === 0 && training.length === 0 && !debouncedSearch && platform === 'All'
                 ? 'No resources have been scraped yet. Run the scraper first.'
                 : 'Try adjusting your search or platform filter.'}
             </p>
