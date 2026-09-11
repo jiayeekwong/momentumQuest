@@ -170,8 +170,22 @@ AI_ASSISTANT_PRODUCTS = (
     "codex", "amazon q", "gemini",
 )
 
+#: Phrases that contain a trigger word while meaning something else, or the
+#: opposite. "No-Code Development" contains "Code" and is a promise that you
+#: will not write any; "Application Programming Interface" contains
+#: "Programming" and names an integration boundary; "Infrastructure as Code"
+#: and "Code Reusability" are about neither an assistant nor application code.
+#:
+#: Negated at the trigger itself rather than across the window, which matters:
+#: a course may mention no-code tooling in passing and still teach
+#: assistant-assisted programming, so a window-wide reject would be too blunt.
+#: Ordered alternation covers the overlap -- "such as code review" still
+#: matches on the code_review alternative after cod(?:e|ing) is refused here.
+_NOT_WRITING_CODE = r"(?<!no-)(?<!no\s)(?<!low-)(?<!low\s)(?<!as\s)"
+
 AI_CODING_REQUIRE = (
-    r"\b(?:cod(?:e|ing)|debug\w*|programming|software\s+develop\w*|"
+    r"\b(?:" + _NOT_WRITING_CODE + r"cod(?:e|ing)(?!\s+reusability)|"
+    r"debug\w*|programming(?!\s+interface)|software\s+develop\w*|"
     r"software\s+engineer\w*|refactor\w*|unit\s+test\w*|test\s+case\w*|"
     r"code\s+review|pull\s+request|ide|pair[- ]programming|boilerplate|"
     r"backend|back[- ]end|frontend|front[- ]end|full[- ]?stack|"

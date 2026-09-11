@@ -2222,6 +2222,40 @@ class AICodingAssistantGuardTests(TestCase):
             with self.subTest(text=text[:44]):
                 self.assertNotIn("AI Coding Assistants", self._names(text))
 
+    def test_a_borrowed_trigger_word_is_not_a_coding_context(self):
+        """Phrases that contain a trigger word and mean something else.
+
+        Six course pairings fired on nothing but these. "No-Code Development"
+        contains "Code" and promises you will write none; "Application
+        Programming Interface" contains "Programming" and names an integration
+        boundary. Negating them is a general vocabulary fix, not a
+        course-specific exception -- an advert would misread them identically.
+        """
+        for text in (
+            "Build with Copilot Studio: No-Code Development and Email "
+            "Automation",
+            "Low-Code Development with Microsoft Copilot",
+            "Claude and Application Programming Interface (API) design",
+            "ChatGPT, Infrastructure as Code (IaC), Cloud Deployment",
+            "Microsoft Copilot, Code Reusability, Continuous Monitoring",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertNotIn("AI Coding Assistants", self._names(text))
+
+    def test_the_negation_does_not_swallow_genuine_neighbours(self):
+        """"such as code review" must still fire.
+
+        The bare cod(?:e|ing) alternative refuses it -- "as " precedes it --
+        and the code_review alternative then matches at the same position.
+        Worth pinning: the fix would otherwise silently narrow the trigger.
+        """
+        for text in (
+            "Use GitHub Copilot for tasks such as code review and refactoring",
+            "Cursor with Secure Coding and Debugging practice",
+        ):
+            with self.subTest(text=text[:44]):
+                self.assertIn("AI Coding Assistants", self._names(text))
+
     def test_a_product_name_with_no_development_context_does_not_fire(self):
         """The default is silence.
 
