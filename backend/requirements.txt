@@ -38,13 +38,24 @@ nh3==0.3.7
 # of admin assets is more moving parts than the deployment needs.
 whitenoise==6.12.0
 
-# Production WSGI server.
+# Production WSGI servers -- two, one per platform, and both are used.
 #
 # `manage.py runserver` is a development server: single-threaded by default,
 # no process supervision, and Django's own documentation says not to use it
-# for anything resembling production. Waitress rather than gunicorn because
-# this project is developed and scheduled on Windows, where gunicorn does not
-# run at all.
+# for anything resembling production.
+#
+# Waitress runs on Windows, where this project is developed and where gunicorn
+# does not run at all:
 #
 #     waitress-serve --port=8000 config.wsgi:application
 waitress==3.0.2
+
+# Gunicorn serves the Render container, which is Linux. Kept alongside waitress
+# rather than replacing it: dropping waitress would leave Windows with no way
+# to run the application outside DEBUG, and dropping gunicorn would leave the
+# deployment on a server whose own docs call it Windows-oriented. pip installs
+# both on both platforms -- gunicorn is importable but unusable on Windows,
+# which costs a wheel and avoids a platform marker that silently skips it.
+#
+#     gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+gunicorn==23.0.0

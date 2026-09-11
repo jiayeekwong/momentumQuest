@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 import re
 import time
@@ -140,7 +141,26 @@ def create_driver():
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
-    service = Service(ChromeDriverManager().install())
+    # Where Chromium and its driver live.
+    #
+    # In a container both are installed by the image, at a known path, and
+    # pinned to each other -- so ChromeDriverManager must not be the way they
+    # are found. It reaches out to googlechromelabs.github.io on every call and
+    # raises if it cannot, which means a transient network blip fails a scrape
+    # that had a perfectly good driver cached. That happened during release
+    # validation: the run reported "Could not reach host. Are you offline?"
+    # having never contacted the job board at all.
+    #
+    # Unset, the behaviour is exactly as before, so a local clone needs no
+    # configuration.
+    chrome_binary = os.getenv("CHROME_BINARY", "").strip()
+    driver_path = os.getenv("CHROMEDRIVER_PATH", "").strip()
+
+    if chrome_binary:
+        options.binary_location = chrome_binary
+
+    service = Service(driver_path) if driver_path else Service(
+        ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
 
     # Hide navigator.webdriver from JavaScript detection

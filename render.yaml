@@ -1,0 +1,162 @@
+# Render topology for MomentumQuest.
+#
+#   Vercel (Next.js)  --HTTPS-->  this web service  -->  PostgreSQL
+#                                        |
+#                                        +-->  disk at /var/data (private media)
+#
+# The monthly scraper refresh is deliberately absent. See the note at the
+# bottom: the current scraper can record Status FAILED and still exit 0, which
+# is the one thing unattended automation must not do. Launch uses a one-off
+# manual scrape instead, documented in docs/deployment-runbook.md.
+
+services:
+  - type: web
+    name: momentumquest-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Closest region to the Malaysian job market this serves, and to its
+    # students. The database below must match it or every query pays a
+    # cross-region round trip.
+    region: singapore
+    plan: starter
+    healthCheckPath: /admin/login/
+
+    # Certificates and transcripts carry full names and identification
+    # numbers. They are written outside MEDIA_ROOT and served only through an
+    # ownership-checked view -- but the container filesystem is ephemeral, so
+    # without this disk every deploy would silently discard them.
+    disk:
+      name: private-media
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "false"
+
+      # Generated once by Render and kept. settings.py refuses to start on the
+      # development key when DEBUG is false, so this must be a real value.
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+
+      # Render terminates TLS at its edge and forwards X-Forwarded-Proto. Without
+      # this Django sees plain HTTP behind the proxy, the SSL redirect loops, and
+      # the secure cookies never send.
+      - key: DJANGO_BEHIND_TLS_PROXY
+        value: "true"
+
+      # The service's own hostname. Set after the first deploy names it, or to a
+      # custom domain.
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+
+      # The Vercel production origin, with scheme, e.g.
+      # https://momentumquest.vercel.app
+      #
+      # CORS decides who may read a response; CSRF_TRUSTED_ORIGINS decides whose
+      # unsafe requests are believed. Both are needed, and FRONTEND_URL is a
+      # third thing again -- it is what verification and password-reset emails
+      # link to, so a wrong value sends students to a dead link.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # Outside the checkout and on the mounted disk above.
+      - key: DJANGO_PRIVATE_MEDIA_ROOT
+        value: /var/data/private_media
+
+      # Unset DJANGO_CACHE_URL means the database cache, which is shared across
+      # workers. That is deliberate rather than lazy: throttle history lives in
+      # the cache, and with a per-process cache the real limit on login and
+      # password reset becomes the rate times the worker count. It needs
+      # `createcachetable` once -- see the runbook.
+      #
+      # Two workers, so the shared cache is load-bearing from the first deploy.
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+      - key: DB_NAME
+        fromDatabase:
+          name: momentumquest-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: momentumquest-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: momentumquest-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: momentumquest-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: momentumquest-db
+          property: port
+
+      # Mail: verification, password reset and the privacy contact address.
+      # Secrets, so they are entered in the dashboard rather than committed.
+      - key: EMAIL_BACKEND
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "true"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: PRIVACY_CONTACT_EMAIL
+        sync: false
+
+databases:
+  - name: momentumquest-db
+    databaseName: momentumquest
+    user: momentumquest
+    region: singapore
+    plan: basic-256mb
+
+# ---------------------------------------------------------------------------
+# Deferred: the monthly market refresh
+# ---------------------------------------------------------------------------
+#
+# The diagram this deployment was designed from has a Render Cron running the
+# scraper monthly against the same database. It is not defined here, and adding
+# it would be the wrong kind of complete.
+#
+# `manage.py scrape_jobs` exits 0 whether it worked or not. Observed during
+# release validation: a run reported
+#
+#     Status  : FAILED
+#     Error   : Could not reach host. Are you offline?
+#
+# and still exited 0. Unattended, that is a monthly job reporting success while
+# the market data silently goes stale -- and stale market data is not a visible
+# outage, it is a skill gap quietly computed against last year's adverts.
+#
+# What a production-safe orchestration command needs first:
+#
+#   * an advisory or database lock, so an overrunning scrape and the next
+#     scheduled one cannot interleave writes;
+#   * fail-fast execution, and a non-zero exit on failure, so the platform's own
+#     alerting means something;
+#   * durable per-run metrics, which ScrapeLog already carries -- status,
+#     pages_attempted, blocked_count, error_message;
+#   * a staleness check, so "no successful scrape in N days" is itself an alert
+#     rather than something noticed by a student.
+#
+# Until then: one-off manual refresh, run and verified by a person, per the
+# runbook. There is also an open hosting question -- my.jobstreet.com answered
+# 403 to a plain request during validation, and cloud provider IPs are commonly
+# bot-blocked, so whether this scrape works from Render at all is a deployment
+# finding to establish and not an assumption to schedule against.

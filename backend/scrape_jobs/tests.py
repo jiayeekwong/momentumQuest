@@ -2269,3 +2269,55 @@ class AICodingAssistantGuardTests(TestCase):
         ):
             with self.subTest(text=text[:44]):
                 self.assertNotIn("AI Coding Assistants", self._names(text))
+
+
+class DriverPathConfigurationTests(TestCase):
+    """Where the container finds Chromium, and why it must not look it up.
+
+    ChromeDriverManager fetches a version manifest over the network on every
+    call and raises when it cannot reach it. That is how a release-validation
+    scrape came to report
+
+        Status : FAILED
+        Error  : Could not reach host. Are you offline?
+
+    having never contacted the job board -- with a perfectly good driver already
+    cached. The image installs chromium and chromium-driver from one apt
+    snapshot and exports their paths, so these pin the property the Dockerfile
+    depends on: given the paths, nothing is looked up.
+    """
+
+    def _create_driver(self, env):
+        from unittest.mock import patch
+        import os as _os
+
+        from scrape_jobs import scraper
+
+        with patch.dict(_os.environ, env, clear=False), \
+                patch.object(scraper.webdriver, "Chrome") as chrome, \
+                patch.object(scraper, "Service") as service, \
+                patch.object(scraper, "ChromeDriverManager") as manager:
+            scraper.create_driver()
+        return chrome, service, manager
+
+    def test_an_explicit_driver_path_is_used_without_a_version_lookup(self):
+        _, service, manager = self._create_driver(
+            {"CHROMEDRIVER_PATH": "/usr/bin/chromedriver", "CHROME_BINARY": ""})
+
+        service.assert_called_once_with("/usr/bin/chromedriver")
+        manager.assert_not_called()
+
+    def test_an_explicit_chromium_binary_is_passed_to_chrome(self):
+        chrome, _, _ = self._create_driver(
+            {"CHROMEDRIVER_PATH": "/usr/bin/chromedriver",
+             "CHROME_BINARY": "/usr/bin/chromium"})
+
+        options = chrome.call_args.kwargs["options"]
+        self.assertEqual(options.binary_location, "/usr/bin/chromium")
+
+    def test_without_the_paths_the_previous_behaviour_is_unchanged(self):
+        """A local clone must keep working with nothing configured."""
+        _, _, manager = self._create_driver(
+            {"CHROMEDRIVER_PATH": "", "CHROME_BINARY": ""})
+
+        manager.assert_called_once()
