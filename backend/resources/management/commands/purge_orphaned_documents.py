@@ -24,12 +24,10 @@ Reports by default. Deleting student documents is not something a command
 should do because it was run without arguments.
 """
 
-import os
-
-from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from resources.models import Certificate, TranscriptUpload
+from resources import private_storage
 
 #: The directories the upload views write into. CVs are deliberately absent:
 #: they are stored as URLs on JobApplication rather than as private files, so
@@ -49,8 +47,6 @@ class Command(BaseCommand):
             help="Print every orphan rather than a count.")
 
     def handle(self, *args, **options):
-        root = settings.PRIVATE_MEDIA_ROOT
-
         referenced = set()
         for model in (Certificate, TranscriptUpload):
             referenced |= {
@@ -59,24 +55,20 @@ class Command(BaseCommand):
                                          .values_list("file_path", flat=True)
             }
 
+        # Asks the storage backend what it holds rather than walking a
+        # directory, so this works against an object store too -- where the
+        # orphans cost money for as long as they sit there.
         orphans, kept = [], 0
         for directory in MANAGED_DIRECTORIES:
-            folder = os.path.join(root, directory)
-            if not os.path.isdir(folder):
-                continue
-            for name in os.listdir(folder):
-                relative = f"{directory}/{name}"
-                if relative in referenced:
+            for key in private_storage.iter_keys(directory):
+                if key in referenced:
                     kept += 1
-                elif os.path.isfile(os.path.join(folder, name)):
-                    orphans.append(relative)
-
-        total_bytes = sum(
-            os.path.getsize(os.path.join(root, *o.split("/"))) for o in orphans)
+                else:
+                    orphans.append(key)
 
         self.stdout.write(
-            "%d file(s) referenced by a database row, %d orphaned (%.1f MB)"
-            % (kept, len(orphans), total_bytes / 1_048_576))
+            "%d file(s) referenced by a database row, %d orphaned"
+            % (kept, len(orphans)))
 
         if options["list"]:
             for orphan in sorted(orphans):
@@ -90,9 +82,12 @@ class Command(BaseCommand):
         removed = failed = 0
         for orphan in orphans:
             try:
-                os.remove(os.path.join(root, *orphan.split("/")))
-                removed += 1
-            except OSError as exc:
+                if private_storage.delete(orphan):
+                    removed += 1
+                else:
+                    failed += 1
+                    self.stderr.write(f"could not remove {orphan}")
+            except Exception as exc:
                 failed += 1
                 self.stderr.write(f"could not remove {orphan}: {exc}")
 

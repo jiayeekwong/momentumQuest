@@ -2321,3 +2321,154 @@ class DriverPathConfigurationTests(TestCase):
             {"CHROMEDRIVER_PATH": "", "CHROME_BINARY": ""})
 
         manager.assert_called_once()
+
+
+class RefreshMarketDataTests(TestCase):
+    """The exit code must mean something.
+
+    `scrape_jobs` exits 0 whether it worked or not, which is why this
+    orchestration exists. These pin the property that makes it schedulable:
+    the verdict comes from the persisted ScrapeLog row, and a failed
+    acquisition stops before any downstream stage can make the run look busy
+    and successful.
+
+    No network here -- the acquisition is replaced by a fake that writes the
+    ScrapeLog row a real run would have written.
+    """
+
+    def _run(self, log_fields=None, write_log=True, **options):
+        """Run the command with a faked acquisition. Returns (error, calls)."""
+        from unittest.mock import patch
+
+        from job_listings.models import ScrapeLog
+        from scrape_jobs.management.commands import refresh_market_data
+
+        calls = []
+
+        def fake_call_command(name, *args, **kwargs):
+            calls.append(name)
+            if name == "scrape_jobs" and write_log:
+                fields = {"status": "SUCCESS", "pages_attempted": 3,
+                          "jobs_scraped": 90, "jobs_created": 90,
+                          "jobs_updated": 0, "blocked_count": 0,
+                          "error_message": ""}
+                fields.update(log_fields or {})
+                ScrapeLog.objects.create(**fields)
+
+        options.setdefault("skip_taxonomies", True)
+        options.setdefault("max_pages", 1)
+        options.setdefault("max_jobs", 1)
+        options.setdefault("allow_no_new_adverts", False)
+
+        error = None
+        with patch.object(refresh_market_data, "call_command", fake_call_command):
+            try:
+                call_command("refresh_market_data", **options)
+            except CommandError as exc:
+                error = exc
+        return error, calls
+
+    def test_a_successful_acquisition_runs_every_downstream_stage(self):
+        error, calls = self._run()
+
+        self.assertIsNone(error)
+        self.assertEqual(calls[0], "scrape_jobs")
+        for stage in ("dedupe_scraped_listings", "recategorize_job_listings",
+                      "reextract_job_skills", "classify_market_roles",
+                      "refresh_skill_gaps"):
+            self.assertIn(stage, calls)
+
+    def test_a_failed_scrapelog_fails_the_refresh(self):
+        """The exact case that makes the bare scraper unschedulable."""
+        error, _ = self._run(
+            {"status": "FAILED", "jobs_scraped": 0, "jobs_created": 0,
+             "error_message": "Could not reach host. Are you offline?"})
+
+        self.assertIsNotNone(error)
+        self.assertIn("FAILED", str(error))
+
+    def test_no_downstream_stage_runs_after_a_failed_acquisition(self):
+        """Otherwise the run reports success having acquired nothing.
+
+        Re-extraction and classification over an unchanged table succeed
+        perfectly well, which is what would make a stale refresh look healthy.
+        """
+        _, calls = self._run(
+            {"status": "FAILED", "jobs_scraped": 0, "jobs_created": 0})
+
+        self.assertEqual(calls, ["scrape_jobs"])
+
+    def test_a_fully_blocked_run_fails_even_though_it_says_success(self):
+        """A bot wall is recorded as a count, not as a failure status."""
+        error, calls = self._run(
+            {"status": "SUCCESS", "pages_attempted": 3, "blocked_count": 3,
+             "jobs_scraped": 0, "jobs_created": 0})
+
+        self.assertIsNotNone(error)
+        self.assertIn("blocked", str(error).lower())
+        self.assertEqual(calls, ["scrape_jobs"])
+
+    def test_a_partially_blocked_run_with_adverts_still_succeeds(self):
+        """Being turned away from one page of forty is not a failed refresh."""
+        error, _ = self._run(
+            {"status": "SUCCESS", "pages_attempted": 40, "blocked_count": 1,
+             "jobs_scraped": 90, "jobs_created": 90})
+
+        self.assertIsNone(error)
+
+    def test_a_scrape_that_wrote_no_log_row_fails(self):
+        """No row means nothing can be said about whether it ran."""
+        error, calls = self._run(write_log=False)
+
+        self.assertIsNotNone(error)
+        self.assertEqual(calls, ["scrape_jobs"])
+
+    def test_acquiring_nothing_new_fails_unless_that_is_expected(self):
+        error, _ = self._run({"jobs_created": 0, "jobs_updated": 0})
+        self.assertIsNotNone(error)
+
+        error, _ = self._run({"jobs_created": 0, "jobs_updated": 0},
+                             allow_no_new_adverts=True)
+        self.assertIsNone(error)
+
+    def test_a_second_refresh_refuses_while_one_holds_the_lock(self):
+        """Two Selenium crawls writing the same adverts, one re-extracting
+        while the other replaces the rows underneath it, is not a state worth
+        reasoning about afterwards -- so the second one refuses.
+
+        The lock is taken on a separate connection because PostgreSQL advisory
+        locks are re-entrant within a session: asking twice on one connection
+        succeeds twice and would prove nothing.
+        """
+        import psycopg2
+        from django.conf import settings
+
+        from scrape_jobs.management.commands.refresh_market_data import (
+            ADVISORY_LOCK_KEY)
+
+        db = settings.DATABASES["default"]
+        holder = psycopg2.connect(
+            dbname=db["NAME"], user=db["USER"], password=db["PASSWORD"],
+            host=db["HOST"], port=db["PORT"])
+        try:
+            holder.autocommit = True
+            with holder.cursor() as cursor:
+                cursor.execute("SELECT pg_try_advisory_lock(%s)",
+                               [ADVISORY_LOCK_KEY])
+                self.assertTrue(cursor.fetchone()[0], "could not take the lock")
+
+            error, calls = self._run()
+
+            self.assertIsNotNone(error)
+            self.assertIn("advisory lock", str(error))
+            self.assertEqual(calls, [], "nothing may run without the lock")
+        finally:
+            holder.close()
+
+    def test_the_lock_is_released_so_the_next_run_can_take_it(self):
+        """A refresh that holds the lock forever breaks every later one."""
+        self._run()
+        error, calls = self._run()
+
+        self.assertIsNone(error)
+        self.assertIn("scrape_jobs", calls)

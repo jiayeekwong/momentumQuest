@@ -5,7 +5,7 @@ from rest_framework.serializers import ValidationError
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -1281,3 +1281,139 @@ class ThrottleConfigurationTests(TestCase):
                      PasswordChangeView, PasswordChangeConfirmView):
             with self.subTest(view=view.__name__):
                 self.assertIn(view.throttle_scope, _THROTTLE_RATES)
+
+
+class HTTPSEmailBackendTests(TestCase):
+    """Mail must not depend on an SMTP port a free host may block.
+
+    The failure this replaces is quiet: send_mail hangs until timeout, the
+    registration request still returns 201, and the student never receives the
+    verification link. Nothing in the response says so.
+
+    The HTTP boundary is mocked -- these test the payload and the failure
+    handling, not the provider.
+    """
+
+    def _backend(self, **kwargs):
+        from config.email import ResendEmailBackend
+
+        with override_settings(EMAIL_API_KEY="test-key"):
+            return ResendEmailBackend(**kwargs)
+
+    def _message(self, **kwargs):
+        from django.core.mail import EmailMessage
+
+        defaults = {
+            "subject": "Verify your MomentumQuest account",
+            "body": "Open this link to verify.",
+            "from_email": "MomentumQuest <no-reply@example.edu>",
+            "to": ["student@example.edu"],
+        }
+        defaults.update(kwargs)
+        return EmailMessage(**defaults)
+
+    def test_a_message_is_posted_as_json_to_the_provider(self):
+        import json
+        from unittest.mock import MagicMock, patch
+
+        captured = {}
+
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(request, timeout=None):
+            captured["url"] = request.full_url
+            captured["headers"] = dict(request.headers)
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return Response()
+
+        backend = self._backend()
+        with patch("urllib.request.urlopen", fake_urlopen):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 1)
+        self.assertTrue(captured["url"].startswith("https://"))
+        self.assertEqual(captured["body"]["to"], ["student@example.edu"])
+        self.assertEqual(captured["body"]["subject"],
+                         "Verify your MomentumQuest account")
+
+    def test_the_api_key_is_sent_as_a_bearer_token_and_not_in_the_url(self):
+        """A key in a query string lands in provider access logs."""
+        from unittest.mock import patch
+
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        captured = {}
+
+        def fake_urlopen(request, timeout=None):
+            captured["url"] = request.full_url
+            captured["auth"] = request.get_header("Authorization")
+            return Response()
+
+        backend = self._backend()
+        with patch("urllib.request.urlopen", fake_urlopen):
+            backend.send_messages([self._message()])
+
+        self.assertEqual(captured["auth"], "Bearer test-key")
+        self.assertNotIn("test-key", captured["url"])
+
+    def test_a_provider_failure_reports_zero_sent_rather_than_raising(self):
+        """Mail is best-effort around a request that already succeeded.
+
+        Raising would turn "the verification email is late" into "the account
+        was not created", which is strictly worse for the student.
+        """
+        from unittest.mock import patch
+
+        backend = self._backend()
+        with patch("urllib.request.urlopen",
+                   side_effect=OSError("connection refused")):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 0)
+
+    def test_a_missing_api_key_is_refused_at_construction(self):
+        """Not at the first send, which would be during a registration."""
+        from django.core.exceptions import ImproperlyConfigured
+
+        from config.email import ResendEmailBackend
+
+        with override_settings(EMAIL_API_KEY=""):
+            with self.assertRaises(ImproperlyConfigured):
+                ResendEmailBackend()
+
+    def test_an_html_alternative_is_forwarded_when_present(self):
+        from unittest.mock import patch
+
+        from django.core.mail import EmailMultiAlternatives
+
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        captured = {}
+
+        def fake_urlopen(request, timeout=None):
+            import json
+            captured.update(json.loads(request.data.decode("utf-8")))
+            return Response()
+
+        message = EmailMultiAlternatives(
+            subject="s", body="plain", from_email="a@b.c", to=["d@e.f"])
+        message.attach_alternative("<p>rich</p>", "text/html")
+
+        backend = self._backend()
+        with patch("urllib.request.urlopen", fake_urlopen):
+            backend.send_messages([message])
+
+        self.assertEqual(captured["text"], "plain")
+        self.assertEqual(captured["html"], "<p>rich</p>")
+
+    def test_sending_nothing_is_not_an_error(self):
+        self.assertEqual(self._backend().send_messages([]), 0)

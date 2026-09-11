@@ -124,6 +124,21 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Credentials come from .env, which is gitignored. They were previously
 # literals here, and config/settings.py is a tracked file.
+# The database is PostgreSQL wherever it runs; in production it is a hosted one
+# (Neon) reached across the public internet, which changes two things.
+#
+# TLS is required rather than preferred. sslmode defaults to "require" when
+# DEBUG is false and to libpq's own default locally, so a development clone
+# against a local server needs no certificates and a deployment cannot silently
+# send credentials in clear. DB_SSLMODE overrides it either way.
+#
+# And the connection is worth keeping. Every request opening a new TLS
+# connection to another host is a round trip the local socket never paid, so
+# CONN_MAX_AGE holds it open; CONN_HEALTH_CHECKS is what makes that safe, since
+# a pooled connection the server has since closed would otherwise surface as a
+# failed request rather than a reconnect.
+_SSLMODE = os.getenv("DB_SSLMODE", "" if DEBUG else "require").strip()
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -132,8 +147,19 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
+        'CONN_MAX_AGE': int(os.getenv("DB_CONN_MAX_AGE", "0" if DEBUG else "600")),
+        'CONN_HEALTH_CHECKS': not DEBUG,
+        'OPTIONS': {**({"sslmode": _SSLMODE} if _SSLMODE else {})},
     }
 }
+
+# Connection reuse and the test runner do not mix: tests drop and recreate the
+# database, and a held-open connection to a database being dropped blocks the
+# drop. Django's own runner sets CONN_MAX_AGE to 0 for this reason; being
+# explicit costs a line and saves a confusing hang.
+if _RUNNING_TESTS:
+    DATABASES['default']['CONN_MAX_AGE'] = 0
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = False
 
 
 # Password validation
@@ -340,14 +366,50 @@ if not DEBUG:
 # They are read back only through CertificateFileView, which checks ownership.
 #
 # Configurable because the default sits inside the checkout, which is the
-# wrong place for anything that must survive a redeploy: a container rebuild
-# or a fresh `git clone` would take every stored certificate with it. Point
-# DJANGO_PRIVATE_MEDIA_ROOT at a mounted volume in production.
+# wrong place for anything that must survive a redeploy. In production the
+# filesystem is not used at all -- see PRIVATE_STORAGE_BACKEND below.
 #
 # Transcripts are not stored at all -- the upload reads the subjects and
 # deletes the PDF before it responds -- so only certificates live here.
 PRIVATE_MEDIA_ROOT = Path(
     os.getenv("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / 'private_media'))
+
+# Where private documents actually live.
+#
+#   filesystem   PRIVATE_MEDIA_ROOT above. Development, and any deployment with
+#                genuinely durable local storage.
+#   r2           a private Cloudflare R2 bucket over the S3 API. Production.
+#
+# Left unset, the R2 variables decide: configured means R2, absent means the
+# filesystem *only while DEBUG is true*. With DEBUG false and no bucket,
+# resources.private_storage refuses to start -- deliberately. Free hosting gives
+# a container ephemeral storage, so a filesystem-backed certificate is discarded
+# by the next deploy: the upload succeeds, the row is written, the student is
+# told it worked, and months later the file is gone with nothing in any log.
+# There is no error to catch, so the only place to fail is startup.
+#
+# PRIVATE_STORAGE_ALLOW_LOCAL is the deliberate override for a deployment whose
+# local disk really does persist.
+PRIVATE_STORAGE_BACKEND = os.getenv("PRIVATE_STORAGE_BACKEND", "").strip()
+#
+# True under the test runner, which forces DEBUG=False: the suite has no bucket
+# and wants none, and every document test writes to a temporary directory. The
+# same reason CACHES treats the runner separately.
+PRIVATE_STORAGE_ALLOW_LOCAL = (
+    os.getenv("PRIVATE_STORAGE_ALLOW_LOCAL", "false").lower() == "true"
+    or _RUNNING_TESTS)
+
+# The bucket is private: no public access, no permanent object URLs. Every read
+# goes back through the view that checked ownership, so there is exactly one
+# rule and no second route to the bytes.
+R2_SETTINGS = {
+    "bucket":       os.getenv("R2_BUCKET", "").strip(),
+    "endpoint_url": os.getenv("R2_ENDPOINT_URL", "").strip(),
+    "access_key":   os.getenv("R2_ACCESS_KEY_ID", "").strip(),
+    "secret_key":   os.getenv("R2_SECRET_ACCESS_KEY", "").strip(),
+    # R2 ignores the region but the S3 client requires one.
+    "region":       os.getenv("R2_REGION", "auto").strip(),
+}
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -388,6 +450,12 @@ EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.smtp.EmailBackend"
 )
+
+# Read by config.email.ResendEmailBackend when EMAIL_BACKEND points at it.
+# Production sends over HTTPS rather than SMTP: free hosting commonly blocks
+# outbound SMTP ports, and a blocked port means send_mail hangs, the
+# registration request still succeeds, and the verification link never arrives.
+EMAIL_API_KEY = os.getenv("EMAIL_API_KEY", "").strip()
 
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))

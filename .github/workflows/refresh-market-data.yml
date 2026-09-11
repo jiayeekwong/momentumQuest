@@ -1,0 +1,148 @@
+# Monthly market refresh, run on a GitHub runner rather than on the API host.
+#
+# The scraper drives Chromium through Selenium, which wants 400-500MB of its own
+# on top of Django -- past a free web instance, and a poor reason to carry a
+# browser in an image year-round for a job that runs monthly. A runner has the
+# memory, already provides Chromium, and writes to the same hosted PostgreSQL the
+# API reads.
+#
+# There is deliberately no `schedule:` yet. Two things have to be true first:
+#
+#   1. `refresh_market_data` must be trusted, which is why it exists -- the bare
+#      scraper exits 0 even when it recorded FAILED, and a monthly job that
+#      reports success while market data goes stale is worse than no job at all.
+#      Stale market data is not a visible outage; it is a skill gap quietly
+#      computed against last year's adverts.
+#   2. A GitHub-hosted runner must actually be able to reach the job board.
+#      my.jobstreet.com answered 403 to a plain request during validation, and
+#      cloud IP ranges are commonly bot-blocked. Selenium from a residential
+#      connection succeeded, which says nothing about a runner.
+#
+# So: workflow_dispatch, run by a person, checked against ScrapeLog. If hosted
+# runs turn out to be blocked, that is recorded as a hosting finding and the
+# refresh stays on a developer workstation -- not worked around. See
+# docs/deployment-runbook.md.
+
+name: Refresh market data
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: "Pages to crawl (the scraper stops early when a page has no adverts)"
+        required: false
+        default: "40"
+      max_jobs:
+        description: "Adverts per page"
+        required: false
+        default: "32"
+      allow_no_new_adverts:
+        description: "Succeed even if nothing new was stored (expected when re-run inside one posting window)"
+        type: boolean
+        required: false
+        default: false
+
+# One refresh at a time. The command also takes a PostgreSQL advisory lock, which
+# is the real guard -- a workstation run and a hosted run cannot see each other's
+# workflow concurrency. This just avoids queueing two runners to be refused.
+concurrency:
+  group: refresh-market-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # A full crawl is slow by design: the scraper paces itself between pages
+    # rather than hammering the source.
+    timeout-minutes: 90
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Ubuntu runners ship Chrome and chromedriver already. Pinning the paths
+      # keeps ChromeDriverManager out of the run: it fetches a version manifest
+      # over the network on every call and raises when it cannot, which is how a
+      # validation scrape failed having never contacted the job board.
+      - name: Locate the browser
+        run: |
+          echo "CHROME_BINARY=$(which google-chrome || which chromium-browser || which chromium)" >> "$GITHUB_ENV"
+          echo "CHROMEDRIVER_PATH=$(which chromedriver)" >> "$GITHUB_ENV"
+
+      - name: Report the browser it will use
+        run: |
+          echo "chrome:       $CHROME_BINARY"
+          echo "chromedriver: $CHROMEDRIVER_PATH"
+          "$CHROME_BINARY" --version
+          "$CHROMEDRIVER_PATH" --version
+
+      - name: Refresh
+        env:
+          # Credentials live in repository secrets, never in this file.
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          # A hosted database over the public internet, so TLS is not optional.
+          DB_SSLMODE: require
+          # Not a web process: DEBUG=false is what settings.py keys the
+          # production hardening on, and this only writes to the database.
+          DJANGO_DEBUG: "false"
+          DJANGO_ALLOWED_HOSTS: localhost
+          # No documents are read or written here, and the runner has no bucket
+          # credentials. Says so explicitly rather than letting the private-storage
+          # guard refuse to start.
+          PRIVATE_STORAGE_BACKEND: filesystem
+          # Nothing should send mail from a data refresh.
+          EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+        run: |
+          python manage.py refresh_market_data \
+            --max-pages "${{ inputs.max_pages }}" \
+            --max-jobs "${{ inputs.max_jobs }}" \
+            ${{ inputs.allow_no_new_adverts && '--allow-no-new-adverts' || '' }}
+
+      # Runs even when the refresh failed, because a failure is the case worth
+      # reading. refresh_market_data already exits non-zero on a bad
+      # acquisition; this prints the persisted row that justified it.
+      - name: What the database recorded
+        if: always()
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_SSLMODE: require
+          DJANGO_DEBUG: "false"
+          DJANGO_ALLOWED_HOSTS: localhost
+          PRIVATE_STORAGE_BACKEND: filesystem
+        run: |
+          python manage.py shell -c "
+          from job_listings.models import JobListing, JobSkill, ScrapeLog
+          row = ScrapeLog.objects.order_by('-id').first()
+          print('ScrapeLog     :', row.id if row else None)
+          print('status        :', row.status if row else 'no run recorded')
+          print('pages         :', row.pages_attempted if row else '-')
+          print('blocked       :', row.blocked_count if row else '-')
+          print('acquired      :', row.jobs_scraped if row else '-')
+          print('error         :', (row.error_message or '(none)') if row else '-')
+          print('JobListing    :', JobListing.objects.count())
+          print('JobSkill      :', JobSkill.objects.count())
+          print('classified    :', JobListing.objects.filter(market_role__isnull=False).count())
+          print('latest success:', ScrapeLog.objects.filter(status='SUCCESS').order_by('-finished_at').values_list('finished_at', flat=True).first())
+          "

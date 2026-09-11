@@ -294,20 +294,20 @@ class CertificateListCreateView(generics.ListCreateAPIView):
         written_relative_path = None
 
         if upload:
-            # Written outside MEDIA_ROOT for the same reason as transcripts:
-            # config/urls.py serves MEDIA_ROOT with no authentication.
-            directory = os.path.join(settings.PRIVATE_MEDIA_ROOT, "certificates")
-            os.makedirs(directory, exist_ok=True)
+            # Never MEDIA_ROOT, whichever backend is in use: config/urls.py
+            # serves everything under MEDIA_ROOT with no authentication.
+            #
             # A random name, never the student's: an uploaded file called
             # "040910101234_SPM.pdf" would otherwise put an identification
-            # number on disk and into every path that touches it.
+            # number into the storage key and into every path that touches it.
             relative_path = private_storage.build_relative_path(
                 "certificates", f"cert_{uuid.uuid4().hex}{self.upload_extension}"
             )
             written_relative_path = relative_path
-            with open(private_storage.resolve(relative_path), "wb") as destination:
-                for chunk in upload.chunks():
-                    destination.write(chunk)
+            # The backend decides where this lands -- a private bucket in
+            # production, PRIVATE_MEDIA_ROOT in development -- and creates any
+            # intermediate directory itself.
+            private_storage.save(relative_path, upload.chunks())
             extra = {
                 "file_path": relative_path,
                 "original_name": upload.name[:255],
@@ -345,10 +345,11 @@ class CertificateListCreateView(generics.ListCreateAPIView):
                 ])
                 return certificate
         except Exception:
-            # A rollback undoes the rows but not the bytes already on disk.
-            # An identity-bearing file with nothing pointing at it would never
-            # be reached by the retention receiver, so it is removed here
-            # rather than left to accumulate unnoticed.
+            # A rollback undoes the rows but not the bytes already stored. An
+            # identity-bearing document with nothing pointing at it would never
+            # be reached by the retention receiver, so it is removed here rather
+            # than left to accumulate unnoticed -- and in a bucket that is a
+            # cost as well as a disclosure risk.
             if written_relative_path:
                 private_storage.delete(written_relative_path)
             raise
@@ -445,8 +446,13 @@ class CertificateFileView(APIView):
         if not certificate.file_path:
             raise Http404("This certificate was submitted as a link, not a file.")
 
-        absolute_path = private_storage.resolve(certificate.file_path)
-        if absolute_path is None or not os.path.exists(absolute_path):
+        # Streamed back through this view rather than redirected to the store.
+        # A signed URL would be a second route to the bytes, valid for as long
+        # as its expiry regardless of what happens to the permission that
+        # granted it -- and it would appear in browser history and referrers.
+        # One rule, one path.
+        stream = private_storage.open_stored(certificate.file_path)
+        if stream is None:
             raise Http404("Certificate file is missing from storage.")
 
         # An admin opening someone else's document is the moment worth
@@ -462,7 +468,7 @@ class CertificateFileView(APIView):
 
         extension = os.path.splitext(certificate.file_path)[1].lower()
         response = FileResponse(
-            open(absolute_path, "rb"),
+            stream,
             content_type=self.CONTENT_TYPES.get(extension, "application/octet-stream"),
             # The stored name, not the student's. original_name is for display
             # in the UI; putting it in Content-Disposition would write whatever
@@ -647,23 +653,17 @@ class TranscriptListCreateView(APIView):
 
         student = request.user.student_profile
 
-        # Stored under PRIVATE_MEDIA_ROOT, never MEDIA_ROOT — the file carries
-        # the student's NRIC and must not be publicly served.
-        directory = os.path.join(settings.PRIVATE_MEDIA_ROOT, "transcripts")
-        os.makedirs(directory, exist_ok=True)
-
+        # Private storage, never MEDIA_ROOT — the file carries the student's
+        # NRIC and must not be publicly served.
         relative_path = private_storage.build_relative_path(
             "transcripts", f"{uuid.uuid4().hex}.pdf"
         )
-        absolute_path = private_storage.resolve(relative_path)
 
         # The file and the two rows that account for it are created together.
         # If any step fails the file is removed, so no stored document can
         # exist without the consent that permitted it.
         try:
-            with open(absolute_path, "wb") as destination:
-                for chunk in upload.chunks():
-                    destination.write(chunk)
+            private_storage.save(relative_path, upload.chunks())
 
             with transaction.atomic():
                 consent = UserConsent.objects.create(
@@ -706,8 +706,12 @@ class TranscriptListCreateView(APIView):
         # is no PDF.
         read_error = None
         try:
-            text = extract_text_from_pdf(absolute_path)
-        except Exception as exc:  # malformed or unreadable PDF
+            # The parser takes a filename, so the bytes need a real path. On the
+            # filesystem backend that is the stored file itself; on an object
+            # store it is a temporary copy, removed when the block exits.
+            with private_storage.local_path(relative_path) as readable:
+                text = extract_text_from_pdf(readable)
+        except Exception as exc:  # malformed, unreadable, or missing PDF
             text, read_error = "", exc
 
         private_storage.delete(relative_path)

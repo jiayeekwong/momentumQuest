@@ -1,49 +1,34 @@
-# MomentumQuest backend, as Render runs it.
+# MomentumQuest backend, as Render Free runs it: the Django API and nothing else.
 #
-# Two things make this image different from a plain Django image.
+# No browser. An earlier version of this image installed Chromium so the market
+# scraper could run here, and that does not fit the deployment: headless
+# Chromium wants 400-500MB of its own on top of Django, which exceeds a free
+# instance, and the image was an order of magnitude larger for a job that runs
+# once a month. Scraping moved to GitHub Actions, with a developer workstation
+# as the fallback, and both talk to the same hosted PostgreSQL. The scraper code
+# stays in the repository and is unchanged -- see docs/deployment-runbook.md.
 #
-# It carries a browser. The market scraper drives Chromium through Selenium, so
-# Chromium and its driver are installed here, from the same Debian snapshot, and
-# their paths are exported. That is what lets CHROMEDRIVER_PATH be set, which
-# takes ChromeDriverManager out of the runtime path entirely -- it fetches a
-# version manifest over the network on every call and raises when it cannot, so
-# leaving it in means a network blip fails a scrape that never reached the job
-# board. That exact failure was observed during release validation.
+# No persistent disk either. Free instance storage is ephemeral, so private
+# documents live in object storage; see resources/private_storage.py.
 #
 # And it does not bootstrap itself. No migrate, no import_skills, no
 # import_resources at startup. Those are release operations run once against a
-# new database; a web process that ran them would re-run them on every restart,
-# on every scaled-up instance, and concurrently during a rolling deploy. See
-# docs/deployment-runbook.md for the sequence and when each part applies.
+# new database; a web process that ran them would repeat them on every restart
+# and concurrently during a rolling deploy.
 
-# Pinned to the Debian release, not the floating slim tag. The apt packages
-# below are Debian's, so a base that silently moves to the next Debian would
-# change chromium's version and packaging under a build that looks unchanged.
+# Pinned to the Debian release rather than the floating slim tag, so the apt
+# packages below cannot change underneath a build that looks unchanged.
 FROM python:3.14-slim-trixie
 
-# Chromium and chromium-driver come from the same apt snapshot, so the driver
-# matches the browser without a version lookup. libnss3 and the font package
-# are not optional: headless Chromium exits immediately without them, and
-# without fonts it renders blank pages that read as an empty job board rather
-# than as a missing dependency.
+# libpq5 for psycopg. curl earns its place as the only way to diagnose outbound
+# connectivity from inside a container with no shell access on the free plan.
 RUN apt-get update && apt-get install --no-install-recommends -y \
-        chromium \
-        chromium-driver \
-        libnss3 \
-        libxss1 \
-        fonts-liberation \
         libpq5 \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Read by scrape_jobs.scraper.create_driver. Set here rather than in render.yaml
-# so the image is self-describing: whatever runs it gets a working browser
-# without having to know these paths.
-ENV CHROME_BINARY=/usr/bin/chromium \
-    CHROMEDRIVER_PATH=/usr/bin/chromedriver
-
-# PYTHONUNBUFFERED so Render's log stream shows output as it happens rather
-# than when a buffer fills -- which matters most for the long scraper run.
+# PYTHONUNBUFFERED so the platform's log stream shows output as it happens
+# rather than when a buffer fills.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
@@ -65,23 +50,19 @@ RUN DJANGO_DEBUG=false \
     DJANGO_SECRET_KEY=build-time-placeholder-not-used-at-runtime \
     python manage.py collectstatic --noinput
 
-# Certificates carry a student's full name and identification number, so they
-# are written outside MEDIA_ROOT and served only through an ownership-checked
-# view. In production this is a mounted Render disk; the directory is created
-# here so the image also runs without one, in which case the contents are
-# ephemeral and that is a deployment error rather than a silent data loss.
-RUN mkdir -p /var/data/private_media
-
-# Non-root, and it must own the media path or uploads fail at write time rather
-# than at deploy time.
+# Non-root.
 RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app /var/data
+    && chown -R app:app /app
 USER app
 
 EXPOSE 8000
 
-# Render supplies $PORT; the default keeps `docker run` usable without it.
-# Shell form on purpose, so $PORT is expanded.
+# $PORT is supplied by the platform; the default keeps `docker run` usable
+# without it. Shell form on purpose, so $PORT is expanded.
+#
+# Two workers, which is why the cache must be shared rather than per-process --
+# throttle history lives there, and a per-process cache would make the real
+# login rate limit the configured rate times the worker count.
 CMD gunicorn config.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
     --workers ${WEB_CONCURRENCY:-2} \

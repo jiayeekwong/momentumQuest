@@ -37,6 +37,29 @@ re-run, so a later refactor can silently restore the full-catalogue fetch.
 the request URLs rather than the rendered markup. The six behaviours above are
 all observable from the URLs the component asks for.
 
+## No filesystem-to-R2 migration utility
+
+**Deliberately absent, not missing.** Production is a fresh deployment and its R2
+bucket starts empty, because the three kinds of data in this system arrive by
+three different routes:
+
+    reference catalogue  ->  seeded into production
+    market data          ->  acquired into production
+    private documents    ->  created in production only
+
+Development certificates stay where they are, under the local
+`PRIVATE_MEDIA_ROOT`. Nothing copies them anywhere, and the filesystem backend is
+unchanged, so they keep working locally exactly as before. Copying real students'
+documents into a production bucket to make a smoke test convenient would be a
+disclosure with no upside -- production validation uses a purpose-made test
+student and a document created for it.
+
+**Write one only if** an existing deployment that already stores documents on a
+filesystem has to move to object storage. That is a real requirement with a real
+migration to design -- verify every object landed, keep the database keys stable,
+and decide what happens to the originals -- and none of it is guesswork worth
+doing in advance.
+
 ## Single-source market data, and no scheduler in production
 
 The scraper reads one source (JobStreet ICT). `ScrapeLog` records

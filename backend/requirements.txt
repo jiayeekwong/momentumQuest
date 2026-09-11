@@ -59,3 +59,14 @@ waitress==3.0.2
 #
 #     gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
 gunicorn==23.0.0
+
+# S3 API client, for the private document bucket (Cloudflare R2).
+#
+# Certificates carry identification numbers and free hosting gives a container
+# ephemeral storage, so they cannot live on the instance filesystem: the upload
+# succeeds, the row is written, and the next deploy discards the file with
+# nothing in any log. boto3 rather than django-storages because the requirement
+# is four operations on one private bucket -- put, get, delete, list -- and none
+# of them is a Django storage backend's job here: reads are streamed back
+# through the view that checked ownership, never served by a URL.
+boto3==1.40.66
