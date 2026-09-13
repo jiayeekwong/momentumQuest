@@ -1,4 +1,6 @@
 import json
+import urllib.parse
+import io
 
 from django.core import mail
 from rest_framework.serializers import ValidationError
@@ -1417,3 +1419,645 @@ class HTTPSEmailBackendTests(TestCase):
 
     def test_sending_nothing_is_not_an_error(self):
         self.assertEqual(self._backend().send_messages([]), 0)
+
+
+class GmailApiEmailBackendTests(TestCase):
+    """Mail over the Gmail API, not SMTP.
+
+    Same reason as the Resend backend: outbound SMTP ports are commonly blocked
+    on free hosting, and the failure is silent -- send_mail waits for a
+    connection that never opens, the registration request still returns 201, and
+    the verification link never arrives.
+
+    Nothing here contacts Google. Both endpoints are faked, so these test this
+    project's code: the payload shape, the token exchange, and what happens to a
+    student's registration when delivery fails.
+    """
+
+    #: No sender setting: Gmail sends as the account the refresh token belongs
+    #: to, and DEFAULT_FROM_EMAIL is the only sender the application configures.
+    CREDENTIALS = {
+        "GMAIL_CLIENT_ID": "test-client-id",
+        "GMAIL_CLIENT_SECRET": "test-client-secret",
+        "GMAIL_REFRESH_TOKEN": "test-refresh-token",
+        "DEFAULT_FROM_EMAIL": "MomentumQuest <system@example.edu>",
+    }
+
+    # ---------------------------------------------------------------- helpers
+
+    def _backend(self, **kwargs):
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**self.CREDENTIALS):
+            return GmailApiEmailBackend(**kwargs)
+
+    def _message(self, **kwargs):
+        from django.core.mail import EmailMessage
+
+        defaults = {
+            "subject": "Verify your MomentumQuest account",
+            "body": "Open this link to verify.",
+            "from_email": "MomentumQuest <system@example.edu>",
+            "to": ["student@example.edu"],
+        }
+        defaults.update(kwargs)
+        return EmailMessage(**defaults)
+
+    def _fake_transport(self, token_status=200, send_status=200,
+                        token_body=None, send_error=None):
+        """Stand in for both endpoints, recording what was asked of each.
+
+        Returns (calls, urlopen). `calls` accumulates one dict per request so a
+        test can assert on the payload rather than only on the outcome.
+        """
+        import json as _json
+
+        calls = []
+
+        class Response:
+            def __init__(self, status, body=b"{}"):
+                self.status = status
+                self._body = body
+
+            def read(self):
+                return self._body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def urlopen(request, timeout=None):
+            entry = {
+                "url": request.full_url,
+                "method": request.method,
+                "headers": dict(request.headers),
+                "raw_body": request.data,
+            }
+            calls.append(entry)
+
+            if "oauth2.googleapis.com" in request.full_url:
+                entry["form"] = dict(urllib.parse.parse_qsl(
+                    request.data.decode("utf-8")))
+                body = token_body if token_body is not None else {
+                    "access_token": "test-access-token",
+                    "expires_in": 3600,
+                    "token_type": "Bearer",
+                }
+                return Response(token_status, _json.dumps(body).encode("utf-8"))
+
+            entry["json"] = _json.loads(request.data.decode("utf-8"))
+            if send_error is not None:
+                raise send_error
+            return Response(send_status)
+
+        return calls, urlopen
+
+    # ------------------------------------------------------- the DRF contract
+
+    def test_an_empty_list_sends_nothing_and_returns_zero(self):
+        """Django calls this with an empty list; it must not cost a token."""
+        from unittest.mock import patch
+
+        backend = self._backend()
+        with patch("urllib.request.urlopen") as urlopen:
+            self.assertEqual(backend.send_messages([]), 0)
+
+        urlopen.assert_not_called()
+
+    def test_the_count_returned_is_the_number_accepted(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        _calls, urlopen = self._fake_transport()
+        messages = [self._message(to=[f"s{n}@example.edu"]) for n in range(3)]
+
+        with patch("urllib.request.urlopen", urlopen):
+            self.assertEqual(backend.send_messages(messages), 3)
+
+    def test_one_token_is_fetched_for_the_whole_batch(self):
+        """A token per message would be an extra round trip per message."""
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+        messages = [self._message(to=[f"s{n}@example.edu"]) for n in range(3)]
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages(messages)
+
+        token_calls = [c for c in calls if "oauth2" in c["url"]]
+        send_calls = [c for c in calls if "gmail.googleapis" in c["url"]]
+        self.assertEqual((len(token_calls), len(send_calls)), (1, 3))
+
+    def test_a_message_with_no_recipient_is_not_sent(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages([self._message(to=[])])
+
+        self.assertEqual(sent, 0)
+        self.assertEqual([c for c in calls if "gmail.googleapis" in c["url"]], [])
+
+    # ------------------------------------------------------------ credentials
+
+    def test_a_missing_client_id_is_refused_at_construction(self):
+        """Not at the first send, which would be during a registration."""
+        from django.core.exceptions import ImproperlyConfigured
+
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**{**self.CREDENTIALS, "GMAIL_CLIENT_ID": ""}):
+            with self.assertRaises(ImproperlyConfigured) as caught:
+                GmailApiEmailBackend()
+
+        self.assertIn("GMAIL_CLIENT_ID", str(caught.exception))
+
+    def test_a_missing_client_secret_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**{**self.CREDENTIALS,
+                                  "GMAIL_CLIENT_SECRET": ""}):
+            with self.assertRaises(ImproperlyConfigured) as caught:
+                GmailApiEmailBackend()
+
+        self.assertIn("GMAIL_CLIENT_SECRET", str(caught.exception))
+
+    def test_a_missing_refresh_token_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**{**self.CREDENTIALS,
+                                  "GMAIL_REFRESH_TOKEN": ""}):
+            with self.assertRaises(ImproperlyConfigured) as caught:
+                GmailApiEmailBackend()
+
+        self.assertIn("GMAIL_REFRESH_TOKEN", str(caught.exception))
+
+    def test_the_refusal_names_the_settings_but_never_their_values(self):
+        """These messages reach deployment logs and get pasted into chat."""
+        from django.core.exceptions import ImproperlyConfigured
+
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**{**self.CREDENTIALS, "GMAIL_CLIENT_ID": ""}):
+            with self.assertRaises(ImproperlyConfigured) as caught:
+                GmailApiEmailBackend()
+
+        message = str(caught.exception)
+        self.assertNotIn("test-client-secret", message)
+        self.assertNotIn("test-refresh-token", message)
+
+    def test_fail_silently_allows_construction_without_credentials(self):
+        """Django builds a backend in places that must not raise."""
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(GMAIL_CLIENT_ID="", GMAIL_CLIENT_SECRET="",
+                               GMAIL_REFRESH_TOKEN="", DEFAULT_FROM_EMAIL=""):
+            backend = GmailApiEmailBackend(fail_silently=True)
+
+        self.assertEqual(backend.send_messages([]), 0)
+
+    # ---------------------------------------------------------------- token
+
+    def test_the_token_request_is_a_refresh_token_grant(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([self._message()])
+
+        token_call = next(c for c in calls if "oauth2" in c["url"])
+        self.assertEqual(token_call["url"],
+                         "https://oauth2.googleapis.com/token")
+        self.assertEqual(token_call["form"]["grant_type"], "refresh_token")
+        self.assertEqual(token_call["form"]["refresh_token"],
+                         "test-refresh-token")
+        self.assertEqual(token_call["headers"]["Content-type"],
+                         "application/x-www-form-urlencoded")
+
+    def test_the_access_token_is_used_as_a_bearer_token(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([self._message()])
+
+        send_call = next(c for c in calls if "gmail.googleapis" in c["url"])
+        self.assertEqual(send_call["headers"]["Authorization"],
+                         "Bearer test-access-token")
+
+    def test_a_failed_token_exchange_sends_nothing(self):
+        """Attempting the send would fail anyway, with a worse message."""
+        from unittest.mock import patch
+
+        backend = self._backend()
+        # A revoked or expired refresh token answers 400 with invalid_grant.
+        calls, urlopen = self._fake_transport(token_status=400)
+
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 0)
+        self.assertEqual([c for c in calls if "gmail.googleapis" in c["url"]], [])
+
+    def test_a_token_response_without_a_token_is_treated_as_failure(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport(token_body={"expires_in": 3600})
+
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 0)
+        self.assertEqual([c for c in calls if "gmail.googleapis" in c["url"]], [])
+
+    # ------------------------------------------------------------------ send
+
+    def test_the_send_request_goes_to_the_gmail_messages_send_endpoint(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([self._message()])
+
+        send_call = next(c for c in calls if "gmail.googleapis" in c["url"])
+        self.assertEqual(
+            send_call["url"],
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+        self.assertEqual(send_call["method"], "POST")
+
+    def test_the_payload_is_django_s_own_mime_message_base64url_encoded(self):
+        """The reason this backend does not rebuild the message itself.
+
+        Reassembling subject, body and alternatives into a provider's JSON shape
+        is where parts get silently dropped. Handing over Django's MIME bytes
+        means To, Cc, Bcc, Reply-To and every part survive untouched.
+        """
+        import base64
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+        message = self._message(cc=["tutor@example.edu"],
+                                reply_to=["help@example.edu"])
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([message])
+
+        send_call = next(c for c in calls if "gmail.googleapis" in c["url"])
+        self.assertEqual(list(send_call["json"]), ["raw"])
+
+        mime = base64.urlsafe_b64decode(
+            send_call["json"]["raw"]).decode("utf-8", "replace")
+        self.assertIn("student@example.edu", mime)
+        self.assertIn("tutor@example.edu", mime)
+        self.assertIn("help@example.edu", mime)
+        self.assertIn("Open this link to verify.", mime)
+
+    def test_the_subject_survives_the_mime_round_trip(self):
+        import base64
+        from email import message_from_bytes
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([self._message()])
+
+        send_call = next(c for c in calls if "gmail.googleapis" in c["url"])
+        parsed = message_from_bytes(
+            base64.urlsafe_b64decode(send_call["json"]["raw"]))
+        self.assertEqual(parsed["Subject"],
+                         "Verify your MomentumQuest account")
+
+    def test_an_html_alternative_survives_mime_construction(self):
+        import base64
+        from email import message_from_bytes
+        from unittest.mock import patch
+
+        from django.core.mail import EmailMultiAlternatives
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+        message = EmailMultiAlternatives(
+            subject="Reset your password", body="Plain text version",
+            from_email="MomentumQuest <system@example.edu>",
+            to=["student@example.edu"])
+        message.attach_alternative("<p>Rich version</p>", "text/html")
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([message])
+
+        send_call = next(c for c in calls if "gmail.googleapis" in c["url"])
+        parsed = message_from_bytes(
+            base64.urlsafe_b64decode(send_call["json"]["raw"]))
+
+        self.assertTrue(parsed.is_multipart())
+        types = {part.get_content_type() for part in parsed.walk()}
+        self.assertIn("text/plain", types)
+        self.assertIn("text/html", types)
+
+    def test_an_attachment_survives_mime_construction(self):
+        import base64
+        from email import message_from_bytes
+        from unittest.mock import patch
+
+        backend = self._backend()
+        calls, urlopen = self._fake_transport()
+        message = self._message()
+        message.attach("notes.txt", b"attached bytes", "text/plain")
+
+        with patch("urllib.request.urlopen", urlopen):
+            backend.send_messages([message])
+
+        send_call = next(c for c in calls if "gmail.googleapis" in c["url"])
+        parsed = message_from_bytes(
+            base64.urlsafe_b64decode(send_call["json"]["raw"]))
+        filenames = {p.get_filename() for p in parsed.walk()}
+        self.assertIn("notes.txt", filenames)
+
+    # --------------------------------------------------------------- failure
+
+    def test_a_gmail_rejection_reports_zero_rather_than_raising(self):
+        """Mail is best-effort around a request that already succeeded.
+
+        Raising would turn "the verification email is late" into "the account
+        was not created", which is strictly worse for the student.
+        """
+        import urllib.error
+        from unittest.mock import patch
+
+        backend = self._backend()
+        _calls, urlopen = self._fake_transport(
+            send_error=urllib.error.HTTPError(
+                "https://gmail.googleapis.com", 403,
+                "Forbidden", {}, io.BytesIO(b'{"error": "insufficient scope"}')))
+
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 0)
+
+    def test_a_network_failure_reports_zero_rather_than_raising(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        _calls, urlopen = self._fake_transport(
+            send_error=OSError("connection refused"))
+
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 0)
+
+    def test_a_non_2xx_status_is_not_treated_as_accepted(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        _calls, urlopen = self._fake_transport(send_status=302)
+
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages([self._message()])
+
+        self.assertEqual(sent, 0)
+
+    def test_one_failure_does_not_stop_the_rest_of_the_batch(self):
+        from unittest.mock import patch
+
+        backend = self._backend()
+        attempts = {"n": 0}
+        base_calls, base_urlopen = self._fake_transport()
+
+        def urlopen(request, timeout=None):
+            if "gmail.googleapis" in request.full_url:
+                attempts["n"] += 1
+                if attempts["n"] == 1:
+                    raise OSError("transient")
+            return base_urlopen(request, timeout=timeout)
+
+        messages = [self._message(to=[f"s{n}@example.edu"]) for n in range(3)]
+        with patch("urllib.request.urlopen", urlopen):
+            sent = backend.send_messages(messages)
+
+        self.assertEqual(sent, 2)
+
+    def test_no_secret_or_message_content_is_logged_on_failure(self):
+        """These logs are read by people who need none of it, and a
+        password-reset body carries a working token."""
+        import urllib.error
+        from unittest.mock import patch
+
+        backend = self._backend()
+        _calls, urlopen = self._fake_transport(
+            send_error=urllib.error.HTTPError(
+                "https://gmail.googleapis.com", 400, "Bad Request", {},
+                io.BytesIO(b'{"error": "invalid argument"}')))
+
+        with patch("urllib.request.urlopen", urlopen):
+            with self.assertLogs("config.email", level="ERROR") as logged:
+                backend.send_messages([self._message(
+                    body="Reset link: https://example.edu/reset/SECRET-TOKEN")])
+
+        output = "\n".join(logged.output)
+        for forbidden in ("student@example.edu", "SECRET-TOKEN",
+                          "test-client-secret", "test-refresh-token",
+                          "test-access-token"):
+            self.assertNotIn(forbidden, output)
+
+    # ----------------------------------------------------- the whole contract
+
+    def test_send_mail_reaches_gmail_without_any_caller_knowing(self):
+        """The acceptance criterion: application code stays provider-agnostic.
+
+        accounts/serializers.py and accounts/views.py call send_mail and were
+        not touched by this migration.
+        """
+        from unittest.mock import patch
+
+        from django.core.mail import send_mail
+
+        calls, urlopen = self._fake_transport()
+
+        with override_settings(
+                EMAIL_BACKEND="config.email.GmailApiEmailBackend",
+                **self.CREDENTIALS):
+            with patch("urllib.request.urlopen", urlopen):
+                sent = send_mail(
+                    "Verify your MomentumQuest account",
+                    "Open this link to verify.",
+                    "MomentumQuest <system@example.edu>",
+                    ["student@example.edu"],
+                )
+
+        self.assertEqual(sent, 1)
+        self.assertEqual(
+            [c["url"] for c in calls],
+            ["https://oauth2.googleapis.com/token",
+             "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"])
+
+
+class GmailSenderConfigurationTests(TestCase):
+    """DEFAULT_FROM_EMAIL is the only sender, and it has to be usable.
+
+    There is deliberately no GMAIL_SENDER_EMAIL. Gmail sends as whichever
+    account the refresh token belongs to, so a second sender setting could
+    disagree with reality while looking authoritative -- and misleading
+    production configuration is worse than none.
+
+    The guard exists because of the project's own fallback:
+    f"MomentumQuest <{EMAIL_HOST_USER}>", where EMAIL_HOST_USER is os.getenv
+    with no default. An unconfigured deployment therefore gets the literal
+    string "MomentumQuest <None>", which the console backend prints happily and
+    Gmail cannot send.
+    """
+
+    CREDENTIALS = {
+        "GMAIL_CLIENT_ID": "test-client-id",
+        "GMAIL_CLIENT_SECRET": "test-client-secret",
+        "GMAIL_REFRESH_TOKEN": "test-refresh-token",
+    }
+
+    def _build(self, **overrides):
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**{**self.CREDENTIALS, **overrides}):
+            return GmailApiEmailBackend()
+
+    # ------------------------------------------------- the removed setting
+
+    def test_the_backend_works_with_no_sender_setting_at_all(self):
+        """GMAIL_SENDER_EMAIL is gone; nothing reads it."""
+        backend = self._build(
+            DEFAULT_FROM_EMAIL="MomentumQuest <system@example.edu>")
+
+        self.assertFalse(hasattr(backend, "sender"))
+
+    def test_gmail_sender_email_is_no_longer_a_setting(self):
+        """A removed variable that lingers in settings invites someone to set it
+        and expect it to matter."""
+        from django.conf import settings
+
+        self.assertFalse(hasattr(settings, "GMAIL_SENDER_EMAIL"))
+
+    def test_setting_it_anyway_changes_nothing(self):
+        """Proves it is inert rather than merely undocumented."""
+        backend = self._build(
+            DEFAULT_FROM_EMAIL="MomentumQuest <system@example.edu>",
+            GMAIL_SENDER_EMAIL="someone-else@example.edu")
+
+        self.assertFalse(hasattr(backend, "sender"))
+
+    # --------------------------------------------------- accepted senders
+
+    def test_a_name_and_address_is_accepted(self):
+        self._build(DEFAULT_FROM_EMAIL="MomentumQuest <system@example.edu>")
+
+    def test_a_bare_address_is_accepted(self):
+        self._build(DEFAULT_FROM_EMAIL="system@example.edu")
+
+    def test_surrounding_whitespace_is_tolerated(self):
+        self._build(DEFAULT_FROM_EMAIL="  system@example.edu  ")
+
+    # --------------------------------------------------- refused senders
+
+    def test_a_blank_sender_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        with self.assertRaises(ImproperlyConfigured) as caught:
+            self._build(DEFAULT_FROM_EMAIL="")
+
+        self.assertIn("DEFAULT_FROM_EMAIL", str(caught.exception))
+
+    def test_whitespace_only_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        with self.assertRaises(ImproperlyConfigured):
+            self._build(DEFAULT_FROM_EMAIL="   ")
+
+    def test_the_unconfigured_smtp_fallback_is_refused(self):
+        """The case this guard was added for.
+
+        settings computes f"MomentumQuest <{EMAIL_HOST_USER}>" and
+        EMAIL_HOST_USER has no default, so this exact string is what an
+        unconfigured deployment produces.
+        """
+        from django.core.exceptions import ImproperlyConfigured
+
+        with self.assertRaises(ImproperlyConfigured) as caught:
+            self._build(DEFAULT_FROM_EMAIL="MomentumQuest <None>")
+
+        self.assertIn("DEFAULT_FROM_EMAIL", str(caught.exception))
+
+    def test_a_display_name_with_no_address_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        for value in ("MomentumQuest", "MomentumQuest <>", "None"):
+            with self.subTest(value=value):
+                with self.assertRaises(ImproperlyConfigured):
+                    self._build(DEFAULT_FROM_EMAIL=value)
+
+    def test_the_refusal_names_the_setting_but_no_credential(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        with self.assertRaises(ImproperlyConfigured) as caught:
+            self._build(DEFAULT_FROM_EMAIL="MomentumQuest <None>")
+
+        message = str(caught.exception)
+        self.assertIn("DEFAULT_FROM_EMAIL", message)
+        for secret in ("test-client-secret", "test-refresh-token",
+                       "test-client-id"):
+            self.assertNotIn(secret, message)
+
+    # ------------------------------------------------------ fail_silently
+
+    def test_fail_silently_skips_the_sender_check(self):
+        """Django constructs backends in places that must not raise."""
+        from config.email import GmailApiEmailBackend
+
+        with override_settings(**self.CREDENTIALS,
+                               DEFAULT_FROM_EMAIL="MomentumQuest <None>"):
+            backend = GmailApiEmailBackend(fail_silently=True)
+
+        self.assertEqual(backend.send_messages([]), 0)
+
+    # ------------------------------------------- the other backends unmoved
+
+    def test_the_resend_backend_does_not_require_a_usable_sender(self):
+        """Resend validates the sending domain itself, and this check is
+        specific to the Gmail path -- so adding it globally would have changed
+        an unrelated provider's behaviour."""
+        from config.email import ResendEmailBackend
+
+        with override_settings(EMAIL_API_KEY="test-key",
+                               DEFAULT_FROM_EMAIL="MomentumQuest <None>"):
+            ResendEmailBackend()
+
+    def test_local_smtp_development_is_unaffected(self):
+        """The reason the check lives in the backend and not in settings: with
+        the console or locmem backend, "MomentumQuest <None>" is harmless and
+        refusing it would break every developer's clone."""
+        from django.core.mail import get_connection, send_mail
+
+        with override_settings(
+                EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+                DEFAULT_FROM_EMAIL="MomentumQuest <None>"):
+            get_connection()
+            sent = send_mail("Subject", "Body", None, ["student@example.edu"])
+
+        self.assertEqual(sent, 1)

@@ -457,6 +457,29 @@ EMAIL_BACKEND = os.getenv(
 # registration request still succeeds, and the verification link never arrives.
 EMAIL_API_KEY = os.getenv("EMAIL_API_KEY", "").strip()
 
+# Gmail API over HTTPS, the production transport. Gmail speaks SMTP too, and
+# that is the wrong choice here: outbound SMTP ports are commonly blocked on
+# free hosting, and the failure is silent -- send_mail waits for a connection
+# that never opens while the registration request still returns success.
+#
+# Refresh-token OAuth. The refresh token is exchanged for a short-lived access
+# token per batch, and that access token is never persisted -- see
+# config/email.py. The OAuth client is scoped to gmail.send alone: no inbox
+# read, no mailbox modification.
+#
+# The sender is DEFAULT_FROM_EMAIL and nothing else. There is deliberately no
+# GMAIL_SENDER_EMAIL: Gmail sends as the account the refresh token belongs to,
+# so a second sender variable could disagree with reality while looking
+# authoritative -- misleading configuration is worse than none.
+#
+# DEFAULT_FROM_EMAIL should normally name that same account. Gmail rewrites the
+# From header to the authenticated account unless the address is a verified
+# "Send mail as" alias on it, so a different address there is silently replaced
+# rather than honoured.
+GMAIL_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "").strip()
+GMAIL_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET", "").strip()
+GMAIL_REFRESH_TOKEN = os.getenv("GMAIL_REFRESH_TOKEN", "").strip()
+
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
@@ -464,6 +487,11 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
+# The fallback interpolates EMAIL_HOST_USER, which is os.getenv with no default
+# -- so with no SMTP user configured this becomes the literal string
+# "MomentumQuest <None>". Harmless with the console or locmem backend, and a
+# rejected or misattributed message in production, which is why
+# GmailApiEmailBackend refuses to start on an address it cannot use.
 DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
     f"MomentumQuest <{EMAIL_HOST_USER}>"

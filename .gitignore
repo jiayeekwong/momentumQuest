@@ -21,6 +21,15 @@ backend/private_media/
 .env.*
 !.env.example
 backend/.env
+
+# Google OAuth artefacts. The Gmail refresh token is obtained once, locally,
+# with a throwaway consent flow; only the resulting token belongs in the
+# environment. The client file and any cached token must never be committed --
+# a client secret in git history is a rotation, not an edit.
+credentials.json
+client_secret*.json
+token.json
+*.oauth.json
 frontend/.env.local
 
 # Node / Next.js
