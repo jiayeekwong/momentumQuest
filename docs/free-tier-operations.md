@@ -60,9 +60,15 @@ choice: a free instance's filesystem is discarded when the container is replaced
 so a certificate written there is lost at the next deploy — silently, with the
 database row still pointing at it.
 
-The application refuses to start in production without a bucket configured,
-because that particular failure produces no error at the time: the upload
-succeeds, the student is told it worked, and the file is simply gone weeks later.
+Production never falls back to the instance's filesystem, because that particular
+failure produces no error at the time: the upload succeeds, the student is told it
+worked, and the file is simply gone weeks later. Instead the storage configuration
+is checked when a document is first stored or read, and a missing or wrong R2
+setting makes that operation fail rather than quietly writing somewhere temporary.
+
+That check happens on first use, not at startup. A deploy that succeeds and a
+health check that passes therefore say nothing about whether R2 works — only a
+real certificate upload and download does.
 
 R2's free allowance is generous relative to this project (a few thousand
 documents of a few hundred KB each), and it charges no egress. Deletion is

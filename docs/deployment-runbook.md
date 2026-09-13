@@ -85,8 +85,11 @@ Create an API token scoped to that bucket, then set:
 
     R2_BUCKET, R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
 
-If these are absent while `DEBUG` is false, **the application refuses to start**.
-That is intentional — see §4.
+R2 is checked when a document is **first stored or read**, not when the service
+starts. If these values are missing or wrong, that document operation fails;
+production never falls back to the instance's temporary disk. So a successful
+deploy and a passing health check say nothing about R2 — see §4, and the
+document lifecycle in §7.
 
 ### 1.3 Bootstrap the database, from your own machine
 
@@ -234,13 +237,29 @@ headers.
 Transcripts are different and worth knowing: they are stored, read once for text
 extraction, and deleted within the same request. Nothing retains them.
 
-**The guard.** With `DEBUG=false` and no R2 configured, the application refuses
-to start. Without that, an upload to a free instance would succeed, the row
-would be written, the student would be told it worked — and the file would be
-gone at the next deploy, months later, with nothing in any log. There is no
-error to catch afterwards, so startup is the only place to fail. Override with
-`PRIVATE_STORAGE_BACKEND=filesystem` only where local storage genuinely
-persists.
+**The guard.** Production names its storage backend —
+`PRIVATE_STORAGE_BACKEND=r2` in `render.yaml` — and never falls back to the
+instance's local filesystem. Without that, an upload to a free instance would
+succeed, the row would be written, the student would be told it worked — and the
+file would be gone at the next deploy, months later, with nothing in any log.
+
+The check happens when storage is **first used**, not at startup: the backend is
+resolved on the first document operation. So:
+
+- a **missing** R2 value makes that operation fail with `ImproperlyConfigured`;
+- a **present but wrong** value — a bad key, endpoint or bucket name — makes
+  uploads fail, and makes an existing certificate read as missing (404) rather
+  than raising an error;
+- in neither case is anything written to local disk.
+
+The consequence to plan around: **a successful deploy and a passing health check
+do not prove R2 works.** Only a real certificate upload and download does, which
+is why the document lifecycle in §7 is part of the smoke test rather than an
+optional extra. If a certificate unexpectedly reads as missing, check the R2
+credentials before assuming the object is gone.
+
+Override with `PRIVATE_STORAGE_BACKEND=filesystem` only where local storage
+genuinely persists.
 
 ---
 
