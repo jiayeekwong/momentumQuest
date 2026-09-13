@@ -171,6 +171,47 @@ class Command(BaseCommand):
 
         self._verify()
 
+    def _check_domain_invariants(self):
+        """Rules the reference data must satisfy, beyond matching the seed.
+
+        Deliberately separate from the seed digests. A digest proves the
+        database equals the file; it says nothing about whether the file is
+        itself coherent. Both were needed here: a role reached the seed with no
+        broad_area, and the digest was perfectly happy because the database
+        agreed with it.
+
+        broad_area drives career-area scoping, so a role without one cannot be
+        browsed under any area -- it is present, counted, and unreachable.
+
+        Empty, NULL and whitespace-only are treated alike. The field is
+        blank=True and not null=True, so NULL should not occur, but a value of
+        " " would pass a bare exclude(broad_area="") while being just as
+        unbrowsable.
+        """
+        from django.apps import apps
+
+        MarketRole = apps.get_model("scrape_jobs", "MarketRole")
+        offenders = sorted(
+            name for name, area in MarketRole.objects.values_list(
+                "name", "broad_area")
+            if not (area or "").strip()
+        )
+
+        self.stdout.write("")
+        self.stdout.write(self.style.MIGRATE_HEADING("  Domain invariants"))
+        self.stdout.write(
+            f"      {'roles with no broad_area':26} {len(offenders):>7}")
+
+        if offenders:
+            raise CommandError(
+                "Every Market Role must belong to exactly one non-empty broad "
+                "area, and these do not:"
+                + "\n    " + ("\n    ").join(offenders)
+                + "\n\n        A role with no broad area is counted but "
+                  "unreachable: career-area scoping has nowhere to show it. "
+                  "Give each one an existing area in data/market_roles.csv and "
+                  "re-run load_market_roles.")
+
     def _verify(self):
         from django.apps import apps
 
@@ -197,6 +238,8 @@ class Command(BaseCommand):
         # The counts agreeing is necessary and not sufficient -- these compare a
         # deterministic sorted digest of every field, which is what catches a
         # row that is present but wrong.
+        self._check_domain_invariants()
+
         self.stdout.write("")
         self.stdout.write(self.style.MIGRATE_HEADING("  Seed digests"))
         call_command("export_skills", check=True)

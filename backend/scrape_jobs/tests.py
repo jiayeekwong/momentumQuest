@@ -2599,3 +2599,78 @@ class MarketRoleSeedReproducibilityTests(TestCase):
             call_command("load_market_roles", check=True)
 
         self.assertIn("catalogue_origin", str(caught.exception))
+
+
+class BootstrapDomainInvariantTests(TestCase):
+    """A seed digest proves the database equals the file. Not that the file is sane.
+
+    Both checks were needed here, and only one existed. A role reached the seed
+    with no broad_area, the database matched the file exactly, and the digest
+    was satisfied -- while the role itself was counted, verified, and unreachable
+    from every career-area view.
+
+    So this invariant is deliberately not part of the digest: it asks a
+    different question.
+    """
+
+    def _verify(self):
+        """Run just the invariant, without the rest of a bootstrap."""
+        from scrape_jobs.management.commands.bootstrap_database import Command
+
+        command = Command()
+        command.stdout = StringIO()
+        command._check_domain_invariants()
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_market_roles")
+
+    def test_the_seeded_taxonomy_satisfies_the_invariant(self):
+        self.assertEqual(MarketRole.objects.count(), 32)
+
+        self._verify()   # raises if any role has no area
+
+    def test_a_role_with_no_broad_area_fails_verification(self):
+        MarketRole.objects.filter(name="Product Manager").update(broad_area="")
+
+        with self.assertRaises(CommandError):
+            self._verify()
+
+    def test_the_failure_names_the_offending_role(self):
+        """A count alone sends the operator looking through 32 rows."""
+        MarketRole.objects.filter(name="Product Manager").update(broad_area="")
+
+        with self.assertRaises(CommandError) as caught:
+            self._verify()
+
+        self.assertIn("Product Manager", str(caught.exception))
+
+    def test_every_offender_is_named_not_just_the_first(self):
+        MarketRole.objects.filter(
+            name__in=["Product Manager", "Data Engineer"]).update(broad_area="")
+
+        with self.assertRaises(CommandError) as caught:
+            self._verify()
+
+        message = str(caught.exception)
+        self.assertIn("Product Manager", message)
+        self.assertIn("Data Engineer", message)
+
+    def test_a_whitespace_only_area_is_treated_as_empty(self):
+        """It would pass exclude(broad_area="") and still be unbrowsable."""
+        MarketRole.objects.filter(name="Product Manager").update(broad_area="   ")
+
+        with self.assertRaises(CommandError) as caught:
+            self._verify()
+
+        self.assertIn("Product Manager", str(caught.exception))
+
+    def test_the_invariant_does_not_write(self):
+        """It must be safe to run against a real database."""
+        MarketRole.objects.filter(name="Product Manager").update(broad_area="")
+
+        with self.assertRaises(CommandError):
+            self._verify()
+
+        self.assertEqual(
+            MarketRole.objects.get(name="Product Manager").broad_area, "")
