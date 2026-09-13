@@ -2061,3 +2061,207 @@ class GmailSenderConfigurationTests(TestCase):
             sent = send_mail("Subject", "Body", None, ["student@example.edu"])
 
         self.assertEqual(sent, 1)
+
+
+class PublicPrivacyNoticeSnapshotTests(TestCase):
+    """The public privacy page must not quietly fall behind the real notice.
+
+    /privacy-notice is the privacy-policy URL given to Google, and it renders a
+    snapshot of the notice into its HTML so a reviewer without JavaScript, or one
+    who arrives while the free API instance is asleep, still reads the whole
+    thing. Vercel builds the frontend alone and cannot import
+    accounts.privacy_notice, so that snapshot is a copy -- and a copy of a legal
+    document that can drift is worse than no copy.
+
+    These make the drift loud. Publishing a new notice version without
+    regenerating the snapshot fails here, in the backend suite, rather than
+    leaving the public legal URL showing text nobody is agreeing to any more.
+    """
+
+    def _snapshot_path(self):
+        from accounts.management.commands.export_privacy_notice import DEFAULT_PATH
+        return DEFAULT_PATH
+
+    def _load(self):
+        with io.open(self._snapshot_path(), encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def _write_copy(self, folder, mutate):
+        """A temporary snapshot altered by `mutate`, for the failure cases."""
+        from pathlib import Path
+
+        document = self._load()
+        mutate(document["notice"])
+        path = Path(folder) / "snapshot.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        return path
+
+    def _check(self, path=None):
+        from django.core.management import call_command
+
+        args = {"check": True}
+        if path is not None:
+            args["path"] = str(path)
+        call_command("export_privacy_notice", stdout=io.StringIO(), **args)
+
+    # ------------------------------------------------- the committed snapshot
+
+    def test_the_public_page_has_a_snapshot_to_render(self):
+        self.assertTrue(self._snapshot_path().exists(),
+                        "frontend/src/lib/privacyNoticeSnapshot.json is missing")
+
+    def test_the_snapshot_is_the_current_notice_version(self):
+        """The check the task names explicitly, kept separate so its failure
+        reads as exactly what it is."""
+        self.assertEqual(self._load()["notice"]["version"], CURRENT_VERSION)
+
+    def test_the_committed_snapshot_matches_the_canonical_notice(self):
+        self._check()   # raises CommandError on any drift
+
+    def test_the_snapshot_says_it_is_generated(self):
+        """JSON carries no comments, so the warning lives in the data."""
+        self.assertIn("export_privacy_notice", self._load()["_generated"])
+
+    def test_published_notice_1_2_is_unchanged(self):
+        """1.2 is a notice people have agreed to. Its identity must not move.
+
+        A new notice is a new version; editing this one in place would change
+        what past acknowledgements refer to.
+        """
+        notice = self._load()["notice"]
+
+        self.assertEqual(notice["version"], "1.2")
+        self.assertEqual(notice["effective_date"], "2026-09-01")
+        self.assertEqual(len(notice["sections"]), 13)
+
+    def test_the_published_contact_is_a_real_address(self):
+        from accounts.management.commands.export_privacy_notice import usable_contact
+
+        self.assertTrue(usable_contact(self._load()["notice"]["contact_email"]))
+
+    # ------------------------------------------------------- drift detection
+
+    def test_a_stale_version_fails_the_check(self):
+        from tempfile import TemporaryDirectory
+
+        from django.core.management.base import CommandError
+
+        with TemporaryDirectory() as folder:
+            path = self._write_copy(
+                folder, lambda n: n.__setitem__("version", "1.1"))
+            with self.assertRaises(CommandError) as caught:
+                self._check(path)
+
+        self.assertIn("version", str(caught.exception))
+
+    def test_changed_notice_text_fails_the_check(self):
+        """Same version, different words: the drift a version check alone misses."""
+        from tempfile import TemporaryDirectory
+
+        from django.core.management.base import CommandError
+
+        def reword(notice):
+            notice["sections"][0]["blocks"][0]["text"] = "Something else entirely."
+
+        with TemporaryDirectory() as folder:
+            path = self._write_copy(folder, reword)
+            with self.assertRaises(CommandError) as caught:
+                self._check(path)
+
+        self.assertIn("sections", str(caught.exception))
+
+    def test_a_different_contact_address_does_not_fail_the_check(self):
+        """Deliberately excluded. accounts.privacy_notice injects it from
+        PRIVACY_CONTACT_EMAIL at read time as deployment configuration, so it
+        differs between machines by design and comparing it would fail the
+        suite on the wrong ones."""
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as folder:
+            path = self._write_copy(
+                folder,
+                lambda n: n.__setitem__("contact_email", "dpo@university.edu.my"))
+            self._check(path)   # must not raise
+
+    def test_a_placeholder_contact_in_the_snapshot_fails_the_check(self):
+        from tempfile import TemporaryDirectory
+
+        from django.core.management.base import CommandError
+
+        with TemporaryDirectory() as folder:
+            path = self._write_copy(
+                folder,
+                lambda n: n.__setitem__("contact_email", "privacy@momentumquest.local"))
+            with self.assertRaises(CommandError):
+                self._check(path)
+
+    def test_a_missing_snapshot_fails_the_check(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from django.core.management.base import CommandError
+
+        with TemporaryDirectory() as folder:
+            with self.assertRaises(CommandError):
+                self._check(Path(folder) / "absent.json")
+
+    def test_the_check_does_not_write(self):
+        """It must be safe to run anywhere, including against a stale copy."""
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from django.core.management.base import CommandError
+
+        with TemporaryDirectory() as folder:
+            path = self._write_copy(
+                folder, lambda n: n.__setitem__("version", "1.1"))
+            before = Path(path).read_bytes()
+            with self.assertRaises(CommandError):
+                self._check(path)
+            self.assertEqual(Path(path).read_bytes(), before)
+
+    # --------------------------------------------------------------- export
+
+    @override_settings(PRIVACY_CONTACT_EMAIL="privacy@momentumquest.local")
+    def test_export_refuses_to_publish_the_placeholder_contact(self):
+        """The settings fallback is a .local placeholder. Printed on a public
+        legal page it is worse than nothing, so the export stops instead."""
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "snapshot.json"
+            with self.assertRaises(CommandError):
+                call_command("export_privacy_notice", path=str(path),
+                             stdout=io.StringIO())
+            self.assertFalse(path.exists())
+
+    @override_settings(PRIVACY_CONTACT_EMAIL="momentumquest.system@gmail.com")
+    def test_export_writes_a_snapshot_the_check_accepts(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from django.core.management import call_command
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "snapshot.json"
+            call_command("export_privacy_notice", path=str(path),
+                         stdout=io.StringIO())
+            self._check(path)
+
+    @override_settings(PRIVACY_CONTACT_EMAIL="momentumquest.system@gmail.com")
+    def test_export_is_deterministic(self):
+        """A regenerated snapshot must not produce a diff when nothing changed."""
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from django.core.management import call_command
+
+        with TemporaryDirectory() as folder:
+            first, second = Path(folder) / "a.json", Path(folder) / "b.json"
+            call_command("export_privacy_notice", path=str(first), stdout=io.StringIO())
+            call_command("export_privacy_notice", path=str(second), stdout=io.StringIO())
+            self.assertEqual(first.read_bytes(), second.read_bytes())

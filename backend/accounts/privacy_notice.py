@@ -3,9 +3,15 @@
 Kept as a module rather than a database table for two reasons. Version history
 is what the spec asks be preserved, and git already preserves it exactly --
 a table would need its own admin CRUD to achieve less. And serving the text
-from here means a version bump is a backend change: the frontend renders
-whatever ``/api/auth/privacy-notice/current/`` returns, so no page has to be
-redeployed when the notice changes.
+from here means a version bump is a backend change: the sign-up form and the
+upload panels render whatever ``/api/auth/privacy-notice/current/`` returns.
+
+One copy exists outside this module, deliberately. The public /privacy-notice
+page -- the privacy-policy URL given to Google -- renders a snapshot of the
+current notice into its HTML, so it stays readable with JavaScript disabled or
+while the API is asleep. Vercel cannot import this module, so the snapshot is
+generated from it rather than written by hand, and the backend suite fails if
+the two differ.
 
 Adding a version:
   1. Add a new entry to NOTICES. Never edit a published one -- a consent row
@@ -13,6 +19,9 @@ Adding a version:
      change what past users are recorded as having agreed to.
   2. Point CURRENT_VERSION at it.
   3. Decide whether existing users must re-acknowledge.
+  4. Run ``python manage.py export_privacy_notice`` and commit the regenerated
+     frontend/src/lib/privacyNoticeSnapshot.json in the same change. Skipping
+     this fails PublicPrivacyNoticeSnapshotTests.
 """
 
 from datetime import date

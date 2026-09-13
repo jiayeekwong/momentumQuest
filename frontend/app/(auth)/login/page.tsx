@@ -117,6 +117,13 @@ export default function LoginPage() {
                 Sign up
               </Link>
             </p>
+            {/* The site's front door: "/" redirects here, so without this the
+                notice was reachable only by starting sign-up first. */}
+            <p className="mt-3 text-xs text-neutral-500">
+              <Link href="/privacy-notice" className="hover:text-primary hover:underline">
+                Privacy Notice
+              </Link>
+            </p>
           </div>
         </Card>
       </motion.div>
