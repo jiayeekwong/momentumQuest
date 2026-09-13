@@ -71,8 +71,13 @@ services:
       - key: FRONTEND_URL
         sync: false
 
-      # Neon. DB_HOST is the pooled endpoint; DB_SSLMODE defaults to require
-      # when DEBUG is false, so it only needs setting to override that.
+      # Neon. DB_HOST is the pooled endpoint.
+      #
+      # DB_SSLMODE is stated even though settings.py already defaults it to
+      # "require" whenever DEBUG is false. The database is reached across the
+      # public internet, and a production Blueprint should not depend on a
+      # default a reader has to go and look up to know credentials are not sent
+      # in clear.
       - key: DB_NAME
         sync: false
       - key: DB_USER
@@ -83,9 +88,28 @@ services:
         sync: false
       - key: DB_PORT
         value: "5432"
+      - key: DB_SSLMODE
+        value: "require"
 
       # Cloudflare R2, holding certificates. The bucket stays private: nothing
       # is served by a permanent public URL, and Django authorises every read.
+      #
+      # The backend is named rather than inferred, and local storage is
+      # refused, so this service can only ever store documents in R2. Free
+      # instance storage is ephemeral: a certificate written there would be
+      # accepted, recorded, and then discarded by the next deploy with nothing
+      # in any log.
+      #
+      # This fails closed, not at startup. The storage backend is resolved on
+      # the first document operation, so a missing or wrong R2 value does not
+      # stop the service deploying -- it makes that first upload or download
+      # raise ImproperlyConfigured instead of falling back to local disk. A
+      # certificate upload is therefore part of the production smoke test, not
+      # an optional extra.
+      - key: PRIVATE_STORAGE_BACKEND
+        value: "r2"
+      - key: PRIVATE_STORAGE_ALLOW_LOCAL
+        value: "false"
       - key: R2_BUCKET
         sync: false
       - key: R2_ENDPOINT_URL
@@ -94,6 +118,9 @@ services:
         sync: false
       - key: R2_SECRET_ACCESS_KEY
         sync: false
+      # R2 ignores the region, but the S3 client requires one.
+      - key: R2_REGION
+        value: "auto"
 
       # Unset DJANGO_CACHE_URL means the database cache, shared across workers.
       # Throttle history lives in the cache, and a per-process cache would make
@@ -102,12 +129,31 @@ services:
       - key: WEB_CONCURRENCY
         value: "2"
 
-      # Mail over HTTPS rather than SMTP: outbound SMTP ports are commonly
-      # blocked on free hosting, and a blocked port means registration
-      # verification silently never arrives.
+      # Mail through the Gmail API over HTTPS rather than SMTP: outbound SMTP
+      # ports are commonly blocked on free hosting, and a blocked port means
+      # registration verification silently never arrives.
+      #
+      #   EMAIL_BACKEND=config.email.GmailApiEmailBackend
+      #
+      # The refresh token is exchanged for a short-lived access token on each
+      # send; nothing is stored. The OAuth client is scoped to gmail.send alone.
+      #
+      # There is no sender variable besides DEFAULT_FROM_EMAIL. Gmail sends as
+      # the account the refresh token belongs to, so DEFAULT_FROM_EMAIL should
+      # name that same account unless it is a verified "Send mail as" alias.
+      #
+      # Like storage, the mail backend is built when a message is sent, not at
+      # startup: a missing GMAIL_* value or an unusable DEFAULT_FROM_EMAIL
+      # surfaces on the first registration or password reset. EMAIL_API_KEY is
+      # no longer needed -- it belongs to the Resend backend, which remains in
+      # the code as an alternative but is not what production uses.
       - key: EMAIL_BACKEND
         sync: false
-      - key: EMAIL_API_KEY
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
