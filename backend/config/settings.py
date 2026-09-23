@@ -505,3 +505,54 @@ PRIVACY_CONTACT_EMAIL = os.getenv(
     "PRIVACY_CONTACT_EMAIL",
     EMAIL_HOST_USER or "privacy@momentumquest.local"
 )
+
+# Unhandled exceptions must reach the deployment's logs.
+#
+# Without this, a production 500 left no trace at all: Render showed gunicorn's
+# access line and nothing else. Django does log the exception, with its
+# traceback, through django.request -- but with no LOGGING configured, Django's
+# defaults send it to two handlers that both discard it when DEBUG is false:
+#
+#   console      filtered by require_debug_true, so silent in production;
+#   mail_admins  sends to ADMINS, and none are configured.
+#
+# The record would then propagate to the root logger, which gunicorn never gives
+# a handler (it configures only gunicorn.error and gunicorn.access). And because
+# handlers *were* found on the way, Python's last-resort stderr handler does not
+# engage either. Waitress does call logging.basicConfig(), which is why the same
+# failure printed a traceback locally and nothing on Render.
+#
+# So django.request gets its own stderr handler, independent of DEBUG. It does
+# not propagate, so development does not print each error twice.
+#
+# What reaches the logs is redacted. The request body is never rendered -- a
+# format string does not print the request django.request attaches -- but
+# exception messages can carry values from the failing statement, and User.email
+# is unique, so a duplicate-address error would print the address.
+# RedactingFormatter strips email addresses and tokens from the fully formatted
+# record, traceback included. The HTTP response is unaffected: with DEBUG false
+# the client still receives Django's generic 500 page and no exception detail.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "redacted": {
+            "()": "config.log_redaction.RedactingFormatter",
+            "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "stderr": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "redacted",
+        },
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["stderr"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
