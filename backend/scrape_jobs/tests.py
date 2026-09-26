@@ -1,10 +1,14 @@
+from datetime import timedelta
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.db import connection
+from django.db.utils import OperationalError
+from django.test import TestCase, TransactionTestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from job_listings.models import JobListing, MarketRoleCandidate
@@ -16,6 +20,7 @@ from .market_role_classifier import (
 from .catalogue import (
     DATA_DIR, FILES, database_snapshot, file_snapshot, snapshot_digest,
 )
+from . import pagination
 from .models import (JobCategory, JobTitle, MarketRole, MarketRoleAlias,
                      Skill, SkillAlias, SkillRelationship, SkillSource)
 from .title_normalizer import (
@@ -1894,7 +1899,7 @@ class MarketRoleAliasControlTests(TestCase):
     """Every control on the alias table must actually gate classification.
 
     The resolver filtered on ``reviewed`` alone while the table carries three
-    more controls. Nothing misbehaved, because all 231 rows were active and
+    more controls. Nothing misbehaved, because every row was active and
     approved -- so the failure was latent: the first time somebody retired an
     alias or marked one pending, it would have kept classifying adverts and
     the deactivation would have looked applied.
@@ -2351,11 +2356,15 @@ class RefreshMarketDataTests(TestCase):
                 fields = {"status": "SUCCESS", "pages_attempted": 3,
                           "jobs_scraped": 90, "jobs_created": 90,
                           "jobs_updated": 0, "blocked_count": 0,
-                          "error_message": ""}
+                          "error_message": "",
+                          # finish_scrape_log sets this, and an unfinished row
+                          # is how a still-running refresh is recognised.
+                          "finished_at": timezone.now()}
                 fields.update(log_fields or {})
                 ScrapeLog.objects.create(**fields)
 
         options.setdefault("skip_taxonomies", True)
+        options.setdefault("ignore_abandoned_run", False)
         options.setdefault("max_pages", 1)
         options.setdefault("max_jobs", 1)
         options.setdefault("allow_no_new_adverts", False)
@@ -2473,6 +2482,1324 @@ class RefreshMarketDataTests(TestCase):
         self.assertIsNone(error)
         self.assertIn("scrape_jobs", calls)
 
+    def test_the_lock_is_not_held_across_the_crawl(self):
+        """It could not be, so it must not claim to be.
+
+        An advisory lock lives on the connection holding it, and the crawl
+        leaves that connection idle for hours until a hosted database drops it
+        -- releasing the lock with it. A lock believed to be held for three
+        hours and actually gone after five minutes is worse than no lock: it is
+        a guarantee nobody rechecks.
+        """
+        import psycopg2
+        from django.conf import settings
+        from unittest.mock import patch
+
+        from job_listings.models import ScrapeLog
+        from scrape_jobs.management.commands import refresh_market_data
+
+        db = settings.DATABASES["default"]
+        observed = {}
+
+        def fake_call_command(name, *args, **kwargs):
+            if name != "scrape_jobs":
+                return
+            other = psycopg2.connect(
+                dbname=db["NAME"], user=db["USER"], password=db["PASSWORD"],
+                host=db["HOST"], port=db["PORT"])
+            try:
+                other.autocommit = True
+                with other.cursor() as cursor:
+                    cursor.execute("SELECT pg_try_advisory_lock(%s)",
+                                   [refresh_market_data.ADVISORY_LOCK_KEY])
+                    observed["free"] = bool(cursor.fetchone()[0])
+                    if observed["free"]:
+                        cursor.execute("SELECT pg_advisory_unlock(%s)",
+                                       [refresh_market_data.ADVISORY_LOCK_KEY])
+            finally:
+                other.close()
+            ScrapeLog.objects.create(
+                status="SUCCESS", pages_attempted=3, jobs_scraped=90,
+                jobs_created=90, finished_at=timezone.now())
+
+        with patch.object(refresh_market_data, "call_command", fake_call_command):
+            call_command("refresh_market_data", skip_taxonomies=True,
+                         max_pages=1, max_jobs=1, allow_no_new_adverts=False,
+                         ignore_abandoned_run=False, stdout=StringIO())
+
+        self.assertTrue(observed.get("free"),
+                        "the advisory lock was still held during the crawl")
+
+    # ---- what guards the crawl instead --------------------------------------
+
+    def test_an_unfinished_recent_run_refuses_a_second_refresh(self):
+        """The guard that survives a dropped connection, being data not session
+        state: the scraper writes the row before it starts and finishes it at
+        the end, so an unfinished recent row means one is already crawling."""
+        from job_listings.models import ScrapeLog
+
+        ScrapeLog.objects.create(status="FAILED", finished_at=None)
+
+        error, calls = self._run()
+
+        self.assertIsNotNone(error)
+        self.assertIn("never finished", str(error))
+        self.assertEqual(calls, [], "nothing may run alongside a live refresh")
+
+    def test_a_known_dead_run_can_be_overridden(self):
+        """A crawl whose connection dropped leaves exactly this behind, and the
+        operator must not have to wait out the window to try again."""
+        from job_listings.models import ScrapeLog
+
+        ScrapeLog.objects.create(status="FAILED", finished_at=None)
+
+        error, calls = self._run(ignore_abandoned_run=True)
+
+        self.assertIsNone(error)
+        self.assertIn("scrape_jobs", calls)
+
+    def test_an_old_unfinished_row_stops_blocking_eventually(self):
+        """Otherwise one crashed run blocks every refresh for ever."""
+        from job_listings.models import ScrapeLog
+        from scrape_jobs.management.commands.refresh_market_data import (
+            ABANDONED_AFTER)
+
+        stale = ScrapeLog.objects.create(status="FAILED", finished_at=None)
+        # started_at is auto_now_add, so it has to be moved by update().
+        ScrapeLog.objects.filter(pk=stale.pk).update(
+            started_at=timezone.now() - ABANDONED_AFTER - timedelta(minutes=1))
+
+        error, calls = self._run()
+
+        self.assertIsNone(error)
+        self.assertIn("scrape_jobs", calls)
+
+    def test_a_finished_run_does_not_block_the_next_one(self):
+        from job_listings.models import ScrapeLog
+
+        ScrapeLog.objects.create(status="SUCCESS", finished_at=timezone.now())
+
+        error, calls = self._run()
+
+        self.assertIsNone(error)
+        self.assertIn("scrape_jobs", calls)
+
+    # ---- what counts as a failed acquisition --------------------------------
+
+    def test_a_few_refused_adverts_do_not_fail_a_completed_crawl(self):
+        """The case that cost a real run its downstream stages.
+
+        A crawl traversed the whole search, stored 3,625 adverts and was refused
+        two of them. That is PARTIAL, PARTIAL was not SUCCESS, and so nothing
+        downstream ran -- no dedupe, no re-extraction, and no skill gaps for any
+        student. Two adverts in three thousand is not a failed acquisition.
+        """
+        error, calls = self._run({
+            "status": "PARTIAL", "blocked_count": 0, "blocked_adverts": 2,
+            "stop_reason": pagination.PAGINATION_EXHAUSTED,
+            "pagination_exhausted": True, "pages_attempted": 122,
+            "pages_with_results": 121, "jobs_scraped": 3625,
+            "jobs_created": 2948, "jobs_updated": 677})
+
+        self.assertIsNone(error)
+        for stage in ("dedupe_scraped_listings", "reextract_job_skills",
+                      "refresh_skill_gaps"):
+            self.assertIn(stage, calls)
+
+    def test_a_refused_page_of_results_still_fails_the_refresh(self):
+        """The serious case, and the one the check exists for: a refused search
+        page costs a whole page of adverts and ends the crawl where it stands."""
+        error, calls = self._run({
+            "status": "PARTIAL", "blocked_count": 1, "blocked_adverts": 0,
+            "stop_reason": pagination.BLOCKED, "pagination_exhausted": False,
+            "pages_attempted": 12, "pages_with_results": 11,
+            "jobs_scraped": 330, "jobs_created": 330})
+
+        self.assertIsNotNone(error)
+        self.assertIn("refused", str(error))
+        self.assertEqual(calls, ["scrape_jobs"])
+
+    def test_a_failed_run_still_fails_the_refresh(self):
+        error, calls = self._run({
+            "status": "FAILED", "stop_reason": pagination.FAILED,
+            "jobs_scraped": 0, "jobs_created": 0})
+
+        self.assertIsNotNone(error)
+        self.assertEqual(calls, ["scrape_jobs"])
+
+    def test_an_interrupted_run_that_stored_adverts_still_processes_them(self):
+        """Stopping a four-hour crawl at page 60 leaves 1,800 real adverts. They
+        deserve the same treatment as any other, and the next run resumes."""
+        error, calls = self._run({
+            "status": "FAILED", "stop_reason": pagination.INTERRUPTED,
+            "pagination_exhausted": False, "pages_attempted": 60,
+            "pages_with_results": 60, "jobs_scraped": 1800,
+            "jobs_created": 1800})
+
+        # FAILED is FAILED: an interrupted run is not a completed acquisition,
+        # and the operator re-runs rather than having downstream churn midway.
+        self.assertIsNotNone(error)
+        self.assertEqual(calls, ["scrape_jobs"])
+
+    # ---- coverage is reported separately from success ------------------------
+
+    def _run_capturing(self, **log_fields):
+        """Run a refresh whose ScrapeLog carries `log_fields`. Returns stdout."""
+        from unittest.mock import patch
+
+        from job_listings.models import ScrapeLog
+        from scrape_jobs.management.commands import refresh_market_data
+
+        def fake_call_command(name, *args, **kwargs):
+            if name != "scrape_jobs":
+                return
+            fields = {"status": "SUCCESS", "pages_attempted": 8,
+                      "jobs_scraped": 240, "jobs_created": 240,
+                      "jobs_updated": 0, "blocked_count": 0,
+                      "finished_at": timezone.now()}
+            fields.update(log_fields)
+            ScrapeLog.objects.create(**fields)
+
+        out = StringIO()
+        with patch.object(refresh_market_data, "call_command", fake_call_command):
+            call_command("refresh_market_data", skip_taxonomies=True,
+                         max_pages=8, max_jobs=50, allow_no_new_adverts=False,
+                         ignore_abandoned_run=False, stdout=out)
+        return out.getvalue()
+
+    def test_an_exhausted_refresh_reports_exhausted(self):
+        output = self._run_capturing(
+            stop_reason=pagination.PAGINATION_EXHAUSTED,
+            pagination_exhausted=True, pages_with_results=8)
+
+        self.assertIn("Pagination status: EXHAUSTED", output)
+
+    def test_a_ceiling_refresh_is_not_reported_as_exhausted(self):
+        """The refresh succeeded on every measure it has and still covered an
+        unknown fraction of the search. Both facts have to reach the log."""
+        output = self._run_capturing(
+            stop_reason=pagination.MAX_PAGES_REACHED,
+            pagination_exhausted=False, pages_with_results=8)
+
+        self.assertIn("Pagination status: INCOMPLETE", output)
+        self.assertIn("MAX_PAGES_REACHED", output)
+        self.assertNotIn("Pagination status: EXHAUSTED", output)
+
+
+    def test_releasing_the_lock_cannot_replace_the_real_failure(self):
+        """The finally clause used to report an InterfaceError about unlocking
+        instead of whatever actually went wrong, which is how a refresh killed
+        by a dropped connection came to look like a locking problem."""
+        from unittest.mock import patch
+
+        from scrape_jobs.management.commands import refresh_market_data
+
+        command = refresh_market_data.Command()
+        with patch.object(refresh_market_data, "connection") as fake:
+            fake.cursor.side_effect = RuntimeError("connection already closed")
+            command.stderr = StringIO()
+            command._release_lock()
+
+        self.assertIn("connection already closed", command.stderr.getvalue())
+
+
+def crawl_result(**overrides):
+    """What scrape_jobs returns, in one place.
+
+    Written out by hand in two test classes before this, and both drifted every
+    time the scraper gained a key -- each time failing as a missing key inside
+    the command's own exception handler, which reads as "the scrape crashed"
+    rather than "the double is out of date". One definition, so a new key breaks
+    once and obviously.
+    """
+    result = {
+        "jobs": [{"job_title": "Software Engineer",
+                  "source_url": "https://example.test/jobs/1",
+                  "description": "Python."}],
+        "status": "SUCCESS",
+        "blocked_count": 0,
+        "blocked_adverts": 0,
+        "pages_attempted": 1,
+        "pages_with_results": 1,
+        "pages_truncated": 0,
+        "stop_reason": pagination.PAGINATION_EXHAUSTED,
+        "pagination_exhausted": True,
+        "source_url": "https://example.test/jobs",
+    }
+    result.update(overrides)
+    return result
+
+
+class LongCrawlConnectionTests(TransactionTestCase):
+    """A crawl outlives the database connection it started with.
+
+    The crawl makes no query for as long as it runs -- tens of minutes, hours
+    at full width -- and a hosted Postgres reached over the internet does not
+    keep an idle connection open that long. Nothing in Django notices:
+    CONN_MAX_AGE and CONN_HEALTH_CHECKS are applied by close_old_connections on
+    request boundaries, and a management command has none.
+
+    What that cost, before this was handled, was the whole run. The first write
+    after the crawl failed with "server closed the connection unexpectedly",
+    every advert just crawled was discarded with it, and then the row meant to
+    record the failure failed too -- psycopg2 marks the connection dead and
+    Django keeps handing back the same object, so finish_scrape_log raised
+    InterfaceError and the run left nothing behind at all.
+
+    TransactionTestCase because these close and reopen the connection, which
+    the atomic block a TestCase wraps around each test does not survive.
+    """
+
+    #: What the scraper returns, with one advert worth saving.
+    CRAWL_RESULT = crawl_result()
+
+    def _scrape(self, crawl):
+        """Run the command with the crawl replaced. Returns the ScrapeLog row."""
+        from unittest.mock import patch
+
+        from job_listings.models import ScrapeLog
+
+        with patch("scrape_jobs.management.commands.scrape_jobs.scrape_jobs",
+                   side_effect=crawl):
+            call_command("scrape_jobs", max_pages=1, max_jobs=1,
+                         skip_skill_gap_refresh=True, stdout=StringIO())
+        return ScrapeLog.objects.order_by("-id").first()
+
+    @staticmethod
+    def _break_the_connection():
+        """Leave the connection in the state a dropped one leaves it in.
+
+        Django still holds the wrapper and psycopg2 has marked the socket
+        closed, so the next query raises InterfaceError rather than reconnecting.
+        """
+        connection.ensure_connection()
+        connection.connection.close()
+
+    def test_no_connection_is_held_while_the_crawl_runs(self):
+        """The connection that cannot survive the crawl is not taken into it."""
+        held = {}
+
+        def crawl(**kwargs):
+            held["open"] = connection.connection is not None
+            return self.CRAWL_RESULT
+
+        self._scrape(crawl)
+
+        self.assertFalse(held["open"],
+                         "a connection was left open across the crawl")
+
+    def test_a_connection_lost_during_the_crawl_still_records_the_run(self):
+        def crawl(**kwargs):
+            self._break_the_connection()
+            return self.CRAWL_RESULT
+
+        log = self._scrape(crawl)
+
+        self.assertIsNotNone(log)
+        self.assertEqual(log.status, "SUCCESS")
+        self.assertIsNotNone(log.finished_at, "the run was never finished")
+
+    def test_adverts_crawled_before_the_connection_died_are_still_saved(self):
+        """Hours of crawling, thrown away by one dead socket.
+
+        The page is handed over and stored first and the connection dies after,
+        which is the sequence a long crawl now produces: pages are persisted as
+        they are read rather than held to the end.
+        """
+        def crawl(**kwargs):
+            kwargs["on_page"](1, self.CRAWL_RESULT["jobs"])
+            self._break_the_connection()
+            return self.CRAWL_RESULT
+
+        log = self._scrape(crawl)
+
+        self.assertEqual(log.jobs_created, 1)
+        self.assertTrue(JobListing.objects.filter(
+            source_url="https://example.test/jobs/1").exists())
+
+    def test_a_failed_crawl_still_records_why_it_failed(self):
+        """The failure path is the one that used to lose the reason.
+
+        A crawl that dies *of* the dropped connection leaves the connection
+        dead, so the row explaining the failure was written on it and raised.
+        """
+        def crawl(**kwargs):
+            self._break_the_connection()
+            raise RuntimeError("server closed the connection unexpectedly")
+
+        log = self._scrape(crawl)
+
+        self.assertEqual(log.status, "FAILED")
+        self.assertIn("server closed the connection", log.error_message)
+        self.assertIsNotNone(log.finished_at)
+
+    def test_reconnect_recovers_a_connection_broken_inside_an_atomic_block(self):
+        """close() alone does not, which is why db.reconnect calls connect().
+
+        Django flags a connection broken mid-transaction as closed_in_transaction
+        and leaves the object in place; ensure_connection then sees something
+        that is not None and declines to reopen, so every later query fails the
+        same way.
+        """
+        from django.db import transaction
+
+        from scrape_jobs import db
+
+        try:
+            with transaction.atomic():
+                self._break_the_connection()
+                JobListing.objects.count()
+        except Exception:
+            pass
+
+        db.reconnect()
+
+        self.assertEqual(JobListing.objects.count(), 0)
+
+
+def results_page_html(cards=30, next_page=True, first_index=0):
+    """Markup shaped like a JobStreet results page, with `cards` adverts."""
+    articles = "".join(
+        '<article data-automation="normalJob">'
+        f'<a data-automation="jobTitle" href="/job/{first_index + i}">'
+        f'Engineer {first_index + i}</a>'
+        '<span data-automation="jobListingDate">2d ago</span>'
+        '</article>'
+        for i in range(cards))
+
+    if next_page:
+        control = '<a data-automation="page-next" href="?page=2">Next</a>'
+    else:
+        # How the control renders once there is nothing after this page.
+        control = ('<span data-automation="page-next" aria-disabled="true">'
+                   'Next</span>')
+
+    return ('<div data-automation="searchResults">'
+            + articles
+            + f'<nav aria-label="Pagination">{control}</nav>'
+            + '</div>')
+
+
+def empty_results_page_html():
+    """A results page past the end of the search, as the site actually serves it.
+
+    Captured from page 400 of the live ICT search. Deliberately as bare as the
+    real thing: one marker, no job cards, no "no jobs found" wording and no
+    pagination block whatsoever. The first version of this fixture invented a
+    noJobsFound marker and a disabled next control, neither of which is there --
+    which would have let detection pass on markup the site never serves.
+
+    So this is the whole basis for ending a crawl: the page is recognisable as a
+    results page and has nothing on it. JobStreet does not clamp an out-of-range
+    page back to the last one, which is what makes that signal reachable.
+    """
+    return '<div data-automation="searchResults"></div>' 
+
+
+class PaginationSignalTests(TestCase):
+    """The detection itself, against markup rather than through a crawl."""
+
+    def test_an_enabled_next_control_means_there_is_more(self):
+        self.assertIs(pagination.has_next_page(results_page_html()), True)
+
+    def test_a_disabled_next_control_is_the_last_page(self):
+        self.assertIs(pagination.has_next_page(
+            results_page_html(next_page=False)), False)
+
+    def test_an_anchor_without_an_href_is_not_a_live_control(self):
+        self.assertIs(pagination.has_next_page(
+            '<nav aria-label="Pagination">'
+            '<a data-automation="page-next">Next</a></nav>'), False)
+
+    def test_numbered_links_beyond_this_page_mean_there_is_more(self):
+        """The regression that reached a real run.
+
+        The first version read "a pagination block with no next control I
+        recognise" as the last page. Against markup whose next arrow is not
+        named what this module expected, that ended the crawl on page one of a
+        search thousands of adverts deep and reported PAGINATION_EXHAUSTED --
+        a claim of full coverage produced by failing to parse the markup.
+        """
+        numbered = ('<div data-automation="searchResults">'
+                    '<nav aria-label="Pagination">'
+                    + "".join(f'<a data-automation="page-{n}" href="?page={n}">{n}</a>'
+                              for n in range(1, 6))
+                    + '</nav></div>')
+
+        self.assertIs(pagination.has_next_page(numbered, current_page=1), True)
+        self.assertIs(pagination.has_next_page(numbered, current_page=4), True)
+
+    def test_numbered_links_that_stop_here_are_the_last_page(self):
+        numbered = ('<div data-automation="searchResults">'
+                    '<nav aria-label="Pagination">'
+                    + "".join(f'<a data-automation="page-{n}" href="?page={n}">{n}</a>'
+                              for n in range(1, 6))
+                    + '</nav></div>')
+
+        self.assertIs(pagination.has_next_page(numbered, current_page=5), False)
+
+    def test_numbered_links_say_nothing_without_the_current_page(self):
+        """"There is a link to page 5" means nothing without knowing whether
+        this is page 4 or page 5."""
+        numbered = ('<nav aria-label="Pagination">'
+                    '<a data-automation="page-1" href="?page=1">1</a></nav>')
+
+        self.assertIsNone(pagination.has_next_page(numbered))
+
+    def test_unrecognised_pagination_markup_gives_no_answer(self):
+        """Not False. Absence of markup this module understands is not evidence
+        about how many pages the search has."""
+        self.assertIsNone(pagination.has_next_page(
+            '<div data-automation="searchResults">'
+            '<nav aria-label="Pagination">'
+            '<button class="chakra-btn">&gt;</button></nav></div>',
+            current_page=1))
+
+    def test_a_next_control_under_another_name_is_still_found(self):
+        for markup in (
+            '<a data-automation="pagination-next" href="?page=2">Next</a>',
+            '<link rel="next" href="?page=2">',
+            '<a rel="next" href="?page=2">Next</a>',
+            '<a aria-label="Next page" href="?page=2">&gt;</a>',
+        ):
+            with self.subTest(markup=markup[:40]):
+                self.assertIs(pagination.has_next_page(markup), True)
+
+
+    def test_markup_with_no_pagination_at_all_gives_no_answer(self):
+        """None, not False.
+
+        A layout change removes the markers, and reading that as "the last
+        page" would end every crawl on page one and call it complete. Saying
+        nothing hands the decision to fetching the next page and finding it
+        empty, which costs one request and cannot lie.
+        """
+        self.assertIsNone(
+            pagination.has_next_page("<html><body>hello</body></html>"))
+        self.assertIsNone(pagination.has_next_page(""))
+
+    def test_an_ambiguous_control_is_read_as_live(self):
+        """The safe direction. A control wrongly called live costs one fetch;
+        wrongly called dead costs the truth about coverage."""
+        self.assertIs(pagination.has_next_page(
+            '<nav aria-label="Pagination">'
+            '<button data-automation="page-next">Next</button></nav>'), True)
+
+    # ---- captured from a live JobStreet page --------------------------------
+
+    #: Page 1 of the ICT search, as the site actually serves it. Kept verbatim
+    #: because every guess this module made about the markup was wrong: the next
+    #: control is named data-automation="page-2" -- labelled by its destination
+    #: rather than as a next control -- the pagination window shows only three
+    #: page numbers however many pages exist, and the Prev link is page-0.
+    REAL_PAGINATION = (
+        '<nav class="_65011t0 _65011t1" aria-label="Pagination of results">'
+        '<a href="/jobs-in-ict/in-malaysia" rel="nofollow prev"'
+        ' data-automation="page-0" aria-label="Prev">Prev</a>'
+        '<a href="/jobs-in-ict/in-malaysia" rel="nofollow"'
+        ' data-automation="page-1" aria-label="Go to page 1"'
+        ' aria-current="page">1</a>'
+        '<a href="/jobs-in-ict/in-malaysia?page=2" rel="nofollow"'
+        ' data-automation="page-2" aria-label="Go to page 2">2</a>'
+        '<a href="/jobs-in-ict/in-malaysia?page=3" rel="nofollow"'
+        ' data-automation="page-3" aria-label="Go to page 3">3</a>'
+        '<a href="/jobs-in-ict/in-malaysia?page=2" rel="nofollow next"'
+        ' data-automation="page-2" aria-label="Next">Next</a>'
+        '</nav>')
+
+    def test_the_real_next_control_is_recognised(self):
+        """The run that reported a one-page market found none of this."""
+        self.assertIs(
+            pagination.has_next_page(self.REAL_PAGINATION, current_page=1), True)
+
+    def test_the_real_next_control_is_found_without_its_aria_label(self):
+        """aria-label="Next" is English, and it is the only other thing naming
+        this control. rel="next" is neither branded nor translated, so it has to
+        carry the detection on its own."""
+        no_label = self.REAL_PAGINATION.replace(' aria-label="Next"', '')
+
+        self.assertIs(pagination.has_next_page(no_label, current_page=1), True)
+
+    def test_a_multi_valued_rel_still_matches(self):
+        """The attribute is rel="nofollow next". [rel="next"] tests the whole
+        value and misses it, which is why the selector is [rel~="next"]."""
+        self.assertIs(pagination.has_next_page(
+            '<a href="?page=2" rel="nofollow next">Next</a>'), True)
+
+    def test_numbered_links_that_stop_at_this_page_end_pagination(self):
+        """The fallback for a last page that drops its next link.
+
+        Modelled, not captured: the live probe reached page 1 and a page past
+        the end, never the last page with results, so what that page renders is
+        unverified. It does not carry the crawl either way -- termination is
+        confirmed through the empty page the site serves past the end -- but the
+        numbered-link path is real logic and is pinned here.
+        """
+        last = (
+            '<nav aria-label="Pagination of results">'
+            '<a href="?page=134" rel="nofollow prev"'
+            ' data-automation="page-134" aria-label="Prev">Prev</a>'
+            '<a href="?page=134" rel="nofollow" data-automation="page-134">134</a>'
+            '<a href="?page=135" rel="nofollow" data-automation="page-135">135</a>'
+            '<a href="?page=136" rel="nofollow" data-automation="page-136"'
+            ' aria-current="page">136</a>'
+            '</nav>')
+
+        self.assertIs(pagination.has_next_page(last, current_page=136), False)
+        # And one page earlier the same markup must not end anything.
+        self.assertIs(pagination.has_next_page(last, current_page=135), True)
+
+    # ---- what counts as a results page at all -------------------------------
+
+    def test_a_populated_and_an_empty_results_page_both_qualify(self):
+        self.assertTrue(pagination.is_results_page(results_page_html()))
+        self.assertTrue(pagination.is_results_page(empty_results_page_html()))
+
+    def test_a_bot_wall_is_not_a_results_page(self):
+        for html in (
+            "<html><title>Just a moment...</title><body>Cloudflare</body></html>",
+            "<html><body>Access denied</body></html>",
+            "",
+        ):
+            with self.subTest(html=html[:30]):
+                self.assertFalse(pagination.is_results_page(html))
+
+    def test_the_model_and_the_scraper_agree_on_the_stop_reasons(self):
+        """Two copies of one vocabulary. A divergence would store a value the
+        field does not accept."""
+        from job_listings.models import ScrapeLog
+
+        self.assertEqual(
+            set(pagination.STOP_REASONS),
+            {value for value, _ in ScrapeLog.StopReason.choices})
+
+
+class PaginationExhaustionTests(TestCase):
+    """Why the crawl stopped, which is not answered by whether it worked.
+
+    A tidy run with thousands of adverts proves nothing about coverage: it may
+    have walked the search to its end, stopped at its own ceiling, or been
+    turned away on page two. Each of these drives a crawl through the real
+    pagination logic with the network replaced, and asserts the distinction
+    survives.
+    """
+
+    def _crawl(self, pages, max_pages=10, max_jobs=50):
+        """Run scrape_jobs over `pages`, a list of (html, outcome) by page."""
+        from unittest.mock import MagicMock, patch
+
+        from scrape_jobs import scraper
+
+        def fake_get(driver, url, retries=3, delay=5):
+            page = int(url.split("page=")[1].split("&")[0])
+            try:
+                return pages[page - 1]
+            except IndexError:
+                return "", pagination.FETCH_FAILED
+
+        def fake_detail(driver, job, retries=2):
+            return {**job, "description": "Python.", "company_name": "ACME"}, False
+
+        with patch.object(scraper, "create_driver", return_value=MagicMock()), \
+             patch.object(scraper, "safe_get_page", fake_get), \
+             patch.object(scraper, "extract_job_detail", fake_detail), \
+             patch.object(scraper, "random_delay", lambda *a, **k: None):
+            return scraper.scrape_jobs(
+                source_url="https://example.test/jobs?page=1",
+                max_pages=max_pages, max_jobs_per_page=max_jobs)
+
+    @staticmethod
+    def _ok(html):
+        return html, pagination.FETCH_OK
+
+    # ---- Test 1 -------------------------------------------------------------
+
+    def test_a_crawl_that_reaches_the_last_page_is_exhausted(self):
+        result = self._crawl([
+            self._ok(results_page_html(30, next_page=True, first_index=0)),
+            self._ok(results_page_html(30, next_page=True, first_index=30)),
+            self._ok(results_page_html(30, next_page=True, first_index=60)),
+            self._ok(results_page_html(7, next_page=False, first_index=90)),
+        ])
+
+        self.assertEqual(result["stop_reason"], pagination.PAGINATION_EXHAUSTED)
+        self.assertTrue(result["pagination_exhausted"])
+        self.assertEqual(result["pages_attempted"], 4)
+        self.assertEqual(result["pages_with_results"], 4)
+
+    # ---- Test 2 -------------------------------------------------------------
+
+    def test_stopping_at_the_ceiling_is_not_exhaustion(self):
+        """Three pages read of an unknown number. Nobody looked at page four."""
+        result = self._crawl([
+            self._ok(results_page_html(30, first_index=0)),
+            self._ok(results_page_html(30, first_index=30)),
+            self._ok(results_page_html(30, first_index=60)),
+            self._ok(results_page_html(30, first_index=90)),
+        ], max_pages=3)
+
+        self.assertEqual(result["stop_reason"], pagination.MAX_PAGES_REACHED)
+        self.assertFalse(result["pagination_exhausted"])
+        self.assertEqual(result["pages_attempted"], 3)
+
+    # ---- Test 3 -------------------------------------------------------------
+
+    def test_a_confirmed_results_page_with_no_adverts_ends_pagination(self):
+        result = self._crawl([
+            self._ok(results_page_html(30, first_index=0)),
+            self._ok(results_page_html(30, first_index=30)),
+            self._ok(empty_results_page_html()),
+        ])
+
+        self.assertEqual(result["stop_reason"], pagination.PAGINATION_EXHAUSTED)
+        self.assertTrue(result["pagination_exhausted"])
+        self.assertEqual(result["pages_attempted"], 3)
+        self.assertEqual(result["pages_with_results"], 2)
+
+    # ---- Test 4 -------------------------------------------------------------
+
+    def test_a_blocked_page_never_counts_as_exhaustion(self):
+        result = self._crawl([
+            self._ok(results_page_html(30, first_index=0)),
+            ("", pagination.FETCH_BLOCKED),
+        ])
+
+        self.assertEqual(result["stop_reason"], pagination.BLOCKED)
+        self.assertFalse(result["pagination_exhausted"])
+        self.assertEqual(result["blocked_count"], 1)
+
+    # ---- Test 5 -------------------------------------------------------------
+
+    def test_a_page_that_never_loaded_never_counts_as_exhaustion(self):
+        result = self._crawl([
+            self._ok(results_page_html(30, first_index=0)),
+            ("", pagination.FETCH_FAILED),
+        ])
+
+        self.assertEqual(result["stop_reason"], pagination.FAILED)
+        self.assertFalse(result["pagination_exhausted"])
+        self.assertEqual(result["blocked_count"], 0)
+
+    def test_an_empty_page_that_is_not_a_results_page_is_a_failure(self):
+        """The distinction the whole module exists for.
+
+        Cloudflare, a captcha, a 403 and a markup change all arrive as a page
+        with no job cards on it. Reading that as "the search ended here" is how
+        a crawl of two pages comes to report that it covered the market.
+        """
+        result = self._crawl([
+            self._ok(results_page_html(30, first_index=0)),
+            self._ok("<html><body><h1>Something went wrong</h1></body></html>"),
+        ])
+
+        self.assertEqual(result["stop_reason"], pagination.FAILED)
+        self.assertFalse(result["pagination_exhausted"])
+
+    # ---- Test 6 -------------------------------------------------------------
+
+    def test_a_short_final_page_is_still_a_final_page(self):
+        """No arithmetic on jobs-per-page: the last page holds what it holds."""
+        result = self._crawl([
+            self._ok(results_page_html(30, next_page=True, first_index=0)),
+            self._ok(results_page_html(30, next_page=True, first_index=30)),
+            self._ok(results_page_html(7, next_page=False, first_index=60)),
+        ])
+
+        self.assertEqual(result["stop_reason"], pagination.PAGINATION_EXHAUSTED)
+        self.assertEqual(result["pages_with_results"], 3)
+        self.assertEqual(len(result["jobs"]), 67)
+
+    def test_a_crawl_terminates_on_the_markup_the_site_actually_serves(self):
+        """The confirmed path, end to end, with nothing invented.
+
+        Page 1 is the live pagination block: a next link named page-2 and
+        carrying rel="nofollow next". The page after the last is what JobStreet
+        served for page 400 of this search -- a results page with no adverts, no
+        wording about having found none, and no pagination block at all. The
+        crawl has to read the first as "keep going" and the second as the end.
+
+        That the site serves an empty page rather than clamping back to the last
+        one is what makes this reachable, and it is the only reason a crawl of
+        this search can report exhaustion at all.
+        """
+        live_nav = (
+            '<nav aria-label="Pagination of results">'
+            '<a href="?page=0" rel="nofollow prev" data-automation="page-0"'
+            ' aria-label="Prev">Prev</a>'
+            '<a href="?page=1" rel="nofollow" data-automation="page-1"'
+            ' aria-current="page">1</a>'
+            '<a href="?page=2" rel="nofollow" data-automation="page-2">2</a>'
+            '<a href="?page=3" rel="nofollow" data-automation="page-3">3</a>'
+            '<a href="?page=2" rel="nofollow next" data-automation="page-2"'
+            ' aria-label="Next">Next</a>'
+            '</nav>')
+        cards = "".join(
+            '<article data-automation="normalJob">'
+            f'<a data-automation="jobTitle" href="/job/{i}">Engineer {i}</a>'
+            '</article>' for i in range(30))
+
+        page_one = f'<div data-automation="searchResults">{cards}{live_nav}</div>'
+        past_the_end = '<div data-automation="searchResults"></div>'
+
+        result = self._crawl([self._ok(page_one), self._ok(past_the_end)])
+
+        self.assertEqual(result["stop_reason"], pagination.PAGINATION_EXHAUSTED)
+        self.assertTrue(result["pagination_exhausted"])
+        self.assertEqual(result["pages_attempted"], 2)
+        self.assertEqual(result["pages_with_results"], 1)
+        self.assertEqual(len(result["jobs"]), 30)
+
+    def test_a_page_cut_short_by_max_jobs_is_reported(self):
+        """--max-jobs drops adverts silently, which overstates coverage just as
+        badly as a missed page does."""
+        result = self._crawl([
+            self._ok(results_page_html(30, next_page=False, first_index=0)),
+        ], max_jobs=10)
+
+        self.assertEqual(result["pages_truncated"], 1)
+        self.assertEqual(len(result["jobs"]), 10)
+
+
+class ScrapeLogRecordsWhyItStoppedTests(TransactionTestCase):
+    """The reason has to outlive the terminal the crawl ran in.
+
+    A month later the only surviving account of a refresh is its row, so a run
+    that covered a fifth of the search must not be indistinguishable there from
+    one that covered all of it.
+
+    TransactionTestCase because the command closes and reopens its connection
+    around the crawl.
+    """
+
+    def _run(self, **result_fields):
+        from unittest.mock import patch
+
+        from job_listings.models import ScrapeLog
+
+        fields = {"pages_attempted": 8, "pages_with_results": 8}
+        fields.update(result_fields)
+        result = crawl_result(**fields)
+
+        def fake_crawl(**kwargs):
+            """Hand each page over as it is read, which is the crawl's contract.
+
+            A double that returns the summary without ever calling on_page
+            describes a run in which no page was saved, and the counts it
+            produces are all zero.
+            """
+            on_page = kwargs.get("on_page")
+            if on_page is not None:
+                for page in range(1, result["pages_with_results"] + 1):
+                    on_page(page, [{
+                        "job_title": "Software Engineer",
+                        "source_url": f"https://example.test/jobs/{page}",
+                        "description": "Python."}])
+            return result
+
+        out = StringIO()
+        with patch("scrape_jobs.management.commands.scrape_jobs.scrape_jobs",
+                   side_effect=fake_crawl):
+            call_command("scrape_jobs", max_pages=8, max_jobs=50,
+                         skip_skill_gap_refresh=True, stdout=out)
+        return ScrapeLog.objects.order_by("-id").first(), out.getvalue()
+
+    def test_an_exhausted_crawl_is_recorded_as_exhausted(self):
+        log, output = self._run()
+
+        self.assertEqual(log.stop_reason, pagination.PAGINATION_EXHAUSTED)
+        self.assertTrue(log.pagination_exhausted)
+        self.assertEqual(log.pages_with_results, 8)
+        self.assertIn("Pagination exhausted : YES", output)
+        self.assertIn("PAGINATION_EXHAUSTED", output)
+
+    def test_a_ceiling_run_is_recorded_as_incomplete(self):
+        """SUCCESS and incomplete at the same time, which is the pairing the
+        whole change exists to keep visible."""
+        log, output = self._run(stop_reason=pagination.MAX_PAGES_REACHED,
+                                pagination_exhausted=False, pages_attempted=5,
+                                pages_with_results=5)
+
+        self.assertEqual(log.status, "SUCCESS")
+        self.assertEqual(log.stop_reason, pagination.MAX_PAGES_REACHED)
+        self.assertFalse(log.pagination_exhausted)
+        self.assertIn("Pagination exhausted : NO", output)
+        self.assertIn("MAX_PAGES_REACHED", output)
+
+    def test_a_blocked_run_is_never_recorded_as_exhausted(self):
+        log, output = self._run(stop_reason=pagination.BLOCKED,
+                                pagination_exhausted=False, status="PARTIAL",
+                                blocked_count=1, pages_attempted=5,
+                                pages_with_results=4)
+
+        self.assertEqual(log.stop_reason, pagination.BLOCKED)
+        self.assertFalse(log.pagination_exhausted)
+        self.assertEqual(log.pages_with_results, 4)
+        self.assertIn("Pagination exhausted : NO", output)
+
+    def test_a_crash_is_never_recorded_as_exhausted(self):
+        from unittest.mock import patch
+
+        from job_listings.models import ScrapeLog
+
+        out = StringIO()
+        with patch("scrape_jobs.management.commands.scrape_jobs.scrape_jobs",
+                   side_effect=RuntimeError("driver died")):
+            call_command("scrape_jobs", max_pages=8, max_jobs=50,
+                         skip_skill_gap_refresh=True, stdout=out)
+        log = ScrapeLog.objects.order_by("-id").first()
+
+        self.assertEqual(log.status, "FAILED")
+        self.assertEqual(log.stop_reason, pagination.FAILED)
+        self.assertFalse(log.pagination_exhausted)
+
+    def test_a_page_read_only_in_part_says_so(self):
+        _, output = self._run(pages_truncated=3)
+
+        self.assertIn("Pages cut by --max-jobs : 3", output)
+
+
+class ExpiryIsIndependentOfCrawlCoverageTests(TransactionTestCase):
+    """A partial crawl must not retire adverts that are still being advertised.
+
+    That guarantee holds here because nothing retires a listing for going unseen
+    by a crawl. Scraped listings expire on the source's own 30-day posting
+    window and company listings on the employer's published closing date, so
+    coverage does not enter into it -- which is also why expiry is not gated on
+    pagination_exhausted. Gating it would be the change that causes harm:
+    blocked runs are expected against this source, so lapsed adverts would stay
+    ACTIVE for months and students would follow them to dead postings.
+
+    Both halves are pinned below, because a future coverage-based retirement
+    rule would need the guard that these tests would then catch the absence of.
+    """
+
+    def _listing(self, url, days_old):
+        from job_listings.models import JobListing
+
+        return JobListing.objects.create(
+            job_title="Software Engineer",
+            source_url=url,
+            source_type=JobListing.SourceType.SCRAPED,
+            status=JobListing.Status.ACTIVE,
+            posted_date=timezone.localdate() - timedelta(days=days_old),
+        )
+
+    def _crawl_with(self, stop_reason, status="PARTIAL", blocked=1):
+        from unittest.mock import patch
+
+        with patch("scrape_jobs.management.commands.scrape_jobs.scrape_jobs",
+                   return_value={
+                       "jobs": [], "status": status, "blocked_count": blocked,
+                       "pages_attempted": 2, "pages_with_results": 1,
+                       "pages_truncated": 0, "stop_reason": stop_reason,
+                       "pagination_exhausted": False,
+                       "source_url": "https://example.test/jobs"}):
+            call_command("scrape_jobs", max_pages=2, max_jobs=50,
+                         skip_skill_gap_refresh=True, stdout=StringIO())
+
+    def test_a_blocked_crawl_does_not_retire_a_live_advert(self):
+        """The failure mode worth engineering against: a crawl that saw one page
+        must not close what it did not look at."""
+        from job_listings.models import JobListing
+
+        live = self._listing("https://example.test/live", days_old=5)
+
+        self._crawl_with(pagination.BLOCKED)
+        live.refresh_from_db()
+
+        self.assertEqual(live.status, JobListing.Status.ACTIVE)
+
+    def test_a_ceiling_crawl_does_not_retire_a_live_advert(self):
+        from job_listings.models import JobListing
+
+        live = self._listing("https://example.test/live2", days_old=5)
+
+        self._crawl_with(pagination.MAX_PAGES_REACHED, status="SUCCESS", blocked=0)
+        live.refresh_from_db()
+
+        self.assertEqual(live.status, JobListing.Status.ACTIVE)
+
+    def test_a_lapsed_advert_is_still_retired_after_an_incomplete_crawl(self):
+        """The other half. Age is a property of the advert, not of the crawl, so
+        withholding this until a crawl exhausts pagination would leave students
+        clicking through to postings the source has already dropped."""
+        from job_listings.models import JobListing
+
+        lapsed = self._listing("https://example.test/lapsed", days_old=40)
+
+        self._crawl_with(pagination.BLOCKED)
+        lapsed.refresh_from_db()
+
+        self.assertEqual(lapsed.status, JobListing.Status.CLOSED)
+
+
+class ResumableCrawlTests(TransactionTestCase):
+    """A four-hour crawl has to survive being stopped.
+
+    Every advert used to be held in memory until the last page, so a run that
+    was interrupted -- by the operator, a dead browser, a dropped network --
+    saved nothing at all. Three hours of crawling and an empty database.
+
+    Worse, Ctrl+C is a KeyboardInterrupt, which is not an Exception, so it
+    passed straight through the command's handler: finish_scrape_log never ran
+    either, and the unfinished row then blocked the next run for six hours.
+
+    TransactionTestCase because the command closes and reopens its connection
+    around each page.
+    """
+
+    def _page(self, page, cards=3):
+        """A results page with a live next link, as the site serves them."""
+        articles = "".join(
+            '<article data-automation="normalJob">'
+            f'<a data-automation="jobTitle" href="/job/p{page}-{i}">'
+            f'Engineer {page}-{i}</a></article>'
+            for i in range(cards))
+        nav = (f'<nav aria-label="Pagination of results">'
+               f'<a href="?page={page + 1}" rel="nofollow next"'
+               f' data-automation="page-{page + 1}">Next</a></nav>')
+        return (f'<div data-automation="searchResults">{articles}{nav}</div>',
+                pagination.FETCH_OK)
+
+    def _empty(self):
+        """What JobStreet serves past the last page. This is what ends a crawl."""
+        return '<div data-automation="searchResults"></div>', pagination.FETCH_OK
+
+    def _run(self, pages, max_pages=10, start_page=1, interrupt_on=None,
+             before_fetch=None, crash_on=None, stdout=None):
+        """Crawl `pages`. `interrupt_on` raises KeyboardInterrupt on that page.
+
+        `before_fetch(page)` runs just before each page is requested, which is
+        where a test can observe what the previous pages have already stored.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from job_listings.models import ScrapeLog
+        from scrape_jobs import scraper
+
+        def fake_get(driver, url, retries=3, delay=5):
+            page = int(url.split("page=")[1].split("&")[0])
+            if before_fetch is not None:
+                before_fetch(page)
+            if page == interrupt_on:
+                raise KeyboardInterrupt
+            if page == crash_on:
+                raise RuntimeError("the browser died")
+            try:
+                return pages[page - 1]
+            except IndexError:
+                return "", pagination.FETCH_FAILED
+
+        def fake_detail(driver, job, retries=2):
+            return {**job, "description": "Python.", "company_name": "ACME"}, False
+
+        out = stdout if stdout is not None else StringIO()
+        with patch.object(scraper, "create_driver", return_value=MagicMock()), \
+             patch.object(scraper, "safe_get_page", fake_get), \
+             patch.object(scraper, "extract_job_detail", fake_detail), \
+             patch.object(scraper, "random_delay", lambda *a, **k: None):
+            call_command("scrape_jobs", max_pages=max_pages, max_jobs=50,
+                         start_page=start_page, skip_skill_gap_refresh=True,
+                         stdout=out)
+        return ScrapeLog.objects.order_by("-id").first(), out.getvalue()
+
+    # ---- pages are saved as they are crawled --------------------------------
+
+    def test_pages_are_saved_before_the_next_one_is_fetched(self):
+        """The property the whole change exists for."""
+        from job_listings.models import JobListing
+
+        saved_when_page_3_started = {}
+
+        seen = []
+
+        self._run([self._page(1), self._page(2), self._page(3), self._empty()],
+                  before_fetch=lambda page: seen.append(JobListing.objects.count()))
+
+        # What is stored as each page is requested. Saving only at the end would
+        # read [0, 0, 0, 0] and lose the lot on an interrupt.
+        self.assertEqual(seen, [0, 3, 6, 9])
+
+    def test_an_interrupt_keeps_every_page_already_crawled(self):
+        log, _ = self._run(
+            [self._page(1), self._page(2), self._page(3)], interrupt_on=3)
+
+        from job_listings.models import JobListing
+        self.assertEqual(JobListing.objects.count(), 6, "pages 1 and 2 were lost")
+        self.assertEqual(log.jobs_scraped, 6)
+        self.assertEqual(log.jobs_created, 6)
+
+    # ---- and the run says so honestly ---------------------------------------
+
+    def test_an_interrupt_finishes_the_log_row(self):
+        """Left unfinished, it blocks the next run for six hours."""
+        log, _ = self._run([self._page(1), self._page(2)], interrupt_on=2)
+
+        self.assertIsNotNone(log.finished_at)
+        self.assertEqual(log.stop_reason, pagination.INTERRUPTED)
+        self.assertFalse(log.pagination_exhausted)
+
+    def test_an_interrupt_is_not_recorded_as_a_technical_failure(self):
+        """Nothing went wrong; someone stopped it. A dead browser and a
+        deliberate pause call for different responses."""
+        log, _ = self._run([self._page(1), self._page(2)], interrupt_on=2)
+
+        self.assertEqual(log.stop_reason, pagination.INTERRUPTED)
+        self.assertNotEqual(log.stop_reason, pagination.FAILED)
+
+    def test_an_interrupt_never_claims_exhaustion(self):
+        log, output = self._run([self._page(1), self._page(2)], interrupt_on=2)
+
+        self.assertFalse(log.pagination_exhausted)
+        self.assertIn("Pagination exhausted : NO", output)
+
+    def test_the_output_names_the_page_to_resume_from(self):
+        """Working it out from a page count and a ceiling is the arithmetic an
+        operator gets wrong at the end of a four-hour run."""
+        _, output = self._run(
+            [self._page(1), self._page(2), self._page(3)], interrupt_on=3)
+
+        self.assertIn("--start-page 3", output)
+
+    def test_a_completed_crawl_offers_no_resume(self):
+        _, output = self._run([self._page(1), self._page(2), self._empty()])
+
+        self.assertNotIn("Resume with", output)
+
+    def test_the_resume_page_survives_the_database_going_away(self):
+        """The case that actually happened, three pages into a real run.
+
+        A DNS burst killed the crawl and then killed the reconnect in the error
+        handler too, so the command died before its summary -- and the summary
+        was where the resume line lived. Ninety adverts were safely stored and
+        the run said nothing about them, which leaves the operator guessing at
+        the one number they need.
+
+        So the resume line is printed before anything that needs a connection.
+        Here the whole of the log-writing is made to fail, as an unreachable
+        database would make it fail, and the line still has to appear.
+        """
+        from unittest.mock import patch
+
+        from scrape_jobs.management.commands import scrape_jobs as command_module
+
+        out = StringIO()
+        with patch.object(command_module, "finish_scrape_log",
+                          side_effect=OperationalError("could not translate host name")):
+            with self.assertRaises(OperationalError):
+                self._run([self._page(1), self._page(2), self._page(3)],
+                          interrupt_on=3, stdout=out)
+
+        self.assertIn("--start-page 3", out.getvalue())
+        self.assertIn("Saved through page 2", out.getvalue())
+
+    def test_a_crash_mid_crawl_also_names_the_resume_page(self):
+        """Not only a deliberate stop: a dead browser or a dropped network ends
+        a long crawl the same way, and costs the same knowledge."""
+        out = StringIO()
+        self._run([self._page(1), self._page(2)], crash_on=2, stdout=out)
+
+        self.assertIn("--start-page 2", out.getvalue())
+
+    # ---- the row has to answer this on its own ------------------------------
+
+    def test_the_row_records_where_to_pick_up(self):
+        """Asked "which page did it stop at?", the only honest answer used to be
+        "look in your terminal". A four-hour crawl's resume point cannot live in
+        scrollback that closes with the window."""
+        log, _ = self._run([self._page(1), self._page(2), self._page(3)],
+                           interrupt_on=3)
+
+        self.assertEqual(log.start_page, 1)
+        self.assertEqual(log.last_page_saved, 2)
+        self.assertEqual(log.resume_page, 3)
+
+    def test_a_resumed_run_records_where_it_began(self):
+        """Without the start page the rows cannot be chained: pages_with_results
+        alone says how much a run did, never which pages."""
+        log, _ = self._run([self._page(n) for n in range(1, 11)],
+                           start_page=4, max_pages=6)
+
+        self.assertEqual(log.start_page, 4)
+        self.assertEqual(log.last_page_saved, 6)
+        self.assertEqual(log.resume_page, 7)
+
+    def test_a_completed_crawl_has_nothing_to_resume(self):
+        log, _ = self._run([self._page(1), self._page(2), self._empty()])
+
+        self.assertTrue(log.pagination_exhausted)
+        self.assertIsNone(log.resume_page)
+
+    def test_a_run_that_stored_nothing_has_nothing_to_resume(self):
+        log, _ = self._run([self._page(1)], interrupt_on=1)
+
+        self.assertIsNone(log.last_page_saved)
+        self.assertIsNone(log.resume_page)
+
+    # ---- resuming -----------------------------------------------------------
+
+    def test_resuming_starts_at_the_page_it_was_given(self):
+        from job_listings.models import JobListing
+
+        self._run([self._page(1), self._page(2), self._page(3)], interrupt_on=3)
+        self.assertEqual(JobListing.objects.count(), 6)
+
+        log, _ = self._run(
+            [self._page(1), self._page(2), self._page(3), self._empty()],
+            start_page=3)
+
+        # Page 3's three adverts, and nothing re-fetched from pages 1 and 2.
+        self.assertEqual(JobListing.objects.count(), 9)
+        self.assertEqual(log.jobs_scraped, 3)
+        self.assertEqual(log.stop_reason, pagination.PAGINATION_EXHAUSTED)
+
+    def test_a_resumed_run_can_still_reach_exhaustion(self):
+        """Resuming must not cost the run its ability to prove coverage."""
+        log, output = self._run(
+            [self._page(1), self._page(2), self._page(3), self._empty()],
+            start_page=2)
+
+        self.assertTrue(log.pagination_exhausted)
+        self.assertIn("Pagination exhausted : YES", output)
+
+    def test_the_ceiling_still_means_a_page_number_when_resuming(self):
+        """--max-pages is a ceiling, not a count, so a resumed run passes the
+        same ceiling as the run it continues and means the same by it."""
+        log, _ = self._run(
+            [self._page(n) for n in range(1, 11)], max_pages=4, start_page=3)
+
+        self.assertEqual(log.stop_reason, pagination.MAX_PAGES_REACHED)
+        self.assertEqual(log.pages_attempted, 2, "should crawl pages 3 and 4")
+
+    def test_a_start_page_past_the_ceiling_is_refused(self):
+        with self.assertRaises(CommandError):
+            call_command("scrape_jobs", max_pages=2, start_page=5,
+                         stdout=StringIO())
+
+    def test_a_start_page_below_one_is_refused(self):
+        with self.assertRaises(CommandError):
+            call_command("scrape_jobs", max_pages=5, start_page=0,
+                         stdout=StringIO())
+
+
+class ReconnectRidesOutABurstTests(TransactionTestCase):
+    """The network this runs from loses name resolution in bursts.
+
+    Repeated lookups either all succeed or all fail; there is no middle. Four
+    separate runs died to one of those blips -- twice on the very first
+    connection, having crawled nothing, and once just after a page had been read
+    with its adverts still in hand. Each time the database was reachable again
+    within seconds.
+
+    Giving up on the first failure turns a blip into the end of a four-hour run.
+    These pin that it waits instead.
+    """
+
+    def test_a_transient_failure_is_retried_rather_than_raised(self):
+        from unittest.mock import patch
+
+        from django.db import connection
+
+        from scrape_jobs import db
+
+        real_connect = connection.connect
+        calls = {"n": 0}
+
+        def flaky():
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise OperationalError(
+                    "could not translate host name to address: "
+                    "Name or service not known")
+            return real_connect()
+
+        with patch.object(connection, "connect", flaky), \
+             patch.object(db.time, "sleep", lambda _s: None):
+            db.reconnect()
+
+        self.assertEqual(calls["n"], 3, "should have kept trying")
+        # And the connection that came back is usable.
+        self.assertIsNotNone(JobListing.objects.count())
+
+    def test_the_wait_grows_between_attempts(self):
+        """A burst lasting a minute is not survived by five tries in a second."""
+        from unittest.mock import patch
+
+        from django.db import connection
+
+        from scrape_jobs import db
+
+        waits = []
+        with patch.object(connection, "connect",
+                          side_effect=OperationalError("no")), \
+             patch.object(db.time, "sleep", waits.append):
+            with self.assertRaises(OperationalError):
+                db.reconnect()
+
+        self.assertEqual(waits, [6, 12, 18, 24])
+        self.assertGreaterEqual(sum(waits), 60,
+                                "should ride out about a minute of outage")
+
+    def test_a_database_that_is_really_gone_still_raises(self):
+        """Retrying must not turn an outage into silence. A caller that cannot
+        reach the database has nothing to fall back on."""
+        from unittest.mock import patch
+
+        from django.db import connection
+
+        from scrape_jobs import db
+
+        with patch.object(connection, "connect",
+                          side_effect=OperationalError("really gone")), \
+             patch.object(db.time, "sleep", lambda _s: None):
+            with self.assertRaises(OperationalError):
+                db.reconnect()
+
+    def test_a_page_is_not_lost_to_a_blip_while_it_is_being_saved(self):
+        """The costliest moment: a page has just been read and the connection
+        needed to store it picks that second to fail."""
+        from unittest.mock import MagicMock, patch
+
+        from django.db import connection
+
+        from scrape_jobs import db, scraper
+
+        real_connect = connection.connect
+        # Armed only once a page has been read, so the blip lands on the
+        # connection needed to store it rather than on the run's first query.
+        state = {"armed": False, "blipped": False}
+
+        def flaky():
+            if state["armed"] and not state["blipped"]:
+                state["blipped"] = True
+                raise OperationalError("could not translate host name")
+            return real_connect()
+
+        page = ('<div data-automation="searchResults">'
+                '<article data-automation="normalJob">'
+                '<a data-automation="jobTitle" href="/job/1">Engineer</a>'
+                '</article></div>', pagination.FETCH_OK)
+
+        def fake_get(driver, url, retries=3, delay=5):
+            state["armed"] = True
+            return page
+
+        def fake_detail(driver, job, retries=2):
+            return {**job, "description": "Python.", "company_name": "ACME"}, False
+
+        with patch.object(scraper, "create_driver", return_value=MagicMock()), \
+             patch.object(scraper, "safe_get_page", fake_get), \
+             patch.object(scraper, "extract_job_detail", fake_detail), \
+             patch.object(scraper, "random_delay", lambda *a, **k: None), \
+             patch.object(db.time, "sleep", lambda _s: None), \
+             patch.object(connection, "connect", flaky):
+            call_command("scrape_jobs", max_pages=1, max_jobs=50,
+                         skip_skill_gap_refresh=True, stdout=StringIO())
+
+        self.assertTrue(state["blipped"], "the blip never happened")
+        self.assertEqual(JobListing.objects.count(), 1,
+                         "the page was lost to a blip that passed")
+
 
 class MarketRoleSeedReproducibilityTests(TestCase):
     """A fresh database must reproduce the reviewed state, and say so if not.
@@ -2490,6 +3817,15 @@ class MarketRoleSeedReproducibilityTests(TestCase):
         ("information technology application support analyst",
          "Application Support Analyst"),
         ("information technology software engineer", "Software Engineer"),
+        # Approved from the unmatched-title report over 3,792 scraped adverts.
+        # Each one was already covered in a longer form -- "software test
+        # engineer", "automation test engineer", "information technology system
+        # engineer" -- so the bare titles were failing on a missing word rather
+        # than on any doubt about the job.
+        ("software tester", "QA / Software Test Engineer"),
+        ("automation tester", "QA / Software Test Engineer"),
+        ("system engineer", "Infrastructure Engineer"),
+        ("artificial intelligence solutions engineer", "AI / ML Engineer"),
     )
 
     @classmethod
@@ -2498,7 +3834,7 @@ class MarketRoleSeedReproducibilityTests(TestCase):
 
     def test_a_fresh_load_produces_the_whole_reviewed_taxonomy(self):
         self.assertEqual(MarketRole.objects.count(), 32)
-        self.assertEqual(MarketRoleAlias.objects.count(), 231)
+        self.assertEqual(MarketRoleAlias.objects.count(), 235)
 
     def test_product_manager_exists_after_a_fresh_load(self):
         """The role the seed was missing.
@@ -2526,7 +3862,7 @@ class MarketRoleSeedReproducibilityTests(TestCase):
         call_command("load_market_roles")
 
         self.assertEqual(MarketRole.objects.count(), 32)
-        self.assertEqual(MarketRoleAlias.objects.count(), 231)
+        self.assertEqual(MarketRoleAlias.objects.count(), 235)
 
     # ---- the check itself --------------------------------------------------
 

@@ -4,6 +4,7 @@ from django.db import models
 from config.sanitization import sanitize_html, sanitize_text
 
 from accounts.models import Company, Student, StudentSkill
+from scrape_jobs import pagination
 from scrape_jobs.models import JobCategory, JobTitle, Skill
 
 
@@ -351,19 +352,69 @@ class ScrapeLog(models.Model):
         PARTIAL = "PARTIAL", "Partial (some pages blocked)"
         FAILED  = "FAILED",  "Failed"
 
+    class StopReason(models.TextChoices):
+        """Why the crawl stopped, which is not the same question as how it went.
+
+        A run can be SUCCESS and have covered a fifth of the search. Only
+        PAGINATION_EXHAUSTED says the configured search was walked to its end;
+        the rest are all reasons to withhold that claim. Values mirror
+        scrape_jobs.pagination, and a test holds the two in step.
+        """
+        PAGINATION_EXHAUSTED = pagination.PAGINATION_EXHAUSTED, "Pagination exhausted"
+        MAX_PAGES_REACHED    = pagination.MAX_PAGES_REACHED, "Stopped at --max-pages"
+        BLOCKED              = pagination.BLOCKED, "Blocked by the source"
+        FAILED               = pagination.FAILED, "Failed"
+        INTERRUPTED          = pagination.INTERRUPTED, "Stopped by the operator"
+        # Rows written before the crawl recorded this. Absence of a measurement,
+        # not a measurement of absence.
+        UNKNOWN              = pagination.UNKNOWN, "Not recorded"
+
     started_at     = models.DateTimeField(auto_now_add=True)
     finished_at    = models.DateTimeField(null=True, blank=True)
     status         = models.CharField(max_length=20, choices=Status.choices, default=Status.FAILED)
     roles_scraped  = models.JSONField(default=list)
     pages_attempted = models.IntegerField(default=0)
+    #: Pages that returned at least one advert. Below pages_attempted whenever
+    #: the run ended on an empty, blocked or unreadable page.
+    pages_with_results = models.IntegerField(default=0)
+    #: The page this run began at. 1 unless it resumed an earlier one.
+    start_page = models.IntegerField(default=1)
+    #: The last page whose adverts were stored. With start_page it makes the row
+    #: answer "where do I pick up?" on its own -- which it could not before, so
+    #: the only record of where a four-hour crawl got to was the operator's
+    #: terminal scrollback. Null when the run stored nothing.
+    last_page_saved = models.IntegerField(null=True, blank=True)
+    #: True only for a crawl that reached the last page the source offered.
+    pagination_exhausted = models.BooleanField(default=False)
+    stop_reason    = models.CharField(
+        max_length=32, choices=StopReason.choices, default=StopReason.UNKNOWN)
     jobs_scraped   = models.IntegerField(default=0)
     jobs_created   = models.IntegerField(default=0)
     jobs_updated   = models.IntegerField(default=0)
+    #: Search-result pages the source refused. At most one per run: a refused
+    #: page ends the crawl. Each one costs a whole page of adverts.
     blocked_count  = models.IntegerField(default=0)
+    #: Individual adverts the source refused. Costs one advert each, and the
+    #: crawl continues. Counted apart from blocked_count because summing them
+    #: made two missed adverts in three thousand look like a blocked run --
+    #: which then stopped every downstream stage. Rows written before the split
+    #: carry both in blocked_count.
+    blocked_adverts = models.IntegerField(default=0)
     error_message  = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-started_at"]
+
+    @property
+    def resume_page(self):
+        """The page a run continuing this one should start at.
+
+        None when the crawl finished the search or stored nothing, in which
+        case there is nothing to resume.
+        """
+        if self.pagination_exhausted or self.last_page_saved is None:
+            return None
+        return self.last_page_saved + 1
 
     def __str__(self):
         finished = self.finished_at.strftime("%H:%M") if self.finished_at else "running"

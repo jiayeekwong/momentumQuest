@@ -27,24 +27,40 @@ cached extractor result, roles are re-classified because each advert was
 classified when it was saved, and skill gaps are recorded once at the end over
 settled data.
 
-A PostgreSQL advisory lock makes a second concurrent refresh refuse rather than
-interleave. Two Selenium crawls writing the same adverts, one of them halfway
-through re-extraction while the other replaces the rows underneath it, is not a
-situation worth reasoning about after the fact.
+Two Selenium crawls writing the same adverts, one of them halfway through
+re-extraction while the other replaces the rows underneath it, is not a
+situation worth reasoning about after the fact, so a second refresh refuses.
+What refuses it is the ScrapeLog row rather than the advisory lock that used to.
+An advisory lock lives on the connection holding it, and this command cannot
+hold a connection: the crawl leaves it idle for hours and a hosted database
+drops it. The lock was therefore gone long before the refresh it was guarding
+finished -- and the dead connection then broke the release in the finally
+clause, replacing the real failure with an InterfaceError. The lock is still
+taken, but only across the checks at the start, where the connection is known
+to be alive.
 """
 
 import time
+from datetime import timedelta
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
+from django.utils import timezone
 
 from job_listings.models import JobListing, JobSkill, ScrapeLog
+from scrape_jobs import db
 
 #: Any 64-bit constant. Chosen once and never changed: the number *is* the lock
 #: identity, so a different value in a future release would silently stop
 #: excluding the older one.
 ADVISORY_LOCK_KEY = 8_417_235_901_114_233
+
+#: How long a refresh can plausibly still be running. A ScrapeLog row left
+#: unfinished for longer than this belongs to a run that died rather than one
+#: still crawling -- the row alone cannot distinguish them, so this is where the
+#: line is drawn. A full forty-page crawl takes around three hours.
+ABANDONED_AFTER = timedelta(hours=6)
 
 #: Stages run only once the acquisition is known to have succeeded. Order is
 #: dependency order, not preference.
@@ -69,8 +85,18 @@ class Command(BaseCommand):
         parser.add_argument("--max-pages", type=int, default=40)
         parser.add_argument("--max-jobs", type=int, default=32)
         parser.add_argument(
+            "--start-page", type=int, default=1,
+            help=("Resume a crawl that was stopped. The previous run's summary "
+                  "names the page to pass here; everything before it is already "
+                  "stored."))
+        parser.add_argument(
             "--skip-taxonomies", action="store_true", default=False,
             help="Do not reload the skill and Market Role seeds first.")
+        parser.add_argument(
+            "--ignore-abandoned-run", action="store_true", default=False,
+            help=("Start even though an earlier ScrapeLog row was never "
+                  "finished. Use when that run is known to have died, which a "
+                  "dropped connection during a crawl will leave behind."))
         parser.add_argument(
             "--allow-no-new-adverts", action="store_true", default=False,
             help=("Treat a successful scrape that created nothing as success. "
@@ -91,8 +117,48 @@ class Command(BaseCommand):
             return bool(cursor.fetchone()[0])
 
     def _release_lock(self):
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT pg_advisory_unlock(%s)", [ADVISORY_LOCK_KEY])
+        """Best effort, because failing here only hides why the run failed.
+
+        PostgreSQL releases every session-level advisory lock when the session
+        ends, so a connection that has dropped has already released this one and
+        there is nothing left to do. Raising instead replaced the real
+        RefreshFailed with InterfaceError from the finally clause, which is how
+        a refresh that died of a dropped connection came to report a problem
+        with releasing a lock.
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_unlock(%s)",
+                               [ADVISORY_LOCK_KEY])
+        except Exception as exc:
+            self.stderr.write(f"Could not release the advisory lock: {exc}")
+
+    def _refuse_if_a_refresh_is_running(self, ignore_abandoned):
+        """The guard that outlives the connection: an unfinished ScrapeLog row.
+
+        The scraper writes one before it starts and finishes it at the end, so
+        a recent row with no finished_at means a refresh is already under way.
+        Being data rather than session state, it survives exactly the dropped
+        connection that made the advisory lock useless here.
+        """
+        running = (ScrapeLog.objects
+                   .filter(finished_at__isnull=True,
+                           started_at__gte=timezone.now() - ABANDONED_AFTER)
+                   .order_by("-id").first())
+        if running is None:
+            return
+
+        started = timezone.localtime(running.started_at).strftime("%Y-%m-%d %H:%M")
+        if ignore_abandoned:
+            self.stdout.write(self.style.WARNING(
+                f"Ignoring unfinished ScrapeLog #{running.id}, started {started}."))
+            return
+
+        raise RefreshFailed(
+            f"ScrapeLog #{running.id} started {started} and was never "
+            f"finished, so a refresh may still be crawling. If that run is "
+            f"known to have died -- a crawl whose connection dropped leaves "
+            f"exactly this -- re-run with --ignore-abandoned-run.")
 
     # ------------------------------------------------------------ judgement
 
@@ -104,13 +170,24 @@ class Command(BaseCommand):
         if log is None:
             return "the scrape recorded no ScrapeLog row at all"
 
-        if log.status != "SUCCESS":
+        if log.status == ScrapeLog.Status.FAILED:
             return (f"ScrapeLog #{log.id} status is {log.status}"
                     + (f": {log.error_message}" if log.error_message else ""))
 
-        # Every page blocked is a bot wall, which the scraper records as a
-        # count rather than as a failure. A run that was fully blocked
-        # "succeeded" at being turned away.
+        # PARTIAL deliberately passes. It is set whenever anything at all was
+        # refused, including a single advert, and a crawl that traversed the
+        # whole search and missed two adverts of three thousand is not a failed
+        # acquisition -- but it used to be treated as one, which stopped every
+        # downstream stage and left the skill gaps unrecorded. What matters is
+        # what was actually missed, judged below, not the label.
+
+        # A refused search page is the serious case: it costs a whole page of
+        # adverts and ends the crawl where it stands.
+        if log.stop_reason == ScrapeLog.StopReason.BLOCKED:
+            return ("the source refused a page of results, so the crawl stopped "
+                    f"at page {log.last_page_saved or log.start_page} -- this "
+                    "host is being turned away")
+
         if log.pages_attempted and log.blocked_count >= log.pages_attempted:
             return (f"every page was blocked ({log.blocked_count} of "
                     f"{log.pages_attempted}) -- the source refused this host")
@@ -127,29 +204,45 @@ class Command(BaseCommand):
     # ----------------------------------------------------------------- main
 
     def handle(self, *args, **options):
+        started = time.monotonic()
+
+        # Before anything else, and retrying: two resumed runs died here, on the
+        # first connection of all, because name resolution happened to be in one
+        # of its bursts at that second. Nothing had been crawled and nothing was
+        # wrong -- the run simply asked at the wrong moment and gave up.
+        db.ensure()
+
+        # The lock covers the checks and the taxonomy load, and is dropped
+        # before the crawl -- the point past which no connection survives. From
+        # there the unfinished ScrapeLog row the scraper writes is what refuses
+        # a second run. The gap between the two is the few milliseconds
+        # call_command takes to reach create_scrape_log.
         if not self._acquire_lock():
             raise RefreshFailed(
                 "Another market refresh holds the advisory lock. Refusing to "
                 "run a second one concurrently.")
-
-        started = time.monotonic()
         try:
-            self._run(options)
+            self._refuse_if_a_refresh_is_running(options["ignore_abandoned_run"])
+            self._load_taxonomies(options)
         finally:
             self._release_lock()
+
+        self._run(options)
 
         self.stdout.write(self.style.SUCCESS(
             f"Market refresh complete in {time.monotonic() - started:.0f}s."))
 
-    def _run(self, options):
-        if not options["skip_taxonomies"]:
-            # First, because everything below classifies against them and the
-            # scraper classifies each advert as it saves it. Both read
-            # source-controlled CSVs and are idempotent.
-            self.stdout.write("Loading taxonomies...")
-            call_command("import_skills")
-            call_command("load_market_roles")
+    def _load_taxonomies(self, options):
+        if options["skip_taxonomies"]:
+            return
+        # First, because everything below classifies against them and the
+        # scraper classifies each advert as it saves it. Both read
+        # source-controlled CSVs and are idempotent.
+        self.stdout.write("Loading taxonomies...")
+        call_command("import_skills")
+        call_command("load_market_roles")
 
+    def _run(self, options):
         before = ScrapeLog.objects.order_by("-id").values_list("id", flat=True).first()
 
         self.stdout.write("Acquiring adverts...")
@@ -158,6 +251,7 @@ class Command(BaseCommand):
                 "scrape_jobs",
                 max_pages=options["max_pages"],
                 max_jobs=options["max_jobs"],
+                start_page=options["start_page"],
                 # Gaps are recorded once at the end, over settled data.
                 skip_skill_gap_refresh=True,
             )
@@ -184,6 +278,21 @@ class Command(BaseCommand):
             f"{log.jobs_created} new, {log.jobs_updated} updated, "
             f"{log.blocked_count} page(s) blocked"))
 
+        # Said separately from the status, because they answer different
+        # questions and only one of them is about coverage. A refresh can be
+        # SUCCESS on every count here and still have read a fifth of the search.
+        if log.pagination_exhausted:
+            self.stdout.write(self.style.SUCCESS(
+                "  Pagination status: EXHAUSTED -- the configured search was "
+                "traversed to its last page."))
+        else:
+            self.stdout.write(self.style.WARNING(
+                f"  Pagination status: INCOMPLETE ({log.stop_reason}) -- this "
+                f"run did not reach the end of the search, so the adverts it "
+                f"acquired are a subset of what the source offers."
+                + (f" Resume with --start-page {log.resume_page}."
+                   if log.resume_page else "")))
+
         for name, kwargs in DOWNSTREAM:
             self.stdout.write(f"Running {name}...")
             call_command(name, **kwargs)
@@ -203,6 +312,12 @@ class Command(BaseCommand):
             ("adverts acquired", log.jobs_scraped),
             ("adverts created", log.jobs_created),
             ("adverts updated", log.jobs_updated),
+            ("pages with results", log.pages_with_results),
+            ("pages covered", f"{log.start_page} to {log.last_page_saved}"
+                              if log.last_page_saved else "none stored"),
+            ("resume at page", log.resume_page or "-"),
+            ("stop reason", log.stop_reason),
+            ("pagination exhausted", "YES" if log.pagination_exhausted else "NO"),
             ("JobListing total", JobListing.objects.count()),
             ("JobSkill total", JobSkill.objects.count()),
             ("classified into a role", classified),

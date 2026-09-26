@@ -15,6 +15,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
+from scrape_jobs.pagination import (
+    BLOCKED, FAILED, FETCH_BLOCKED, FETCH_FAILED, FETCH_OK,
+    MAX_PAGES_REACHED, PAGINATION_EXHAUSTED, has_next_page, is_results_page,
+)
+
 logger = logging.getLogger(__name__)
 
 # ============================================================
@@ -177,6 +182,17 @@ def create_driver():
 # ============================================================
 
 def safe_get_page(driver, url, retries=3, delay=5):
+    """Load a page. Returns (html, outcome) -- one of the pagination FETCH_* values.
+
+    The outcome exists because "" is not a diagnosis. A page that came back
+    empty because the source refused it and a page that came back empty because
+    the search ran out of results are the same string, and only one of them
+    means the crawl is finished. Giving up is recorded as BLOCKED when any
+    attempt was turned away and FAILED when the attempts simply did not
+    complete.
+    """
+    blocked_seen = False
+
     for attempt in range(1, retries + 1):
         try:
             driver.get(url)
@@ -192,11 +208,12 @@ def safe_get_page(driver, url, retries=3, delay=5):
             page_source = driver.page_source
 
             if is_blocked(page_source, driver.title):
+                blocked_seen = True
                 logger.warning("Bot detection on attempt %d for %s", attempt, url)
                 time.sleep(delay * attempt)
                 continue
 
-            return page_source
+            return page_source, FETCH_OK
 
         except Exception as error:
             logger.warning("Attempt %d/%d failed for %s: %s", attempt, retries, url, error)
@@ -204,7 +221,7 @@ def safe_get_page(driver, url, retries=3, delay=5):
                 time.sleep(delay)
 
     logger.error("All %d attempts failed for %s", retries, url)
-    return ""
+    return "", (FETCH_BLOCKED if blocked_seen else FETCH_FAILED)
 
 
 # ============================================================
@@ -334,14 +351,28 @@ def extract_job_detail(driver, job, retries=2):
 # Main scraper — called by management command
 # ============================================================
 
-def scrape_jobs(source_url=None, max_pages=MAX_PAGES, max_jobs_per_page=MAX_JOBS_PER_PAGE):
+def scrape_jobs(source_url=None, max_pages=MAX_PAGES,
+                max_jobs_per_page=MAX_JOBS_PER_PAGE, start_page=1, on_page=None):
     """
     Scrape the JobStreet Malaysia ICT category.
 
+    ``on_page`` is what makes a long crawl survivable. Called as
+    ``on_page(page, jobs)`` the moment a page's adverts are in hand, it lets the
+    caller persist them before the next page is fetched. Without it a crawl is
+    all or nothing: a full traversal of this search takes around four hours and
+    used to hold every advert in memory until the last page, so stopping it --
+    or a browser dying at page 130 -- threw away the lot.
+
+    ``start_page`` resumes. ``max_pages`` stays a ceiling on the page *number*
+    rather than a count, so a resumed run passes the same ceiling as the run it
+    continues and means the same thing by it.
+
     Args:
         source_url:        Category URL to scrape (defaults to JOBSTREET_ICT_URL).
-        max_pages:         Number of listing pages to crawl.
+        max_pages:         Highest page number to crawl. A ceiling, not a count.
         max_jobs_per_page: Max job detail pages to fetch per listing page.
+        start_page:        Page to begin at. 1 unless resuming.
+        on_page:           Optional callback, on_page(page, jobs), per page.
 
     Returns:
         {
@@ -357,46 +388,83 @@ def scrape_jobs(source_url=None, max_pages=MAX_PAGES, max_jobs_per_page=MAX_JOBS
 
     driver = create_driver()
     scraped_jobs = []
+    # Counted apart, because they mean very different things. A refused search
+    # page costs a whole page of adverts and ends the crawl; a refused detail
+    # page costs one advert and the crawl carries on. Adding them together made
+    # "2 blocked" out of two missed adverts in three thousand, and that number
+    # was then read as a failed acquisition.
     blocked_count = 0
+    blocked_adverts = 0
     pages_attempted = 0
+    pages_with_results = 0
+    pages_truncated = 0
+
+    # Only the for-else below may leave this in place: falling off the end of
+    # the range is what "stopped at the ceiling" means.
+    stop_reason = MAX_PAGES_REACHED
 
     try:
-        for page in range(1, max_pages + 1):
+        for page in range(start_page, max_pages + 1):
             pages_attempted += 1
             url = build_page_url(source_url, page)
             logger.info("Scraping page %d: %s", page, url)
 
-            search_html = safe_get_page(driver, url)
+            search_html, outcome = safe_get_page(driver, url)
 
-            if not search_html:
-                logger.warning("No HTML returned for page %d — likely blocked.", page)
-                blocked_count += 1
-                break
-
-            if is_blocked(search_html, driver.title):
+            if outcome == FETCH_BLOCKED:
                 logger.warning("Search page %d blocked.", page)
                 blocked_count += 1
+                stop_reason = BLOCKED
+                break
+
+            if outcome == FETCH_FAILED:
+                logger.error("Search page %d did not load.", page)
+                stop_reason = FAILED
+                break
+
+            # Loaded, but is it the page we think it is? Everything below reads
+            # an empty page as the end of the results, and that reading is only
+            # safe once this has passed. A bot wall, an error page and a markup
+            # change all arrive here looking like a search with no matches.
+            if not is_results_page(search_html):
+                logger.error(
+                    "Page %d loaded but is not a JobStreet results page; "
+                    "refusing to read it as the end of pagination.", page)
+                stop_reason = FAILED
                 break
 
             job_cards = extract_job_cards(search_html)
 
             if not job_cards:
-                logger.info("No job cards on page %d. Stopping.", page)
+                # A confirmed results page with nothing on it. This is the end.
+                logger.info("Page %d is a results page with no adverts — "
+                            "pagination exhausted.", page)
+                stop_reason = PAGINATION_EXHAUSTED
                 break
 
-            job_cards = job_cards[:max_jobs_per_page]
-            logger.info("Page %d: %d job cards found.", page, len(job_cards))
+            pages_with_results += 1
 
+            available = len(job_cards)
+            job_cards = job_cards[:max_jobs_per_page]
+            if available > len(job_cards):
+                pages_truncated += 1
+                logger.warning(
+                    "Page %d: took %d of %d adverts (--max-jobs). This page was "
+                    "not read in full.", page, len(job_cards), available)
+            logger.info("Page %d: %d job cards found.", page, available)
+
+            page_jobs = []
             for job in job_cards:
                 try:
                     detailed_job, was_blocked = extract_job_detail(driver, job)
 
                     if was_blocked:
-                        blocked_count += 1
+                        blocked_adverts += 1
                         logger.warning("Blocked scraping detail: %s", job["source_url"])
                         continue
 
                     if detailed_job:
+                        page_jobs.append(detailed_job)
                         scraped_jobs.append(detailed_job)
                         logger.info(
                             "  Scraped: %s @ %s",
@@ -407,7 +475,27 @@ def scrape_jobs(source_url=None, max_pages=MAX_PAGES, max_jobs_per_page=MAX_JOBS
                 except Exception as error:
                     logger.error("Unexpected error on job detail: %s", error)
 
+            # Hand this page over before fetching the next one. Anything after
+            # this point -- the next fetch, an interrupt, a dead browser -- can
+            # no longer cost the caller this page.
+            if on_page is not None and page_jobs:
+                on_page(page, page_jobs)
+
+            # Signal A, and the one worth trusting: the source's own pagination
+            # control saying there is nothing after this page.
+            if has_next_page(search_html, current_page=page) is False:
+                logger.info("Page %d offers no next page — pagination exhausted.",
+                            page)
+                stop_reason = PAGINATION_EXHAUSTED
+                break
+
             random_delay(2, 4)
+        else:
+            # The range ran out before the results did, so how many pages the
+            # search actually has is simply unknown.
+            stop_reason = MAX_PAGES_REACHED
+            logger.info("Stopped at the --max-pages ceiling of %d. There may be "
+                        "more pages; none were requested.", max_pages)
 
     finally:
         driver.quit()
@@ -418,24 +506,35 @@ def scrape_jobs(source_url=None, max_pages=MAX_PAGES, max_jobs_per_page=MAX_JOBS
         seen[job["source_url"]] = job
     final_jobs = list(seen.values())
 
+    any_blocking = blocked_count > 0 or blocked_adverts > 0
     if blocked_count > 0 and len(final_jobs) == 0:
         status = "BLOCKED"
-    elif blocked_count > 0 and len(final_jobs) > 0:
+    elif any_blocking and len(final_jobs) > 0:
         status = "PARTIAL"
     elif len(final_jobs) == 0:
         status = "FAILED"
     else:
         status = "SUCCESS"
 
+    # Exhaustion is a property of the stop reason alone. A run can acquire
+    # thousands of adverts, report SUCCESS, and still have seen a fraction of
+    # the search -- which is exactly the claim this flag exists to withhold.
+    pagination_exhausted = stop_reason == PAGINATION_EXHAUSTED
+
     logger.info(
-        "Scrape complete. Status=%s  Jobs=%d  Blocked=%d",
-        status, len(final_jobs), blocked_count,
+        "Scrape complete. Status=%s  Jobs=%d  Blocked=%d  Stop=%s  Exhausted=%s",
+        status, len(final_jobs), blocked_count, stop_reason, pagination_exhausted,
     )
 
     return {
-        "jobs":            final_jobs,
-        "status":          status,
-        "blocked_count":   blocked_count,
-        "pages_attempted": pages_attempted,
-        "source_url":      source_url,
+        "jobs":                 final_jobs,
+        "status":               status,
+        "blocked_count":        blocked_count,
+        "blocked_adverts":      blocked_adverts,
+        "pages_attempted":      pages_attempted,
+        "pages_with_results":   pages_with_results,
+        "pages_truncated":      pages_truncated,
+        "stop_reason":          stop_reason,
+        "pagination_exhausted": pagination_exhausted,
+        "source_url":           source_url,
     }

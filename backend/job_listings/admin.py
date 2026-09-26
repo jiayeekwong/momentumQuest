@@ -56,15 +56,33 @@ class JobApplicationAdmin(admin.ModelAdmin):
 @admin.register(ScrapeLog)
 class ScrapeLogAdmin(admin.ModelAdmin):
     list_display = (
-        "started_at", "finished_at", "status_badge",
+        "started_at", "finished_at", "status_badge", "coverage",
         "jobs_scraped", "jobs_created", "jobs_updated", "blocked_count",
     )
-    list_filter = ("status",)
+    list_filter = ("status", "stop_reason", "pagination_exhausted")
     readonly_fields = (
         "started_at", "finished_at", "status", "roles_scraped",
-        "pages_attempted", "jobs_scraped", "jobs_created",
+        "pages_attempted", "pages_with_results", "start_page",
+        "last_page_saved", "stop_reason", "pagination_exhausted",
+        "jobs_scraped", "jobs_created",
         "jobs_updated", "blocked_count", "error_message",
     )
+
+    @admin.display(description="Coverage")
+    def coverage(self, obj):
+        """Whether the run reached the end of the search, and where to resume.
+
+        The status column answers whether the run worked, which is a different
+        question: a run can be SUCCESS having read a fifth of the search. And a
+        crawl stopped partway used to leave the page it got to nowhere but the
+        operator's terminal.
+        """
+        if obj.pagination_exhausted:
+            return "complete"
+        resume = obj.resume_page
+        if resume is None:
+            return obj.stop_reason
+        return f"{obj.stop_reason} — resume at page {resume}"
 
     def status_badge(self, obj):
         colours = {

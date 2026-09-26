@@ -280,13 +280,18 @@ def save_scraped_job(job_data, index=None):
     return listing, created
 
 
-def save_scraped_jobs(jobs):
-    """Bulk-save a list of scraped job dicts. Returns (created_count, updated_count)."""
+def save_scraped_jobs(jobs, index=None):
+    """Bulk-save a list of scraped job dicts. Returns (created_count, updated_count).
+
+    ``index`` is the Market Role lookup. Passed in when a caller saves page by
+    page through a long crawl, so the index is built once for the run rather
+    than rebuilt on every page.
+    """
     from .market_role_classifier import build_index
 
     created_count = 0
     updated_count = 0
-    index = build_index()
+    index = index or build_index()
 
     for job_data in jobs:
         _, created = save_scraped_job(job_data, index=index)
@@ -309,12 +314,32 @@ def create_scrape_log(roles_scraped, pages_attempted=0):
     )
 
 
-def finish_scrape_log(log, status, jobs_scraped, jobs_created, jobs_updated, blocked_count, error_message=""):
+def finish_scrape_log(log, status, jobs_scraped, jobs_created, jobs_updated,
+                      blocked_count, error_message="",
+                      pages_with_results=0, stop_reason=None,
+                      start_page=1, last_page_saved=None,
+                      blocked_adverts=0):
+    """Close out the run's audit row.
+
+    ``stop_reason`` decides ``pagination_exhausted`` rather than being stored
+    alongside it, so the two cannot disagree. A caller that does not supply one
+    -- a crash before the crawl returned anything -- gets UNKNOWN and a false
+    flag, which is the honest reading: nothing was established either way.
+    """
+    from job_listings.models import ScrapeLog
+
     log.finished_at    = timezone.now()
     log.status         = status
     log.jobs_scraped   = jobs_scraped
     log.jobs_created   = jobs_created
     log.jobs_updated   = jobs_updated
     log.blocked_count  = blocked_count
+    log.blocked_adverts = blocked_adverts
     log.error_message  = error_message
+    log.pages_with_results   = pages_with_results
+    log.start_page           = start_page
+    log.last_page_saved      = last_page_saved
+    log.stop_reason          = stop_reason or ScrapeLog.StopReason.UNKNOWN
+    log.pagination_exhausted = (
+        log.stop_reason == ScrapeLog.StopReason.PAGINATION_EXHAUSTED)
     log.save()

@@ -120,7 +120,7 @@ Verify, exactly:
 | | |
 |---|---|
 | MarketRole | 32 |
-| MarketRoleAlias | 231 |
+| MarketRoleAlias | 235 |
 | CourseCatalogue | 5,794 |
 | LearningResource | 20,434 |
 | RejectedResourceMapping | 11 |
@@ -274,13 +274,87 @@ Credentials come from repository secrets: `DB_*` and `DJANGO_SECRET_KEY`.
 
     python manage.py refresh_market_data --max-pages 40 --max-jobs 32
 
-`refresh_market_data` is what makes this safe to automate later. It takes a
-PostgreSQL advisory lock so two refreshes cannot interleave, runs the
-acquisition, then **judges it by the persisted `ScrapeLog` row rather than by the
-inner command's exit status** — and stops before any downstream stage if the
-acquisition failed or was entirely blocked. Re-extraction and classification
-over an unchanged table succeed perfectly well, which is exactly what would make
-a stale refresh look healthy.
+`refresh_market_data` is what makes this safe to automate later. It refuses to
+run alongside another refresh, runs the acquisition, then **judges it by the
+persisted `ScrapeLog` row rather than by the inner command's exit status** — and
+stops before any downstream stage if the acquisition failed or was entirely
+blocked. Re-extraction and classification over an unchanged table succeed
+perfectly well, which is exactly what would make a stale refresh look healthy.
+
+### A long crawl can be stopped and resumed
+
+A full traversal takes around four hours, so it is built to survive being
+interrupted. Each page's adverts are written to the database as that page
+finishes, not held until the end — an interrupt, a dead browser or a dropped
+connection costs the page in flight, not the run.
+
+Stopping it with Ctrl+C closes the `ScrapeLog` row honestly (`stop_reason =
+INTERRUPTED`, distinct from `FAILED` because nothing went wrong) and the summary
+names the page to pick up from:
+
+    Pagination:
+        Pages attempted      : 47
+        Pages with results   : 47
+        Pagination exhausted : NO
+        Stop reason          : INTERRUPTED
+        Resume with          : --start-page 48
+
+Then continue, passing the same ceiling — `--max-pages` is a page number, not a
+count, so it means the same thing in both runs:
+
+    python manage.py refresh_market_data --max-pages 200 --max-jobs 50       --start-page 48 --ignore-abandoned-run
+
+`--ignore-abandoned-run` is needed on any resume started within six hours of the
+run it continues: that run's row is, correctly, still unfinished.
+
+A resumed run can still reach `PAGINATION_EXHAUSTED`. Coverage is a property of
+where the crawl stopped, not of how many sittings it took.
+
+### A finished scrape is not a complete one
+
+`--max-pages` is a safety ceiling, not an expected page count. A run that stops
+because it hit the ceiling has covered an unknown fraction of the search, and it
+reports SUCCESS while doing so — which is why coverage is reported separately:
+
+    Pagination status: EXHAUSTED
+
+means the crawl reached the last page JobStreet offered, and only then was the
+configured search traversed end to end. Anything else prints
+
+    Pagination status: INCOMPLETE (MAX_PAGES_REACHED)
+
+with the reason, and the same pair is on the `ScrapeLog` row as `stop_reason` and
+`pagination_exhausted`. `BLOCKED` and `FAILED` are never read as completion: an
+empty page only ends pagination once it has been confirmed to have loaded as a
+JobStreet results page, because a bot wall, an error page and a markup change all
+arrive looking like a search with no matches.
+
+To prove a full traversal, raise the ceiling until the run stops on its own:
+
+    python manage.py refresh_market_data --max-pages 200
+
+and read the stop reason rather than the page count. Note that `--max-jobs` caps
+adverts *per page*, so a run can exhaust pagination and still have skipped
+adverts; the summary says so when it happens.
+
+### A crawl outlives its database connection
+
+The crawl runs for hours and makes no query while it does, so the command holds
+no connection across it — it closes one before the crawl and opens a new one
+after. Anything else is dropped by a hosted database or by whatever sits between
+you and it, and the first write afterwards fails with `server closed the
+connection unexpectedly`, taking the whole crawl with it.
+
+That is also why a second refresh is refused by the unfinished `ScrapeLog` row
+rather than by the advisory lock the command still takes at startup. An advisory
+lock lives on the connection holding it, so it would be released by the very
+drop it was meant to survive. The row is data, and outlasts the session.
+
+A refresh killed mid-crawl therefore leaves an unfinished row behind, and the
+next run refuses for six hours in case that run is still going. When it is known
+to be dead:
+
+    python manage.py refresh_market_data --max-pages 40 --max-jobs 32       --ignore-abandoned-run
 
 On success it runs, in dependency order: `dedupe_scraped_listings`,
 `recategorize_job_listings`, `reextract_job_skills`, `classify_market_roles`,

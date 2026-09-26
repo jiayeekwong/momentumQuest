@@ -35,7 +35,7 @@ from django.db import connection
 #: deployment ends up subtly different from every other one.
 EXPECTED = (
     ("scrape_jobs", "MarketRole", 32),
-    ("scrape_jobs", "MarketRoleAlias", 231),
+    ("scrape_jobs", "MarketRoleAlias", 235),
     ("resources", "CourseCatalogue", 5794),
     ("resources", "LearningResource", 20434),
     ("resources", "RejectedResourceMapping", 11),

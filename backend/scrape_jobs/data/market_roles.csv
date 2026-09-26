@@ -66,6 +66,8 @@ QA / Software Test Engineer,software mobile web application quality assurance te
 QA / Software Test Engineer,amd firmware test engineer,Software & Applications,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,Firmware validation; the function is software testing
 QA / Software Test Engineer,functional tester banking,Software & Applications,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 QA / Software Test Engineer,automation test engineer,Software & Applications,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
+QA / Software Test Engineer,software tester,Software & Applications,reviewed_alias,MARKET_DERIVED,MALAYSIA_TITLE_REVIEW,APPROVED,"The role name is literally Software Test Engineer; ""software test engineer"" and ""quality assurance tester"" already map here"
+QA / Software Test Engineer,automation tester,Software & Applications,reviewed_alias,MARKET_DERIVED,MALAYSIA_TITLE_REVIEW,APPROVED,"""automation test engineer"" already maps here; the adverts are Playwright and Selenium suites"
 Data Analyst,data analyst,Data & AI,exact,MARKET_DERIVED,LEGACY,APPROVED,
 Data Analyst,business data analyst,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 Data Analyst,business and data analyst,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
@@ -96,6 +98,7 @@ AI / ML Engineer,artificial intelligence software engineer,Data & AI,reviewed_al
 AI / ML Engineer,artificial intelligence developer,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 AI / ML Engineer,artificial intelligence solution engineer,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 AI / ML Engineer,engineer software artificial intelligence,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,Engineer Software (AI)
+AI / ML Engineer,artificial intelligence solutions engineer,Data & AI,reviewed_alias,MARKET_DERIVED,MALAYSIA_TITLE_REVIEW,APPROVED,"The plural of ""artificial intelligence solution engineer"", which is already approved for this role; normalisation does not fold plurals"
 BI Analyst,business intelligence analyst,Data & AI,exact,MARKET_DERIVED,LEGACY,APPROVED,
 BI Analyst,analyst business intelligence,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,Analyst Business Intelligence
 BI Analyst,executive business intelligence,Data & AI,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,Executive Business Intelligence
@@ -133,6 +136,7 @@ Infrastructure Engineer,information technology operation support engineer,Infras
 Infrastructure Engineer,linux unix infrastructure engineer,Infrastructure & Cloud,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 Infrastructure Engineer,system support engineer,Infrastructure & Cloud,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 Infrastructure Engineer,system operations engineer,Infrastructure & Cloud,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
+Infrastructure Engineer,system engineer,Infrastructure & Cloud,reviewed_alias,MARKET_DERIVED,MALAYSIA_TITLE_REVIEW,APPROVED,"""information technology system engineer"" already maps here; the IT prefix does not change the job"
 Data Centre Engineer,data centre engineer,Infrastructure & Cloud,exact,MARKET_DERIVED,LEGACY,APPROVED,
 Data Centre Engineer,data centre technician,Infrastructure & Cloud,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,
 Data Centre Engineer,data centre operation technician,Infrastructure & Cloud,reviewed_alias,MARKET_DERIVED,LEGACY,APPROVED,

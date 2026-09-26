@@ -137,6 +137,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # CONN_MAX_AGE holds it open; CONN_HEALTH_CHECKS is what makes that safe, since
 # a pooled connection the server has since closed would otherwise surface as a
 # failed request rather than a reconnect.
+#
+# Both of those are applied by the close_old_connections signal, which fires on
+# request boundaries. A management command never fires it, so neither setting
+# does anything for the market refresh -- which is why that command manages its
+# own connection rather than trusting these.
 _SSLMODE = os.getenv("DB_SSLMODE", "" if DEBUG else "require").strip()
 
 DATABASES = {
@@ -149,7 +154,20 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
         'CONN_MAX_AGE': int(os.getenv("DB_CONN_MAX_AGE", "0" if DEBUG else "600")),
         'CONN_HEALTH_CHECKS': not DEBUG,
-        'OPTIONS': {**({"sslmode": _SSLMODE} if _SSLMODE else {})},
+        'OPTIONS': {
+            **({"sslmode": _SSLMODE} if _SSLMODE else {}),
+            # Keepalives are for the management commands, not for requests. A
+            # request is over in milliseconds; a market refresh works for
+            # minutes at a stretch, and anything between here and the database
+            # that sees no packets on a connection eventually drops it. These
+            # keep the flow alive without the application having to query.
+            # They do nothing for the crawl itself, which deliberately holds no
+            # connection at all -- see scrape_jobs/db.py.
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
+        },
     }
 }
 
