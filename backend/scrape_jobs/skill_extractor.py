@@ -315,7 +315,7 @@ def _term_pattern(term):
     return re.compile(left + re.escape(term) + right, re.IGNORECASE)
 
 
-def extract_skill_matches(text):
+def extract_skill_matches(text, terms_by_skill=None):
     """Every skill the text asks for, with the evidence for each.
 
     Returns a list of ``(skill, matched_text, match_method)``. The method
@@ -335,7 +335,11 @@ def extract_skill_matches(text):
     if not text:
         return []
 
-    terms_by_skill = _terms_by_skill()
+    # Built here unless the caller already has it. A bulk caller running over
+    # thousands of adverts otherwise re-reads the whole skill and alias tables
+    # once per advert -- two full-table queries each, which is nothing against a
+    # local socket and eight thousand round trips against a hosted database.
+    terms_by_skill = terms_by_skill or _terms_by_skill()
 
     # A catalogue of two thousand skills makes the naive "compile a pattern
     # per skill and scan the text" loop the dominant cost of every extraction.
@@ -382,10 +386,23 @@ def extract_skill_matches(text):
     return matches
 
 
-def extract_skills_from_text(text):
+def extract_skills_from_text(text, terms_by_skill=None):
     """The skills a text asks for.
 
     Thin wrapper over :func:`extract_skill_matches`, kept because most callers
     only want the skills and should not have to unpack match provenance.
+
+    ``terms_by_skill`` lets a caller working through many adverts build the
+    vocabulary once; see :func:`build_skill_terms`.
     """
-    return [skill for skill, _, _ in extract_skill_matches(text)]
+    return [skill for skill, _, _ in extract_skill_matches(text, terms_by_skill)]
+
+
+def build_skill_terms():
+    """The skill vocabulary, for a caller that will extract many times.
+
+    Deliberately not cached in a module global: the tables it reads are edited
+    by the taxonomy loaders and by tests, and a process-wide cache would serve
+    a stale vocabulary to whatever ran next with no way to tell.
+    """
+    return _terms_by_skill()
