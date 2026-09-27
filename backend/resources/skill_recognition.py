@@ -14,10 +14,50 @@ from collections import defaultdict
 from django.db import transaction
 
 from accounts.models import StudentSkill
-from .models import SubjectSkillMapping
+from .models import Course, SubjectSkillMapping
 from .transcript_parser import GRADE_TO_LEVEL, LEVEL_RANK
 
 logger = logging.getLogger(__name__)
+
+
+def _skills_for(codes):
+    """The skills each module code teaches: {code: [Skill]}.
+
+    A code can be described in two places. Course is the table an
+    administrator edits in Manage Courses; SubjectSkillMapping is a seeded
+    baseline of Universiti Malaya modules. Only the second was ever read here,
+    so skills attached to a course in the admin did nothing to a transcript --
+    the administrator mapped the right thing in a table nothing consulted, and
+    nothing said so.
+
+    The administrator's own answer wins where there is one, and the seed
+    answers for the modules nobody has entered. That leaves two tables
+    describing the same thing, which is worth consolidating later; this is the
+    part that makes the admin page mean what it appears to mean.
+
+    Inactive skills are excluded from both. A name typed into the course form
+    that is not in the catalogue is created inactive and held for review, and
+    the whole point of that quarantine is that an administrator's typo does not
+    reach a student's profile.
+    """
+    from_courses = defaultdict(list)
+    for course in (Course.objects
+                   .filter(course_code__in=codes)
+                   .prefetch_related("skill_links__skill")):
+        for link in sorted(course.skill_links.all(),
+                           key=lambda l: (not l.is_primary, l.skill.skill_name)):
+            if link.skill.is_active:
+                from_courses[course.course_code].append(link.skill)
+
+    remaining = {code for code in codes if code not in from_courses}
+    by_code = dict(from_courses)
+    for mapping in (SubjectSkillMapping.objects
+                    .filter(subject_code__in=remaining, is_active=True,
+                            skill__is_active=True)
+                    .select_related("skill")):
+        by_code.setdefault(mapping.subject_code, []).append(mapping.skill)
+
+    return by_code
 
 
 def resolve_skills(subjects):
@@ -31,11 +71,7 @@ def resolve_skills(subjects):
     skipped — a misparsed or barely-passed row must not reach the profile.
     """
     codes = {subject["code"] for subject in subjects}
-    mappings_by_code = defaultdict(list)
-    for mapping in (SubjectSkillMapping.objects
-                    .filter(subject_code__in=codes, is_active=True)
-                    .select_related("skill")):
-        mappings_by_code[mapping.subject_code].append(mapping)
+    skills_by_code = _skills_for(codes)
 
     best_level = {}
     for subject in subjects:
@@ -46,12 +82,12 @@ def resolve_skills(subjects):
         if not level:
             continue
 
-        for mapping in mappings_by_code.get(subject["code"], []):
-            subject["skills"].append(mapping.skill.skill_name)
+        for skill in skills_by_code.get(subject["code"], []):
+            subject["skills"].append(skill.skill_name)
 
-            current = best_level.get(mapping.skill)
+            current = best_level.get(skill)
             if current is None or LEVEL_RANK[level] > LEVEL_RANK[current]:
-                best_level[mapping.skill] = level
+                best_level[skill] = level
 
     return best_level
 

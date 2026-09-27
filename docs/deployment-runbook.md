@@ -121,6 +121,7 @@ Verify, exactly:
 |---|---|
 | MarketRole | 32 |
 | MarketRoleAlias | 235 |
+| SubjectSkillMapping | 29 |
 | CourseCatalogue | 5,794 |
 | LearningResource | 20,434 |
 | RejectedResourceMapping | 11 |

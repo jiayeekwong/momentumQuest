@@ -39,6 +39,7 @@ EXPECTED = (
     ("resources", "CourseCatalogue", 5794),
     ("resources", "LearningResource", 20434),
     ("resources", "RejectedResourceMapping", 11),
+    ("resources", "SubjectSkillMapping", 29),
 )
 
 #: In order. load_market_roles is third rather than last because the aliases it
@@ -49,6 +50,11 @@ SEQUENCE = (
     ("import_skills", {}),
     ("load_market_roles", {}),
     ("import_resources", {}),
+    # Module code to skill, for reading a transcript. Absent from this list
+    # until now, so a deployment bootstrapped from it recognised nothing on
+    # any transcript: every subject reported "no matching skill", which reads
+    # as a student having learned nothing rather than as a table nobody filled.
+    ("seed_subject_skill_mappings", {}),
 )
 
 
