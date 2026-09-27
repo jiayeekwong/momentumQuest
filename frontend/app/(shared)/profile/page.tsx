@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { User, Mail, Building2, GraduationCap, CheckCircle2, Clock, Edit3, Award, Briefcase, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Mail, Building2, GraduationCap, ShieldCheck, CheckCircle2, Clock, Edit3, Award, Briefcase, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button, Input } from '@/src/components/ui';
@@ -44,6 +44,14 @@ interface VerifiedCertificate {
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const isCompany = user?.role === 'company';
+  // Named positively rather than as "not a company". Everything below that a
+  // student owns -- skills, certificates, transcripts -- was gated on
+  // !isCompany, which was true while students and companies were the only
+  // roles that reached this page. An administrator fell into the student
+  // branch by default, so the page offered to validate skills they do not
+  // have and the API refused: "You do not have permission to perform this
+  // action", on a panel that should never have been rendered for them.
+  const isStudent = user?.role === 'student';
 
   const [skills, setSkills] = useState<StudentSkill[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
@@ -70,12 +78,12 @@ export default function ProfilePage() {
       .catch(() => {});
   }, []);
 
-  // The company branch simply skips the fetch — setting state synchronously
+  // Anyone who is not a student skips the fetch — setting state synchronously
   // here would trigger a cascading render.
   useEffect(() => {
-    if (isCompany) return;
+    if (!isStudent) return;
     loadSkills();
-  }, [isCompany, loadSkills]);
+  }, [isStudent, loadSkills]);
 
   // Profile completion measured from real signals, not a fixed number.
   const completionItems = [
@@ -220,7 +228,7 @@ export default function ProfilePage() {
               {(user?.name ?? 'U')[0].toUpperCase()}
             </div>
             <div className="flex-1">
-              {editMode && !isCompany ? (
+              {editMode && isStudent ? (
                 <div className="space-y-3 mb-4">
                   <Input label="Full Name" value={name} onChange={e => setName(e.target.value)} />
                 </div>
@@ -232,16 +240,20 @@ export default function ProfilePage() {
               )}
               <div className="flex flex-wrap gap-2 mt-3">
                 <Badge variant="primary" className="flex items-center gap-1.5">
-                  {isCompany ? <Building2 size={12} /> : <GraduationCap size={12} />}
-                  {isCompany ? 'Company Account' : 'Student Account'}
+                  {isCompany ? <Building2 size={12} />
+                    : isStudent ? <GraduationCap size={12} />
+                    : <ShieldCheck size={12} />}
+                  {isCompany ? 'Company Account'
+                    : isStudent ? 'Student Account'
+                    : 'Administrator Account'}
                 </Badge>
-                {!isCompany && user?.department && (
+                {isStudent && user?.department && (
                   <Badge variant="neutral">{user.department}</Badge>
                 )}
               </div>
             </div>
             {/* Only show Edit Profile button for students */}
-            {!isCompany && (
+            {isStudent && (
               <Button
                 variant={editMode ? 'primary' : 'outline'}
                 size="sm"
@@ -256,7 +268,7 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {!isCompany ? (
+        {isStudent ? (
           /* ── Student: Skill Validation ── */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
