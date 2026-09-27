@@ -13,7 +13,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import (
     AdminProfile,
@@ -28,7 +28,7 @@ from scrape_jobs.models import Skill, SkillAlias
 from .file_validation import InvalidUpload, validate_document
 from .models import (
     Certificate,
-    CertificateSkillEvidence, CourseCatalogue, LearningResource,
+    CertificateSkillEvidence, Course, CourseCatalogue, LearningResource,
     SubjectSkillMapping, TranscriptSkillEvidence, TranscriptUpload,
 )
 from .skill_evidence import (
@@ -2687,3 +2687,181 @@ class OtherListEndpointsStayUnpaginatedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.data, list)
+
+
+class CoursesCarryTheUniversityCodeTests(APITestCase):
+    """A course is identified by its code, and the form never asked for one.
+
+    The university lists a module as "WIX1001 COMPUTING MATHEMATICS I", and
+    every course in the table had only the second half. Two modules can share
+    a title across faculties; the code is the part that says which one.
+
+    Optional, because seven courses were added before the field existed and
+    they are still real courses. Stored as NULL rather than "" when absent:
+    PostgreSQL counts every empty string as equal, so blanks would collide
+    under the unique constraint while NULLs do not.
+    """
+
+    def setUp(self):
+        from accounts.models import AdminProfile
+
+        self.admin = User.objects.create_user(
+            email="course-admin@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.ADMIN, is_staff=True, is_active=True,
+            email_verified=True)
+        AdminProfile.objects.create(user=self.admin, admin_name="Course Admin")
+        self.client.force_authenticate(user=self.admin)
+        Skill.objects.get_or_create(skill_name="Python",
+                                    defaults={"is_active": True})
+
+    def _add(self, **overrides):
+        payload = {"course_code": "WIX1001",
+                   "title": "Computing Mathematics I",
+                   "department": "Compulsory",
+                   "skill_name": "Python"}
+        payload.update(overrides)
+        return self.client.post("/api/resources/courses/", payload, format="json")
+
+    def test_a_course_can_be_added_with_its_code(self):
+        response = self._add()
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Course.objects.get().course_code, "WIX1001")
+
+    def test_the_code_is_returned_when_the_course_is_read(self):
+        self._add()
+
+        listed = self.client.get("/api/resources/courses/").data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+
+        self.assertEqual(rows[0]["course_code"], "WIX1001")
+
+    def test_a_lower_case_code_is_stored_the_way_it_is_published(self):
+        """Codes are upper case everywhere the university writes them, and a
+        code differing only in case is the duplicate the constraint is for."""
+        self._add(course_code="wix1001")
+
+        self.assertEqual(Course.objects.get().course_code, "WIX1001")
+
+    def test_surrounding_space_is_not_part_of_the_code(self):
+        self._add(course_code="  WIX1001 ")
+
+        self.assertEqual(Course.objects.get().course_code, "WIX1001")
+
+    def test_two_courses_cannot_share_a_code(self):
+        self._add()
+
+        second = self._add(title="Something Else")
+
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(Course.objects.count(), 1)
+
+    def test_the_same_code_in_another_case_is_still_a_duplicate(self):
+        """Normalising before the comparison is what makes this work; after it
+        would let WIX1001 and wix1001 both through."""
+        self._add()
+
+        second = self._add(course_code="wix1001", title="Something Else")
+
+        self.assertEqual(second.status_code, 400)
+
+    # ---- the courses that predate the field ---------------------------------
+
+    def test_a_course_can_still_be_added_without_a_code(self):
+        response = self._add(course_code="")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIsNone(Course.objects.get().course_code)
+
+    def test_several_courses_can_have_no_code(self):
+        """The seven already in the table. Empty strings would collide under
+        the unique constraint; NULLs do not."""
+        self._add(course_code="", title="One")
+        second = self._add(course_code="", title="Two")
+
+        self.assertEqual(second.status_code, 201, second.data)
+        self.assertEqual(Course.objects.filter(course_code__isnull=True).count(), 2)
+
+    def test_a_code_can_be_added_to_a_course_that_had_none(self):
+        self._add(course_code="")
+        course = Course.objects.get()
+
+        response = self.client.put(f"/api/resources/courses/{course.pk}/", {
+            "course_code": "WIX1002", "title": course.title,
+            "department": "Compulsory", "skill_name": "Python"}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        course.refresh_from_db()
+        self.assertEqual(course.course_code, "WIX1002")
+
+
+class TrainingBrochuresSurviveTests(APITestCase):
+    """The same loss as the announcement poster, in the other upload.
+
+    Both endpoints wrote to MEDIA_ROOT, which production does not serve and
+    the container does not keep. The poster was fixed first and alone, and the
+    brochure went on answering "Not Found" for another day -- which is why the
+    two share resources.attachments now rather than each holding a copy of it.
+    """
+
+    #: A real PNG. The validator reads the file's own bytes, so a renamed text
+    #: file will not do -- which is the point of it.
+    PNG = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00"
+        b"\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    def setUp(self):
+        from accounts.models import Company, User
+
+        user = User.objects.create_user(email="co-upload@example.edu",
+                                        password="Sufficient-Pass-1",
+                                        role=User.Role.COMPANY)
+        Company.objects.create(user=user, company_name="ACME")
+        self.client.force_authenticate(user=user)
+
+    def _upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        return self.client.post(
+            "/api/resources/training/upload/",
+            {"file": SimpleUploadedFile("brochure.png", self.PNG,
+                                        content_type="image/png")},
+            format="multipart")
+
+    def test_an_uploaded_brochure_can_be_fetched_back(self):
+        created = self._upload()
+        self.assertEqual(created.status_code, 201, created.data)
+
+        fetched = self.client.get(created.data["url"])
+
+        self.assertEqual(fetched.status_code, 200)
+        self.assertEqual(b"".join(fetched.streaming_content), self.PNG)
+
+    def test_the_url_points_at_the_api_rather_than_media(self):
+        url = self._upload().data["url"]
+
+        self.assertIn("/api/resources/training/attachment/", url)
+        self.assertNotIn("/media/", url)
+
+    def test_it_is_not_written_to_the_instance_filesystem(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        media = Path(settings.MEDIA_ROOT) / "training"
+        before = set(media.iterdir()) if media.exists() else set()
+
+        self._upload()
+
+        after = set(media.iterdir()) if media.exists() else set()
+        self.assertEqual(after - before, set(),
+                         "the brochure went to the container filesystem again")
+
+    def test_a_name_this_view_did_not_write_is_refused(self):
+        for name in ("../../etc/passwd", "not-a-uuid.png"):
+            with self.subTest(name=name):
+                response = self.client.get(
+                    f"/api/resources/training/attachment/{name}")
+                self.assertIn(response.status_code, (404, 301))

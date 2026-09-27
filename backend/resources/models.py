@@ -139,6 +139,16 @@ class Course(models.Model):
     skills     = models.ManyToManyField(Skill, through="CourseSkill",
                                         related_name="taught_by_courses",
                                         blank=True)
+    #: The university's own code for the module, as it prints it: WIX1001.
+    #: Unique, because a code identifies one module and two rows sharing one
+    #: would be a data error rather than a pair of courses.
+    #:
+    #: Stored as NULL rather than "" when absent. The courses already in the
+    #: table predate this field, and PostgreSQL treats every empty string as
+    #: equal -- so blanks would collide with each other under the unique
+    #: constraint while NULLs do not.
+    course_code = models.CharField(max_length=20, unique=True, null=True,
+                                   blank=True)
     title      = models.CharField(max_length=255)
     course_url = models.URLField(blank=True)
     department = models.CharField(max_length=100, blank=True)
@@ -147,7 +157,21 @@ class Course(models.Model):
     class Meta:
         ordering = ["title"]
 
+    def save(self, *args, **kwargs):
+        """Normalise the code before storing it.
+
+        Course codes are written in upper case everywhere the university
+        publishes them, and a code that differs from another only by case or a
+        stray space is the duplicate the unique constraint exists to catch --
+        so it has to be caught before the comparison, not after.
+        """
+        if self.course_code is not None:
+            self.course_code = self.course_code.strip().upper() or None
+        super().save(*args, **kwargs)
+
     def __str__(self):
+        if self.course_code:
+            return f"{self.course_code} {self.title}"
         return self.title
 
 

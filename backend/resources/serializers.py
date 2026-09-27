@@ -55,16 +55,45 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Course
-        fields = ["id", "admin", "skill", "title", "course_url", "department", "updated_at"]
+        fields = ["id", "admin", "skill", "course_code", "title", "course_url",
+                  "department", "updated_at"]
 
 
 class CourseWriteSerializer(serializers.ModelSerializer):
     skill_name = serializers.CharField(write_only=True, required=True)
+    # Optional, and blank is stored as NULL. The courses already in the table
+    # predate the field, and PostgreSQL counts every empty string as equal --
+    # so blanks would collide under the unique constraint where NULLs do not.
+    course_code = serializers.CharField(max_length=20, required=False,
+                                        allow_blank=True, allow_null=True)
 
     class Meta:
         model  = Course
-        fields = ["id", "title", "department", "course_url", "skill_name", "updated_at"]
+        fields = ["id", "course_code", "title", "department", "course_url",
+                  "skill_name", "updated_at"]
         read_only_fields = ["id", "updated_at"]
+
+    def validate_course_code(self, value):
+        """Normalise, then check it is free -- in that order.
+
+        Declaring the field explicitly drops the uniqueness validator a
+        ModelSerializer would have added, and that validator would not have
+        been enough anyway: it runs before this method, on the value as typed,
+        so "wix1001" passed it and then collided with WIX1001 at the database
+        constraint -- an IntegrityError, which is a 500 rather than a message
+        naming the course already using the code.
+        """
+        code = (value or "").strip().upper() or None
+        if code is None:
+            return None
+
+        taken = Course.objects.filter(course_code=code)
+        if self.instance is not None:
+            taken = taken.exclude(pk=self.instance.pk)
+        if taken.exists():
+            raise serializers.ValidationError(
+                f"{code} is already used by {taken.first().title}.")
+        return code
 
     def validate_department(self, value):
         # A course may also be "Compulsory", which is not something a student

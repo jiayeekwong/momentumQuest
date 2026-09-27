@@ -10,6 +10,9 @@ import { useDepartments } from '@/src/lib/privacyNotice';
 
 interface Course {
   id: number;
+  /** The university's own code, as it prints it: WIX1001. Null on the courses
+   *  that were added before the field existed. */
+  course_code: string | null;
   title: string;
   department: string;
   skill: string | null;
@@ -18,12 +21,13 @@ interface Course {
 }
 
 interface CourseForm {
+  course_code: string;
   title: string;
   department: string;
   skill_name: string;
 }
 
-const emptyForm: CourseForm = { title: '', department: '', skill_name: '' };
+const emptyForm: CourseForm = { course_code: '', title: '', department: '', skill_name: '' };
 
 export default function ManageCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -48,7 +52,8 @@ export default function ManageCoursesPage() {
 
   const filtered = courses.filter(c =>
     c.title.toLowerCase().includes(search.toLowerCase()) ||
-    (c.department ?? '').toLowerCase().includes(search.toLowerCase())
+    (c.department ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.course_code ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
   const openAdd = () => {
@@ -61,9 +66,10 @@ export default function ManageCoursesPage() {
   const openEdit = (course: Course) => {
     setEditId(course.id);
     setForm({
-      title:      course.title,
-      department: course.department ?? '',
-      skill_name: course.skill ?? '',
+      course_code: course.course_code ?? '',
+      title:       course.title,
+      department:  course.department ?? '',
+      skill_name:  course.skill ?? '',
     });
     setFormError('');
     setModalOpen(true);
@@ -118,7 +124,7 @@ export default function ManageCoursesPage() {
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
-          <input type="text" placeholder="Search by title or department..." value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder="Search by code, title or department..." value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full h-10 pl-10 pr-4 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
         </div>
 
@@ -137,7 +143,12 @@ export default function ManageCoursesPage() {
                   <div className="flex-1">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
                       <div>
-                        <h3 className="font-bold text-neutral-900 group-hover:text-primary transition-colors">{course.title}</h3>
+                        <h3 className="font-bold text-neutral-900 group-hover:text-primary transition-colors">
+                          {course.course_code && (
+                            <span className="font-mono text-primary mr-2">{course.course_code}</span>
+                          )}
+                          {course.title}
+                        </h3>
                         {course.department && (
                           <p className="text-sm font-medium text-neutral-500">{course.department}</p>
                         )}
@@ -184,6 +195,12 @@ export default function ManageCoursesPage() {
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block mb-1.5">Course code</label>
+                <input value={form.course_code} onChange={e => setForm(f => ({ ...f, course_code: e.target.value }))}
+                  className="w-full h-10 px-3 border border-neutral-300 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="e.g. WIX1001" />
+              </div>
               <div>
                 <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block mb-1.5">Title *</label>
                 <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
