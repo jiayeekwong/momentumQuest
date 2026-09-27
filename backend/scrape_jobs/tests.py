@@ -11,7 +11,7 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from job_listings.models import JobListing, MarketRoleCandidate
+from job_listings.models import JobListing, JobSkill, MarketRoleCandidate
 from .market_role_classifier import (
     METHOD_ALIAS, METHOD_AMBIGUOUS, METHOD_EXACT, METHOD_JD,
     METHOD_LEVEL_ALIAS, METHOD_LEVEL_ROLE, METHOD_SEGMENT, METHOD_UNCLASSIFIED,
@@ -3799,6 +3799,85 @@ class ReconnectRidesOutABurstTests(TransactionTestCase):
         self.assertTrue(state["blipped"], "the blip never happened")
         self.assertEqual(JobListing.objects.count(), 1,
                          "the page was lost to a blip that passed")
+
+
+class SavingAdvertsDoesNotRereadTheTaxonomyTests(TestCase):
+    """Storing adverts must not re-read the skill tables once per advert.
+
+    The vocabulary is every active skill and alias -- thousands of rows. Built
+    per advert, a crawl of 3,792 adverts reads twenty million rows back out of
+    the database, and so does a re-extraction over the same table. Against a
+    hosted database billed by the byte that is gigabytes for work that needs
+    megabytes, and it exhausted a month's transfer allowance in a week.
+
+    Query counts rather than timings, because the cost is round trips and rows,
+    and a timing here would pass against a local socket no matter how bad it got.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.role = MarketRole.objects.create(name="Software Engineer",
+                                             broad_area="Software & Applications")
+        skill = Skill.objects.create(skill_name="Python", is_active=True)
+        SkillAlias.objects.create(skill=skill, alias_name="python3",
+                                  is_active=True)
+
+    @staticmethod
+    def _adverts(n):
+        return [{"job_title": "Software Engineer",
+                 "source_url": f"https://example.test/jobs/{i}",
+                 "description": "Python and PostgreSQL."} for i in range(n)]
+
+    def test_the_vocabulary_is_read_once_however_many_adverts(self):
+        """Ten times the adverts must not mean ten times the reads of it."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from scrape_jobs.services import save_scraped_jobs
+
+        def alias_reads(count):
+            with CaptureQueriesContext(connection) as ctx:
+                save_scraped_jobs(self._adverts(count))
+            return len([q for q in ctx.captured_queries
+                        if "skillalias" in q["sql"].lower()])
+
+        one = alias_reads(1)
+        ten = alias_reads(10)
+
+        self.assertEqual(one, ten,
+                         "the alias table is read again for every advert")
+
+    def test_a_caller_can_supply_the_vocabulary_for_a_whole_run(self):
+        """What the scraper does across pages: build once, pass it down."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from scrape_jobs.market_role_classifier import build_index
+        from scrape_jobs.services import save_scraped_jobs
+        from scrape_jobs.skill_extractor import build_skill_terms
+
+        index, terms = build_index(), build_skill_terms()
+
+        with CaptureQueriesContext(connection) as ctx:
+            save_scraped_jobs(self._adverts(5), index=index, terms=terms)
+
+        alias_reads = [q for q in ctx.captured_queries
+                       if "skillalias" in q["sql"].lower()]
+        self.assertEqual(alias_reads, [],
+                         "a supplied vocabulary must not be rebuilt at all")
+
+    def test_the_adverts_are_still_stored_with_their_skills(self):
+        """The cheap version has to do the same work as the expensive one."""
+        from scrape_jobs.services import save_scraped_jobs
+
+        created, updated = save_scraped_jobs(self._adverts(3))
+
+        self.assertEqual((created, updated), (3, 0))
+        listing = JobListing.objects.get(source_url="https://example.test/jobs/0")
+        self.assertEqual(listing.market_role, self.role)
+        self.assertIn("Python",
+                      list(JobSkill.objects.filter(job=listing)
+                           .values_list("skill__skill_name", flat=True)))
 
 
 class MarketRoleSeedReproducibilityTests(TestCase):

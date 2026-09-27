@@ -195,14 +195,18 @@ def classify_market_role(job_title, description, index=None):
     return classify_listing(job_title, description, index or build_index())
 
 
-def save_scraped_job(job_data, index=None):
+def save_scraped_job(job_data, index=None, terms=None):
     """Save one scraped job (into JobListing) and its matched skills.
 
     Scraped jobs are stored in JobListing with source_type='SCRAPED' and no
     company FK. Deduplicated on source_url. Returns (instance, created).
 
-    ``index`` is the Market Role lookup, passed in by the bulk caller so a
-    scrape of 300 adverts builds it once rather than 300 times.
+    ``index`` is the Market Role lookup and ``terms`` the skill vocabulary,
+    both passed in by the bulk caller so a scrape of 300 adverts builds them
+    once rather than 300 times. The vocabulary is the expensive one: every
+    active skill and alias, several thousand rows, and rebuilding it per advert
+    made a full crawl read tens of millions of rows from a database charged by
+    the byte.
     """
     # Imported here to avoid a circular import (job_listings imports scrape_jobs).
     from job_listings.models import JobListing, JobSkill
@@ -260,7 +264,7 @@ def save_scraped_job(job_data, index=None):
     # reviewed judgement on company listings, and re-extraction is not a
     # reason to reset it to the default.
     matched_skills = extract_skills_from_text(
-        f"{job_title} {job_data.get('description', '')}"
+        f"{job_title} {job_data.get('description', '')}", terms_by_skill=terms
     )
     matched_ids = {skill.id for skill in matched_skills}
 
@@ -280,21 +284,25 @@ def save_scraped_job(job_data, index=None):
     return listing, created
 
 
-def save_scraped_jobs(jobs, index=None):
+def save_scraped_jobs(jobs, index=None, terms=None):
     """Bulk-save a list of scraped job dicts. Returns (created_count, updated_count).
 
-    ``index`` is the Market Role lookup. Passed in when a caller saves page by
-    page through a long crawl, so the index is built once for the run rather
-    than rebuilt on every page.
+    ``index`` is the Market Role lookup and ``terms`` the skill vocabulary.
+    Both are passed in when a caller saves page by page through a long crawl,
+    so they are built once for the run rather than rebuilt on every page --
+    and, without ``terms``, once per *advert*, which is thousands of rows read
+    back for every advert stored.
     """
     from .market_role_classifier import build_index
+    from .skill_extractor import build_skill_terms
 
     created_count = 0
     updated_count = 0
     index = index or build_index()
+    terms = terms or build_skill_terms()
 
     for job_data in jobs:
-        _, created = save_scraped_job(job_data, index=index)
+        _, created = save_scraped_job(job_data, index=index, terms=terms)
         if created:
             created_count += 1
         else:
