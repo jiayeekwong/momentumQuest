@@ -29,6 +29,8 @@ interface DemandPoint {
   label: string;
   job_count: number | null;
   observed: boolean;
+  /** The month is still running, so its count is not final. */
+  partial: boolean;
 }
 
 interface RankedArea {
@@ -403,7 +405,21 @@ export default function DashboardPage() {
                   {/* connectNulls={false} is what makes an uncollected month
                       a break in the line rather than a straight edge drawn
                       through demand nobody measured. */}
-                  <Line name="Job postings" type="monotone" dataKey="job_count" connectNulls={false} stroke="#4f46e5" strokeWidth={3} dot={{ fill: '#4f46e5', strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
+                  {/* The month still running is drawn, but hollow. A solid
+                      point among solid points would read as a finished month,
+                      and one day of October beside a full September is a
+                      collapse that never happened. */}
+                  <Line name="Job postings" type="monotone" dataKey="job_count" connectNulls={false} stroke="#4f46e5" strokeWidth={3} activeDot={{ r: 6 }}
+                    dot={(props: { cx?: number; cy?: number; index?: number; key?: string }) => {
+                      const point = (marketDemand?.series ?? [])[props.index ?? -1];
+                      const running = Boolean(point?.partial);
+                      return (
+                        <circle key={props.key ?? `dot-${props.index}`} cx={props.cx} cy={props.cy} r={running ? 5 : 4}
+                          fill={running ? '#ffffff' : '#4f46e5'} stroke="#4f46e5" strokeWidth={running ? 2 : 0}
+                        />
+                      );
+                    }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -421,8 +437,9 @@ export default function DashboardPage() {
                 )}
                 {marketDemand.month_in_progress && (
                   <>{marketDemand.month_in_progress.label} is still in progress
-                    ({marketDemand.month_in_progress.job_count} so far) and is left
-                    off the line until it ends.</>
+                    ({marketDemand.month_in_progress.job_count} so far), shown as a
+                    hollow point. It will keep rising until the month ends, so it is
+                    not compared against a finished month.</>
                 )}
               </p>
             )}

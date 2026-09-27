@@ -1645,6 +1645,56 @@ class DemandChangeHonestyTests(TestCase):
 
         self.assertTrue(current['partial'])
 
+    def test_the_month_in_progress_carries_its_count(self):
+        """A scrape that finished today has to show on the chart today.
+
+        The running month's count was withheld so a part-month could not be
+        misread as a fall. That is the right instinct and the wrong remedy for
+        a project collecting its first months: a successful scrape put nothing
+        on the chart until the month ended, so the page read "No observed
+        demand data yet" beside a database holding thousands of adverts.
+
+        It is drawn instead, and marked -- `partial` is what the page renders
+        as a hollow point, and what keeps it out of the comparison below.
+        """
+        self.run_scrape(self.this_month)
+        self.adverts(self.this_month, 3)
+
+        current = next(row for row in self.demand()['series']
+                       if row['month'] == self.this_month.isoformat())
+
+        self.assertEqual(current['job_count'], 3)
+        self.assertTrue(current['partial'])
+
+    def test_a_month_nobody_collected_still_carries_no_count(self):
+        """The distinction the whole series rests on. An uncollected month is
+        a break in the line; 0 would claim a month with no jobs in it."""
+        uncollected = shift_month(self.this_month, -1)
+
+        row = next(r for r in self.demand()['series']
+                   if r['month'] == uncollected.isoformat())
+
+        self.assertIsNone(row['job_count'])
+        self.assertFalse(row['observed'])
+
+    def test_drawing_the_running_month_does_not_make_it_comparable(self):
+        """Shown and compared are different things, and only one of them is
+        safe: three days of this month against all of last month is a crash
+        that did not happen."""
+        earlier = shift_month(self.this_month, -1)
+        self.run_scrape(earlier)
+        self.run_scrape(self.this_month)
+        self.adverts(earlier, 100)
+        self.adverts(self.this_month, 3)
+
+        data = self.demand()
+        current = next(row for row in data['series']
+                       if row['month'] == self.this_month.isoformat())
+
+        self.assertEqual(current['job_count'], 3, "it should be drawn")
+        self.assertIsNone(data['demand_change_percentage'],
+                          "but never compared")
+
     def test_one_month_of_history_reports_no_change(self):
         self.run_scrape(shift_month(self.this_month, -1))
         self.adverts(shift_month(self.this_month, -1), 10)

@@ -267,18 +267,20 @@ def build_market_demand(student, months=DEMAND_TREND_MONTHS, broad_area=None,
         series.append({
             'month': current_month.isoformat(),
             'label': current_month.strftime('%b %Y'),
-            # None in two cases, and 0 in neither of them:
+            # None means nobody collected this month -- a gap in the line,
+            # not a month with no jobs in it. 0 would say the opposite.
             #
-            #   * nobody collected this month -- a gap in the line, not a
-            #     month with no jobs in it;
-            #   * the month is still running -- one day of September is not a
-            #     fall from August, but plotted as a point it is indis-
-            #     tinguishable from one, and it drew a cliff to zero.
+            # The running month is now drawn, having been withheld: a scrape
+            # that finished today put nothing on the chart until the month
+            # ended, which for a project collecting its first months meant an
+            # empty chart beside a full database. It carries `partial` so the
+            # page can mark it as unfinished, which is what stops one day of
+            # October reading as a collapse from September.
             #
-            # The running month's count is still returned, below, as its own
-            # value. It is reported, just not drawn as though it were final.
+            # It is still never used as evidence of a rise or a fall: the
+            # month-on-month figure below compares finished months only.
             'job_count': (counts_by_month.get(current_month, 0)
-                          if was_collected and not partial else None),
+                          if was_collected else None),
             'observed': was_collected,
             'partial': partial,
         })
@@ -386,8 +388,8 @@ def build_market_demand(student, months=DEMAND_TREND_MONTHS, broad_area=None,
         'total_postings': scoped_jobs.filter(
             status=JobListing.Status.ACTIVE).count(),
         'total_postings_in_period': scoped_jobs.count(),
-        # The month still running, reported beside the chart rather than
-        # plotted in it. Null when this month has not been collected.
+        # The month still running. Plotted now, and also reported here so the
+        # page can say how far through it is. Null when it was not collected.
         'month_in_progress': ({
             'label': this_month.strftime('%b %Y'),
             'job_count': counts_by_month.get(this_month, 0),
