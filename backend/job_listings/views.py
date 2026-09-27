@@ -11,6 +11,8 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from config.search import WholeWordSearchFilter
+
 from accounts.permissions import IsCompany, IsStudent
 from resources.file_validation import (
     MAX_BYTES as MAX_UPLOAD_BYTES, InvalidUpload, validate_document,
@@ -127,6 +129,11 @@ class CompanyApplicationStatusView(APIView):
 class PublicJobListingView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = JobListingReadSerializer
+    # The jobs page sends ?search= to this endpoint and to the scraped one, and
+    # this end ignored it -- so searching narrowed the scraped adverts while
+    # every company posting stayed on the page regardless of what was typed.
+    filter_backends = [WholeWordSearchFilter]
+    search_fields = ["job_title", "company__company_name", "location"]
 
     def get_queryset(self):
         # Only company-posted jobs are applied to internally; scraped jobs are

@@ -6,6 +6,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.search import WholeWordSearchFilter
+
 from accounts.permissions import IsAdminUserRole, IsStudent
 
 from dashboard.views import MIN_LISTINGS_FOR_TARGET
@@ -50,7 +52,7 @@ class ScrapedJobListView(generics.ListAPIView):
     List scraped jobs. Students see these with a "View on JobStreet" redirect.
 
     Query params:
-      ?search=     — searches title, company, location, description
+      ?search=     — whole words in the title, company or location
       ?category=   — filter by job category name
       ?job_type=   — filter by job type (Full-time, Contract, etc.)
       ?location=   — filter by location string
@@ -66,8 +68,19 @@ class ScrapedJobListView(generics.ListAPIView):
     """
     serializer_class = ScrapedJobListSerializer
     permission_classes = [AllowAny]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["job_title", "company_name", "location", "description"]
+    filter_backends = [WholeWordSearchFilter, filters.OrderingFilter]
+    #: The description is deliberately not searched. It is prose, and matched
+    #: an advert because the body said "training" or "available" rather than
+    #: because the job had anything to do with what was typed -- for "ai", 96%
+    #: of the table against the 18% that mention it.
+    #:
+    #: The skills the extractor found are searched in its place, and they are
+    #: the same signal without the prose: "python" appears in 121 descriptions
+    #: and is tagged on exactly those 121 adverts, "react" in 64 and tagged on
+    #: 64. Titles alone would have found 1 and 2 of them -- a technology is
+    #: named in the body of an advert, not usually in its title.
+    search_fields = ["job_title", "company_name", "location",
+                     "job_skills__skill__skill_name"]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

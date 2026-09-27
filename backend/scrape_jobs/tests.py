@@ -9,7 +9,7 @@ from django.db import connection
 from django.db.utils import OperationalError
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from job_listings.models import JobListing, JobSkill, MarketRoleCandidate
 from .market_role_classifier import (
@@ -4089,3 +4089,121 @@ class BootstrapDomainInvariantTests(TestCase):
 
         self.assertEqual(
             MarketRole.objects.get(name="Product Manager").broad_area, "")
+
+
+class SearchingMatchesWordsNotLettersTests(APITestCase):
+    """A search returned adverts that had nothing to do with what was typed.
+
+    DRF's SearchFilter matches substrings, over the description among other
+    fields. A student searching "ai" matched "training", "daily", "available"
+    and "email": 96% of the scraped table, against the 18% that mention AI.
+    Every short term behaves that way, and short terms are what a computing
+    student types -- ai, ui, qa, bi, ml, go, r.
+
+    So terms are matched at word boundaries, and the description is not
+    searched at all. The skills the extractor tagged are searched instead:
+    the same signal without the prose, and the only way a technology named in
+    the body of an advert is still findable.
+    """
+
+    def setUp(self):
+        from scrape_jobs.models import JobCategory
+        from job_listings.models import JobSkill
+
+        category = JobCategory.objects.create(category_name="Software")
+        python = Skill.objects.create(skill_name="Python", is_active=True)
+
+        def advert(title, description="", company="ACME", skill=None):
+            listing = JobListing.objects.create(
+                job_title=title, description=description, company_name=company,
+                category=category, source_type=JobListing.SourceType.SCRAPED,
+                status=JobListing.Status.ACTIVE,
+                source_url=f"https://example.test/{title}{company}".replace(" ", ""))
+            if skill:
+                JobSkill.objects.create(job=listing, skill=skill,
+                                        importance_level="MEDIUM")
+            return listing
+
+        self.ai_job = advert("AI Engineer")
+        self.prose_job = advert("Office Administrator",
+                                description="Provide daily training and support.")
+        self.python_job = advert("Backend Developer",
+                                 description="Build services in Python.",
+                                 skill=python)
+
+    def _search(self, term):
+        response = self.client.get("/api/scrape-jobs/scraped/", {"search": term})
+        rows = response.data
+        rows = rows["results"] if isinstance(rows, dict) else rows
+        return {r["job_title"] for r in rows}
+
+    def test_a_short_term_no_longer_matches_inside_words(self):
+        """The complaint: "daily" and "training" are not AI jobs."""
+        titles = self._search("ai")
+
+        self.assertIn("AI Engineer", titles)
+        self.assertNotIn("Office Administrator", titles)
+
+    def test_a_technology_named_only_in_the_body_is_still_found(self):
+        """Dropping the description alone would have taken "python" from 121
+        adverts to 1. The extractor already tagged those adverts."""
+        self.assertIn("Backend Developer", self._search("python"))
+
+    def test_prose_in_the_description_does_not_match(self):
+        self.assertNotIn("Office Administrator", self._search("training"))
+
+    def test_a_whole_word_in_the_title_matches(self):
+        self.assertIn("Backend Developer", self._search("developer"))
+
+    def test_a_term_with_punctuation_does_not_break_the_pattern(self):
+        """Whatever is typed becomes part of a regular expression."""
+        for term in ("c++", ".net", "node.js", "a(b", "["):
+            with self.subTest(term=term):
+                response = self.client.get("/api/scrape-jobs/scraped/",
+                                           {"search": term})
+                self.assertEqual(response.status_code, 200)
+
+    def test_an_empty_search_returns_everything(self):
+        self.assertEqual(len(self._search("")), 3)
+
+
+class CompanyJobsAreSearchedTooTests(APITestCase):
+    """The jobs page sends the same term to both endpoints, and one ignored it.
+
+    PublicJobListingView had no filter backend at all, so narrowing a search
+    narrowed the scraped adverts while every company posting stayed on the
+    page whatever was typed.
+    """
+
+    def setUp(self):
+        from accounts.models import Company, User
+        from scrape_jobs.models import JobCategory
+
+        user = User.objects.create_user(email="co@example.edu",
+                                        password="Sufficient-Pass-1",
+                                        role=User.Role.COMPANY)
+        company = Company.objects.create(user=user, company_name="ACME")
+        category = JobCategory.objects.create(category_name="Software")
+        for title in ("Data Engineer", "Office Administrator"):
+            JobListing.objects.create(
+                job_title=title, company=company, category=category,
+                source_type=JobListing.SourceType.COMPANY,
+                status=JobListing.Status.ACTIVE,
+                source_url=f"https://example.test/{title}".replace(" ", ""))
+
+    def _search(self, term):
+        response = self.client.get("/api/job-listings/public/", {"search": term})
+        rows = response.data
+        rows = rows["results"] if isinstance(rows, dict) else rows
+        return {r["job_title"] for r in rows}
+
+    def test_a_search_narrows_company_jobs(self):
+        titles = self._search("data")
+
+        self.assertIn("Data Engineer", titles)
+        self.assertNotIn("Office Administrator", titles)
+
+    def test_no_search_returns_them_all(self):
+        self.assertEqual(len(self._search("")), 2)
+
+
