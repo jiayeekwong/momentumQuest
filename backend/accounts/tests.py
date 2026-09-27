@@ -2122,17 +2122,55 @@ class PublicPrivacyNoticeSnapshotTests(TestCase):
         """JSON carries no comments, so the warning lives in the data."""
         self.assertIn("export_privacy_notice", self._load()["_generated"])
 
-    def test_published_notice_1_2_is_unchanged(self):
-        """1.2 is a notice people have agreed to. Its identity must not move.
+    def test_the_published_snapshot_is_the_current_notice(self):
+        """The page renders this file, so it has to be the notice in force.
 
-        A new notice is a new version; editing this one in place would change
-        what past acknowledgements refer to.
+        Named for 1.2 before, which made it a version pin rather than a check:
+        it failed on the bump to 1.3 for the right reason but under a title
+        that described something else. What it actually guards is that the
+        snapshot was regenerated, and that is what it says now.
         """
-        notice = self._load()["notice"]
+        from accounts.privacy_notice import CURRENT_VERSION, get_notice
 
-        self.assertEqual(notice["version"], "1.2")
-        self.assertEqual(notice["effective_date"], "2026-09-01")
-        self.assertEqual(len(notice["sections"]), 13)
+        notice = self._load()["notice"]
+        current = get_notice()
+
+        self.assertEqual(notice["version"], CURRENT_VERSION)
+        # get_notice() serialises the date; NOTICES holds a date object.
+        self.assertEqual(str(notice["effective_date"]),
+                         str(current["effective_date"]))
+        self.assertEqual(len(notice["sections"]), len(current["sections"]))
+
+    def test_a_published_notice_is_never_edited_afterwards(self):
+        """A consent row points at a version string.
+
+        Rewriting the text behind one would silently change what somebody is
+        recorded as having agreed to -- so every published version keeps its
+        identity, and a change of substance is a new version instead.
+        """
+        from datetime import date
+
+        from accounts.privacy_notice import NOTICES
+
+        for version, effective, sections in (("1.2", date(2026, 9, 1), 13),
+                                             ("1.3", date(2026, 9, 28), 13)):
+            with self.subTest(version=version):
+                notice = NOTICES[version]
+                self.assertEqual(notice["version"], version)
+                self.assertEqual(notice["effective_date"], effective)
+                self.assertEqual(len(notice["sections"]), sections)
+
+    def test_the_cv_section_says_the_file_is_kept(self):
+        """1.2 promised the opposite in as many words, and students agreed to
+        that promise. The published notice has to describe what now happens."""
+        notice = self._load()["notice"]
+        section = next(s for s in notice["sections"]
+                       if s["heading"].startswith("6. CV Processing"))
+        text = " ".join(b.get("text", "") for b in section["blocks"])
+
+        self.assertIn("kept and sent to the employer", text)
+        self.assertIn("six months", text)
+        self.assertNotIn("is not stored", text)
 
     def test_the_published_contact_is_a_real_address(self):
         from accounts.management.commands.export_privacy_notice import usable_contact

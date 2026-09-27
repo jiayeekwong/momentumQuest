@@ -28,12 +28,16 @@ from datetime import date
 
 from django.conf import settings
 
+# 1.3 keeps the CV and sends it to the employer, for six months. 1.2 promised
+# the opposite in as many words, so this is a version rather than an edit: the
+# students who applied under it agreed their file would be deleted, and it was.
+#
 # 1.2 removes the administrator review of transcripts and stops keeping the
 # file at all. Existing students are not blocked from logging in: every
 # document function asks for its acknowledgement at the point of use and
 # records it against whatever version is current, so the next upload is itself
 # the re-acknowledgement.
-CURRENT_VERSION = "1.2"
+CURRENT_VERSION = "1.3"
 
 # Shown on the sign-up screen above the consent checkboxes. Kept short on
 # purpose: the full notice is one click away, and a wall of text at the point
@@ -795,6 +799,84 @@ def _transcripts_are_not_kept(notice):
 
 
 NOTICES["1.2"] = _transcripts_are_not_kept(NOTICES["1.1"])
+
+
+def _the_cv_is_kept_for_the_employer(notice):
+    """1.3: the CV is retained and sent to the employer, for six months.
+
+    1.2 promised the opposite, in as many words: "The CV file itself is not
+    stored... No copy is retained." That was the right promise for a system
+    that only wanted a few extracted fields, and it stopped being true of what
+    the system needs to do -- reading a CV loses what a person would notice,
+    how a candidate describes their own work and what they chose to put first,
+    and an employer judging them was shown only the extraction.
+
+    So this is a version rather than an edit. 1.2 is untouched: every student
+    who applied under it agreed that their file would be deleted, and it was.
+    Their applications keep no CV and never will.
+
+    Six months from the application, not "while the account exists". A CV is
+    the densest personal data this system handles -- address, phone, referees,
+    often a photograph -- and a hiring decision does not need it a year later.
+    """
+    import copy
+
+    updated = copy.deepcopy(notice)
+    updated["version"] = "1.3"
+    updated["effective_date"] = date(2026, 9, 28)
+
+    updated["cv_notice"] = {
+        "heading": "How we use your CV",
+        "body": (
+            "Your CV is read so that MomentumQuest can suggest the skills, education "
+            "and experience to include in your application. You can edit or remove "
+            "anything that was read from it before you submit.\n\n"
+            "The file itself is kept and sent to the employer with your application, "
+            "because reading a CV loses things a person would notice.\n\n"
+            "Only the employer you applied to can open it, and only for that "
+            "application. It is deleted six months after you apply, and you can "
+            "remove it yourself at any time without withdrawing your application."
+        ),
+        "acknowledgement":
+            "I agree to MomentumQuest reading this CV and sending it to the employer "
+            "with my application. I can remove it at any time.",
+    }
+
+    for section in updated["sections"]:
+        if not section.get("heading", "").startswith("6. CV Processing"):
+            continue
+
+        section["blocks"] = [
+            _p("When you apply for a job you may upload a CV so that MomentumQuest "
+               "can prepare your application for you."),
+            _p("The CV is read once, in order to suggest the skills, education and "
+               "experience to include. Reading it requires your consent, which is "
+               "requested at the moment you upload it."),
+            _p("The CV file is kept and sent to the employer with your application. "
+               "Reading a CV loses things a person would notice -- how you describe "
+               "your own work, and what you chose to put first -- so the employer "
+               "sees the document you wrote rather than only what was read out of "
+               "it."),
+            _p("Only the employer you applied to can open it, and only for that "
+               "application. It is not shown to other employers, not published, and "
+               "not used for anything but the application you attached it to. An "
+               "administrator can open it only to investigate a problem, and every "
+               "time one does is recorded."),
+            _p("It is deleted six months after you apply. You can also remove it "
+               "yourself at any time from your applications page, which does not "
+               "withdraw the application."),
+            _p("Applications submitted before this version keep no CV. The files "
+               "were deleted under the previous notice, which promised they would "
+               "be, and none was retained."),
+            _p("Information taken from a CV is treated as information you have "
+               "declared, not as verified evidence. It is not the same as a "
+               "certificate an administrator has checked."),
+        ]
+
+    return updated
+
+
+NOTICES["1.3"] = _the_cv_is_kept_for_the_employer(NOTICES["1.2"])
 
 
 def get_notice(version=None):

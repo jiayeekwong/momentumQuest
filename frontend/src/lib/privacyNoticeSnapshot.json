@@ -10,11 +10,11 @@
     },
     "contact_email": "momentumquest.system@gmail.com",
     "cv_notice": {
-      "acknowledgement": "I agree to MomentumQuest reading this CV to prepare my application. The CV file will be deleted after processing.",
-      "body": "Your CV is read once so that MomentumQuest can suggest the skills, education and experience to put in your application.\n\nThe file itself is not kept. It is deleted as soon as it has been read, and no copy is stored. Only the information you review and confirm is saved, and it is saved with the application you submit.\n\nYou can edit or remove anything that was read from your CV before you submit. What you confirm is treated as information you have declared, not as verified evidence.",
+      "acknowledgement": "I agree to MomentumQuest reading this CV and sending it to the employer with my application. I can remove it at any time.",
+      "body": "Your CV is read so that MomentumQuest can suggest the skills, education and experience to include in your application. You can edit or remove anything that was read from it before you submit.\n\nThe file itself is kept and sent to the employer with your application, because reading a CV loses things a person would notice.\n\nOnly the employer you applied to can open it, and only for that application. It is deleted six months after you apply, and you can remove it yourself at any time without withdrawing your application.",
       "heading": "How we use your CV"
     },
-    "effective_date": "2026-09-01",
+    "effective_date": "2026-09-28",
     "sections": [
       {
         "blocks": [
@@ -179,11 +179,19 @@
             "type": "paragraph"
           },
           {
-            "text": "The CV file itself is not stored. It is written to a temporary location only for as long as it takes to read it, and is deleted immediately afterwards, whether or not reading succeeded. No copy is retained, and the file is never placed in public or permanent storage.",
+            "text": "The CV file is kept and sent to the employer with your application. Reading a CV loses things a person would notice -- how you describe your own work, and what you chose to put first -- so the employer sees the document you wrote rather than only what was read out of it.",
             "type": "paragraph"
           },
           {
-            "text": "Only the information you then review and confirm is saved, and it is saved as part of the application you submit. You may edit or remove anything before submitting.",
+            "text": "Only the employer you applied to can open it, and only for that application. It is not shown to other employers, not published, and not used for anything but the application you attached it to. An administrator can open it only to investigate a problem, and every time one does is recorded.",
+            "type": "paragraph"
+          },
+          {
+            "text": "It is deleted six months after you apply. You can also remove it yourself at any time from your applications page, which does not withdraw the application.",
+            "type": "paragraph"
+          },
+          {
+            "text": "Applications submitted before this version keep no CV. The files were deleted under the previous notice, which promised they would be, and none was retained.",
             "type": "paragraph"
           },
           {
@@ -345,6 +353,6 @@
       "body": "This document is stored privately and can be opened only by you and by authorised MomentumQuest administrators reviewing it for verification.\n\nMomentumQuest does not extract or store any identification number shown on it, and never uses one for job matching, recommendations or skill-gap analysis.",
       "heading": "Document verification"
     },
-    "version": "1.2"
+    "version": "1.3"
   }
 }
