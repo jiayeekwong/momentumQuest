@@ -16,6 +16,8 @@ urlpatterns = [
     path("skill-validation/transcripts/",             views.TranscriptListCreateView.as_view(), name="transcript-list"),
     path("training/",                          views.CompanyTrainingView.as_view(),      name="training-list"),
     path("training/upload/",                   views.TrainingFileUploadView.as_view(),   name="training-upload"),
+    path("training/attachment/<str:name>",   views.TrainingAttachmentView.as_view(),
+         name="training-attachment"),
     path("training/admin/",                    views.AdminTrainingListView.as_view(),    name="training-admin-list"),
     path("training/admin/<int:pk>/review/",    views.AdminTrainingReviewView.as_view(),  name="training-admin-review"),
     path("training/approved/",                 views.ApprovedTrainingListView.as_view(), name="training-approved"),

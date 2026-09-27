@@ -8,6 +8,7 @@ from django.core.files.storage import default_storage
 from django.db import transaction
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import filters, generics, serializers, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -24,6 +25,7 @@ from accounts.privacy_notice import CURRENT_VERSION
 from .file_validation import MAX_BYTES as MAX_UPLOAD_BYTES
 from .pagination import ResourceCataloguePagination
 from . import private_storage
+from .attachments import StoredAttachmentView, store_attachment
 from .file_validation import InvalidUpload, validate_document
 from .models import (
     Certificate,
@@ -50,6 +52,10 @@ from .skill_evidence import recalculate_student_skills
 from .skill_recognition import apply_skills, resolve_skills
 from .transcript_classifier import classify_transcript
 from .transcript_parser import extract_text_from_pdf, parse_transcript_text
+
+
+#: Where training brochures live in the private store.
+TRAINING_ATTACHMENT_DIR = "training"
 
 logger = logging.getLogger(__name__)
 
@@ -853,13 +859,15 @@ class TrainingFileUploadView(APIView):
     Company uploads a file (brochure, syllabus, poster). Returns the absolute URL
     to store in supporting_doc — keeps TrainingProgramme.supporting_doc a URLField.
 
-    A poster or brochure is public: it is written into MEDIA_ROOT, which is
-    served without authentication. That makes the file type the whole of the
-    security boundary -- an .html or .svg accepted here would be served from
-    the application's own origin and could run script against anyone who
-    opened it. The extension is therefore never taken from the client's
-    filename; the type is read from the file's own bytes and the stored name
-    is generated.
+    A poster or brochure is public, and the file type is the whole of the
+    security boundary: an .html or .svg accepted here would be served from the
+    application's own origin and could run script against anyone who opened
+    it. The extension is therefore never taken from the client's filename; the
+    type is read from the file's own bytes and the stored name is generated.
+
+    Kept in object storage rather than on the instance. See
+    resources.attachments -- MEDIA_ROOT is unserved in production and discarded
+    with the container, so every brochure uploaded here answered "Not Found".
     """
     permission_classes = [IsCompany]
 
@@ -875,10 +883,19 @@ class TrainingFileUploadView(APIView):
                                        "A supporting document must be")
             return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
 
-        name = f"training/{uuid.uuid4().hex}{extension}"
-        saved_path = default_storage.save(name, file)
-        url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+        stored_name = store_attachment(TRAINING_ATTACHMENT_DIR, file, extension)
+        url = request.build_absolute_uri(
+            reverse('training-attachment', args=[stored_name]))
         return Response({'url': url}, status=status.HTTP_201_CREATED)
+
+
+class TrainingAttachmentView(StoredAttachmentView):
+    """
+    GET /api/resources/training/attachment/<name>
+    The brochure attached to a training programme.
+    """
+
+    directory = TRAINING_ATTACHMENT_DIR
 
 
 class AdminTrainingListView(generics.ListAPIView):

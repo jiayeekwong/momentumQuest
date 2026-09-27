@@ -26,7 +26,7 @@ from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate, LearningResource  # Certificate: admin dashboard only
 from resources.providers import authority_index, get_provider, provider_names
 from resources.relevance import DEFAULT_PER_SKILL, free_status, related_resources
-from resources import private_storage
+from resources.attachments import StoredAttachmentView, store_attachment
 from resources.file_validation import InvalidUpload, validate_document
 
 from .models import Announcement
@@ -1114,68 +1114,21 @@ class AnnouncementFileUploadView(APIView):
         # STATIC_ROOT -- and the deployment has no disk, so the file is
         # discarded when the container is next replaced. The upload reported
         # success, the URL was stored, and the poster was never retrievable.
-        stored_name = f"{uuid.uuid4().hex}{extension}"
-        relative_path = private_storage.build_relative_path(
-            ANNOUNCEMENT_ATTACHMENT_DIR, stored_name)
-        private_storage.save(relative_path, file.chunks())
-
+        stored_name = store_attachment(ANNOUNCEMENT_ATTACHMENT_DIR, file,
+                                       extension)
         url = request.build_absolute_uri(
             reverse('announcement-attachment', args=[stored_name]))
         return Response({'url': url}, status=status.HTTP_201_CREATED)
 
 
-class AnnouncementAttachmentView(APIView):
+class AnnouncementAttachmentView(StoredAttachmentView):
     """
-    GET /api/dashboard/announcements/attachment/<name>/
-    The poster or brochure attached to an announcement.
-
-    Served without authentication, which is what a poster is for: it is
-    rendered by an <img> tag on every dashboard that shows the announcement,
-    and an image element cannot carry the bearer token the rest of the API
-    uses. That was already the design -- the upload validates the file's type
-    from its own bytes precisely because the result is served to anyone with
-    the link, so an .html or .svg would run script on this origin.
-
-    Streamed through here rather than from a public bucket. The bytes are not
-    secret, but a public bucket is a second surface to configure, and this
-    keeps one storage backend for the whole application.
-
-    The name is generated at upload -- a UUID4 with the extension the file's
-    contents earned -- so a link cannot be guessed from the announcement, and
-    anything that does not look like one is refused before it reaches storage.
+    GET /api/dashboard/announcements/attachment/<name>
+    The poster or brochure attached to an announcement. See
+    resources.attachments for why it is stored and served the way it is.
     """
 
-    permission_classes = [AllowAny]
-
-    #: What an uploaded name looks like. Anything else is not something this
-    #: view wrote, and is never joined onto a storage path.
-    NAME = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{1,5}$")
-
-    CONTENT_TYPES = {
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".webp": "image/webp",
-        ".gif": "image/gif",
-        ".pdf": "application/pdf",
-    }
-
-    def get(self, request, name):
-        if not self.NAME.match(name):
-            raise Http404("No such attachment.")
-
-        stream = private_storage.open_stored(
-            private_storage.build_relative_path(
-                ANNOUNCEMENT_ATTACHMENT_DIR, name))
-        if stream is None:
-            raise Http404("No such attachment.")
-
-        extension = os.path.splitext(name)[1].lower()
-        return FileResponse(
-            stream,
-            content_type=self.CONTENT_TYPES.get(extension,
-                                                "application/octet-stream"),
-        )
+    directory = ANNOUNCEMENT_ATTACHMENT_DIR
 
 
 class AnnouncementDeleteView(generics.DestroyAPIView):
