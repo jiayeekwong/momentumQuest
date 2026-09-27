@@ -130,7 +130,9 @@ class CourseListView(generics.ListCreateAPIView):
     POST /api/resources/courses/ — admin creates a new course
     """
     filter_backends = [filters.SearchFilter]
-    search_fields   = ["title", "department"]
+    # departments is a list, which a text search over a column cannot
+    # reach. The code and the title are what an administrator looks up.
+    search_fields   = ["course_code", "title"]
 
     def get_permissions(self):
         if self.request.method == "POST":

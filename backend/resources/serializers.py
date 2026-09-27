@@ -6,6 +6,7 @@ from accounts.departments import COURSE_DEPARTMENTS, validate_department
 from accounts.models import StudentSkill
 from scrape_jobs.models import Skill
 from .models import (
+    CourseSkill,
     Certificate,
     CertificateSkillEvidence,
     Course,
@@ -52,15 +53,33 @@ def resolve_or_quarantine_skill(skill_name):
 class CourseSerializer(serializers.ModelSerializer):
     skill = serializers.StringRelatedField()
     admin = serializers.StringRelatedField()
+    skill_names = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
-        fields = ["id", "admin", "skill", "course_code", "title", "course_url",
-                  "department", "updated_at"]
+        fields = ["id", "admin", "skill", "skill_names", "course_code", "title",
+                  "course_url", "departments", "updated_at"]
+
+    def get_skill_names(self, obj):
+        """Every skill the course teaches, the headline one first."""
+        return [link.skill.skill_name
+                for link in obj.skill_links.select_related("skill")
+                .order_by("-is_primary", "skill__skill_name")]
 
 
 class CourseWriteSerializer(serializers.ModelSerializer):
-    skill_name = serializers.CharField(write_only=True, required=True)
+    #: Several, because a course teaches several things. The first is the
+    #: headline one, kept on Course.skill because every existing caller reads
+    #: it; the rest go to CourseSkill, which is the table that exists for this.
+    skill_names = serializers.ListField(
+        child=serializers.CharField(allow_blank=False),
+        write_only=True, required=True, allow_empty=False)
+    #: Several, because a module is commonly shared -- "Compulsory" for one
+    #: cohort and a named department's elective for another -- and one value
+    #: made an administrator pick one of them and be wrong for everybody else.
+    departments = serializers.ListField(
+        child=serializers.CharField(allow_blank=False),
+        required=False, allow_empty=True)
     # Optional, and blank is stored as NULL. The courses already in the table
     # predate the field, and PostgreSQL counts every empty string as equal --
     # so blanks would collide under the unique constraint where NULLs do not.
@@ -69,8 +88,8 @@ class CourseWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Course
-        fields = ["id", "course_code", "title", "department", "course_url",
-                  "skill_name", "updated_at"]
+        fields = ["id", "course_code", "title", "departments", "course_url",
+                  "skill_names", "updated_at"]
         read_only_fields = ["id", "updated_at"]
 
     def validate_course_code(self, value):
@@ -95,25 +114,82 @@ class CourseWriteSerializer(serializers.ModelSerializer):
                 f"{code} is already used by {taken.first().title}.")
         return code
 
-    def validate_department(self, value):
-        # A course may also be "Compulsory", which is not something a student
-        # can belong to -- hence the wider list.
-        validate_department(value, allowed=COURSE_DEPARTMENTS)
-        return value
+    def validate_departments(self, value):
+        """Each one has to be a department, and each one only once.
+
+        A course may also be "Compulsory", which is not something a student
+        can belong to -- hence the wider list.
+        """
+        seen = []
+        for name in value:
+            validate_department(name, allowed=COURSE_DEPARTMENTS)
+            if name not in seen:
+                seen.append(name)
+        return seen
+
+    def validate_skill_names(self, value):
+        """Trimmed, de-duplicated, order kept: the first is the headline one."""
+        seen = []
+        for name in value:
+            cleaned = name.strip()
+            if cleaned and cleaned not in seen:
+                seen.append(cleaned)
+        if not seen:
+            raise serializers.ValidationError("At least one skill is required.")
+        return seen
+
+    @staticmethod
+    def _resolve(names):
+        """The names as catalogue skills, in the order they were given.
+
+        Course.skill is not nullable, so this runs before the row is created
+        rather than after: creating first and attaching second violated the
+        constraint on the insert.
+        """
+        skills = []
+        for name in names:
+            skill = resolve_or_quarantine_skill(name)
+            if skill is not None and skill not in skills:
+                skills.append(skill)
+        if not skills:
+            raise serializers.ValidationError(
+                {"skill_names": ["None of these could be read as a skill."]})
+        return skills
+
+    @staticmethod
+    def _link(course, skills):
+        """Rewrite the course's skill links to exactly these.
+
+        Replaces rather than adds: a skill the administrator removed has to
+        actually go, or an edit could only ever widen what a course claims to
+        teach. The first is the headline one, which Course.skill keeps because
+        every existing caller reads it.
+        """
+        CourseSkill.objects.filter(course=course).exclude(
+            skill__in=skills).delete()
+        for position, skill in enumerate(skills):
+            CourseSkill.objects.update_or_create(
+                course=course, skill=skill,
+                defaults={"is_primary": position == 0})
 
     def create(self, validated_data):
-        skill = resolve_or_quarantine_skill(
-            validated_data.pop("skill_name", ""))
-        return Course.objects.create(skill=skill, **validated_data)
+        skills = self._resolve(validated_data.pop("skill_names", []))
+        course = Course.objects.create(skill=skills[0], **validated_data)
+        self._link(course, skills)
+        return course
 
     def update(self, instance, validated_data):
-        skill = resolve_or_quarantine_skill(
-            validated_data.pop("skill_name", ""))
-        if skill is not None:
-            instance.skill = skill
+        names = validated_data.pop("skill_names", None)
+        skills = self._resolve(names) if names is not None else None
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        if skills:
+            instance.skill = skills[0]
         instance.save()
+
+        if skills:
+            self._link(instance, skills)
         return instance
 
 

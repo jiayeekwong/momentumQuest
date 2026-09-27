@@ -151,7 +151,15 @@ class Course(models.Model):
                                    blank=True)
     title      = models.CharField(max_length=255)
     course_url = models.URLField(blank=True)
-    department = models.CharField(max_length=100, blank=True)
+    #: Every department that runs the course. A module is commonly shared --
+    #: "Compulsory" for one cohort and a named department's elective for
+    #: another -- and a single value made an administrator choose one of them
+    #: and be wrong for everybody else.
+    #:
+    #: A list of names rather than a table, matching Announcement.categories:
+    #: the vocabulary is a fixed constant in accounts.departments, and a table
+    #: would be a second copy of it to keep in step.
+    departments = models.JSONField(default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

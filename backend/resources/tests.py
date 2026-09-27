@@ -28,7 +28,8 @@ from scrape_jobs.models import Skill, SkillAlias
 from .file_validation import InvalidUpload, validate_document
 from .models import (
     Certificate,
-    CertificateSkillEvidence, Course, CourseCatalogue, LearningResource,
+    CertificateSkillEvidence, Course, CourseCatalogue, CourseSkill,
+    LearningResource,
     SubjectSkillMapping, TrainingProgramme, TranscriptSkillEvidence,
     TranscriptUpload,
 )
@@ -2718,8 +2719,8 @@ class CoursesCarryTheUniversityCodeTests(APITestCase):
     def _add(self, **overrides):
         payload = {"course_code": "WIX1001",
                    "title": "Computing Mathematics I",
-                   "department": "Compulsory",
-                   "skill_name": "Python"}
+                   "departments": ["Compulsory"],
+                   "skill_names": ["Python"]}
         payload.update(overrides)
         return self.client.post("/api/resources/courses/", payload, format="json")
 
@@ -2789,7 +2790,8 @@ class CoursesCarryTheUniversityCodeTests(APITestCase):
 
         response = self.client.put(f"/api/resources/courses/{course.pk}/", {
             "course_code": "WIX1002", "title": course.title,
-            "department": "Compulsory", "skill_name": "Python"}, format="json")
+            "departments": ["Compulsory"], "skill_names": ["Python"]},
+            format="json")
 
         self.assertEqual(response.status_code, 200, response.data)
         course.refresh_from_db()
@@ -3116,3 +3118,251 @@ class WithdrawingAnApprovedProgrammeTellsTheAdminsTests(APITestCase):
         AdminProfile.objects.all().delete()
 
         self.assertEqual(self._delete().status_code, 204)
+
+
+class CoursesBelongToMoreThanOneThingTests(APITestCase):
+    """A course had one department and one skill, and is rarely either.
+
+    A module is commonly shared -- "Compulsory" for one cohort and a named
+    department's elective for another -- so a single value made an
+    administrator pick one and be wrong for everybody else. And a course
+    called "Web Programming" teaches HTML, CSS and JavaScript; the one-skill
+    form is what produced Skill rows whose name was a comma separated list.
+
+    CourseSkill already existed for the second of those. Only the form and the
+    serializer were single.
+    """
+
+    def setUp(self):
+        from accounts.models import AdminProfile, User
+
+        self.admin = User.objects.create_user(
+            email="multi-admin@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.ADMIN, is_staff=True, is_active=True,
+            email_verified=True)
+        AdminProfile.objects.create(user=self.admin, admin_name="Admin")
+        self.client.force_authenticate(user=self.admin)
+        for name in ("HTML", "CSS", "JavaScript", "Python"):
+            Skill.objects.get_or_create(skill_name=name,
+                                        defaults={"is_active": True})
+
+    def _add(self, **overrides):
+        payload = {"course_code": "WIF2003", "title": "Web Programming",
+                   "departments": ["Compulsory", "Software Engineering"],
+                   "skill_names": ["HTML", "CSS", "JavaScript"]}
+        payload.update(overrides)
+        return self.client.post("/api/resources/courses/", payload,
+                                format="json")
+
+    # ---- departments ---------------------------------------------------------
+
+    def test_a_course_can_belong_to_several_departments(self):
+        response = self._add()
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Course.objects.get().departments,
+                         ["Compulsory", "Software Engineering"])
+
+    def test_the_departments_are_returned_when_the_course_is_read(self):
+        self._add()
+
+        listed = self.client.get("/api/resources/courses/").data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+
+        self.assertEqual(rows[0]["departments"],
+                         ["Compulsory", "Software Engineering"])
+
+    def test_a_department_nobody_has_is_refused(self):
+        response = self._add(departments=["Compulsory", "Hogwarts"])
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Course.objects.exists())
+
+    def test_the_same_department_twice_is_recorded_once(self):
+        self._add(departments=["Compulsory", "Compulsory"])
+
+        self.assertEqual(Course.objects.get().departments, ["Compulsory"])
+
+    def test_a_course_can_belong_to_none(self):
+        response = self._add(departments=[])
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Course.objects.get().departments, [])
+
+    # ---- skills --------------------------------------------------------------
+
+    def test_a_course_can_teach_several_skills(self):
+        self._add()
+        course = Course.objects.get()
+
+        self.assertEqual(
+            sorted(course.skills.values_list("skill_name", flat=True)),
+            ["CSS", "HTML", "JavaScript"])
+
+    def test_the_first_skill_is_the_headline_one(self):
+        """Course.skill is kept because every existing caller reads it."""
+        self._add(skill_names=["JavaScript", "HTML"])
+        course = Course.objects.get()
+
+        self.assertEqual(course.skill.skill_name, "JavaScript")
+        self.assertTrue(CourseSkill.objects.get(
+            course=course, skill__skill_name="JavaScript").is_primary)
+
+    def test_the_skills_are_returned_when_the_course_is_read(self):
+        self._add()
+
+        listed = self.client.get("/api/resources/courses/").data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+
+        self.assertEqual(sorted(rows[0]["skill_names"]),
+                         ["CSS", "HTML", "JavaScript"])
+
+    def test_a_course_still_needs_at_least_one_skill(self):
+        response = self._add(skill_names=[])
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_the_same_skill_twice_is_linked_once(self):
+        self._add(skill_names=["HTML", "HTML"])
+
+        self.assertEqual(CourseSkill.objects.count(), 1)
+
+    # ---- editing -------------------------------------------------------------
+
+    def test_removing_a_skill_actually_removes_it(self):
+        """An edit that could only ever widen what a course claims to teach
+        would never let an administrator undo a mistake."""
+        self._add()
+        course = Course.objects.get()
+
+        self.client.put(f"/api/resources/courses/{course.pk}/", {
+            "course_code": "WIF2003", "title": "Web Programming",
+            "departments": ["Compulsory"], "skill_names": ["HTML"]},
+            format="json")
+
+        self.assertEqual(
+            list(course.skills.values_list("skill_name", flat=True)), ["HTML"])
+        self.assertEqual(Course.objects.get().departments, ["Compulsory"])
+
+    def test_reordering_moves_the_headline_skill(self):
+        self._add(skill_names=["HTML", "CSS"])
+        course = Course.objects.get()
+
+        self.client.put(f"/api/resources/courses/{course.pk}/", {
+            "course_code": "WIF2003", "title": "Web Programming",
+            "departments": ["Compulsory"], "skill_names": ["CSS", "HTML"]},
+            format="json")
+        course.refresh_from_db()
+
+        self.assertEqual(course.skill.skill_name, "CSS")
+
+
+class TheAdminsCourseMappingReachesTheTranscriptTests(TestCase):
+    """Skills attached to a course in the admin did nothing to a transcript.
+
+    A module code can be described in two tables. Course is the one an
+    administrator edits in Manage Courses; SubjectSkillMapping is a seeded
+    baseline of Universiti Malaya modules, and it was the only one transcript
+    reading consulted. So an administrator could map WIF2003 to JavaScript,
+    CSS, MongoDB and Next.js, upload a transcript showing WIF2003, and be told
+    "No matching skill" -- the right thing mapped in a table nothing read, with
+    nothing in the interface to say so.
+    """
+
+    def setUp(self):
+        self.js = Skill.objects.create(skill_name="JavaScript", is_active=True)
+        self.css = Skill.objects.create(skill_name="CSS", is_active=True)
+        self.html = Skill.objects.create(skill_name="HTML", is_active=True)
+
+    @staticmethod
+    def _subjects(*codes):
+        return [{"code": code, "name": code, "grade": "A",
+                 "checksum_ok": True, "skills": []} for code in codes]
+
+    def _course(self, code, skills, title="Web Programming"):
+        course = Course.objects.create(course_code=code, title=title,
+                                       skill=skills[0])
+        for position, skill in enumerate(skills):
+            CourseSkill.objects.create(course=course, skill=skill,
+                                       is_primary=position == 0)
+        return course
+
+    # ---- the course the administrator edited ---------------------------------
+
+    def test_a_course_the_admin_mapped_is_recognised(self):
+        self._course("WIF2003", [self.js, self.css])
+
+        levels = resolve_skills(self._subjects("WIF2003"))
+
+        self.assertEqual(sorted(s.skill_name for s in levels), ["CSS", "JavaScript"])
+
+    def test_every_skill_on_the_course_counts(self):
+        """One course, several skills -- which is why CourseSkill exists."""
+        self._course("WIF2003", [self.js, self.css, self.html])
+        subjects = self._subjects("WIF2003")
+
+        resolve_skills(subjects)
+
+        self.assertEqual(sorted(subjects[0]["skills"]),
+                         ["CSS", "HTML", "JavaScript"])
+
+    def test_a_skill_awaiting_review_does_not_reach_the_student(self):
+        """A name typed into the course form that is not in the catalogue is
+        created inactive and held for review. The whole point of that
+        quarantine is that an administrator's typo stays off a profile."""
+        typo = Skill.objects.create(skill_name="Javscript", is_active=False)
+        self._course("WIF2003", [self.js, typo])
+
+        levels = resolve_skills(self._subjects("WIF2003"))
+
+        self.assertEqual([s.skill_name for s in levels], ["JavaScript"])
+
+    # ---- the seeded baseline -------------------------------------------------
+
+    def test_a_module_with_no_course_still_uses_the_seed(self):
+        """The 29 seeded modules keep working for anything nobody has entered."""
+        SubjectSkillMapping.objects.create(
+            subject_code="WIA1002", subject_name="Data Structures",
+            skill=self.js, is_active=True)
+
+        levels = resolve_skills(self._subjects("WIA1002"))
+
+        self.assertEqual([s.skill_name for s in levels], ["JavaScript"])
+
+    def test_the_administrators_answer_wins_over_the_seed(self):
+        """Both tables can describe the same module, and today they disagree:
+        the seed says HTML, the administrator says JavaScript and CSS."""
+        SubjectSkillMapping.objects.create(
+            subject_code="WIF2003", subject_name="Web Programming",
+            skill=self.html, is_active=True)
+        self._course("WIF2003", [self.js, self.css])
+
+        levels = resolve_skills(self._subjects("WIF2003"))
+
+        self.assertEqual(sorted(s.skill_name for s in levels),
+                         ["CSS", "JavaScript"])
+
+    def test_both_sources_serve_one_transcript(self):
+        SubjectSkillMapping.objects.create(
+            subject_code="WIA1002", subject_name="Data Structures",
+            skill=self.html, is_active=True)
+        self._course("WIF2003", [self.js])
+
+        levels = resolve_skills(self._subjects("WIF2003", "WIA1002"))
+
+        self.assertEqual(sorted(s.skill_name for s in levels),
+                         ["HTML", "JavaScript"])
+
+    def test_a_module_in_neither_table_recognises_nothing(self):
+        """Still the correct answer for a general-education module."""
+        subjects = self._subjects("GIG1012")
+
+        self.assertEqual(resolve_skills(subjects), {})
+        self.assertEqual(subjects[0]["skills"], [])
+
+    def test_a_course_with_no_code_cannot_match_anything(self):
+        """course_code is optional, and a blank one is stored as NULL -- it
+        must not become a module that matches every unmapped subject."""
+        Course.objects.create(title="Untitled", skill=self.js)
+
+        self.assertEqual(resolve_skills(self._subjects("WIF2003")), {})

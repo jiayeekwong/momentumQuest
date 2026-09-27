@@ -6,6 +6,7 @@ import { Search, Plus, Pencil, Trash2, GraduationCap, X } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Button } from '@/src/components/ui';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { cn } from '@/src/lib/utils';
 import { useDepartments } from '@/src/lib/privacyNotice';
 
 interface Course {
@@ -14,8 +15,11 @@ interface Course {
    *  that were added before the field existed. */
   course_code: string | null;
   title: string;
-  department: string;
+  /** Every department that runs it. A module is commonly shared. */
+  departments: string[];
   skill: string | null;
+  /** Every skill it teaches, the headline one first. */
+  skill_names: string[];
   course_url: string;
   updated_at: string;
 }
@@ -23,15 +27,17 @@ interface Course {
 interface CourseForm {
   course_code: string;
   title: string;
-  department: string;
-  skill_name: string;
+  departments: string[];
+  skill_names: string[];
 }
 
-const emptyForm: CourseForm = { course_code: '', title: '', department: '', skill_name: '' };
+const emptyForm: CourseForm = { course_code: '', title: '', departments: [], skill_names: [] };
 
 export default function ManageCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [search, setSearch] = useState('');
+  // What is being typed in the skill box, before Enter adds it.
+  const [skillDraft, setSkillDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -52,13 +58,14 @@ export default function ManageCoursesPage() {
 
   const filtered = courses.filter(c =>
     c.title.toLowerCase().includes(search.toLowerCase()) ||
-    (c.department ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.departments ?? []).some(d => d.toLowerCase().includes(search.toLowerCase())) ||
     (c.course_code ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
   const openAdd = () => {
     setEditId(null);
     setForm(emptyForm);
+    setSkillDraft('');
     setFormError('');
     setModalOpen(true);
   };
@@ -68,8 +75,8 @@ export default function ManageCoursesPage() {
     setForm({
       course_code: course.course_code ?? '',
       title:       course.title,
-      department:  course.department ?? '',
-      skill_name:  course.skill ?? '',
+      departments: course.departments ?? [],
+      skill_names: course.skill_names ?? [],
     });
     setFormError('');
     setModalOpen(true);
@@ -91,9 +98,9 @@ export default function ManageCoursesPage() {
       }
       const saved: Course = await res.json();
       if (editId) {
-        setCourses(prev => prev.map(c => c.id === editId ? { ...c, ...saved, skill: saved.skill ?? form.skill_name } : c));
+        setCourses(prev => prev.map(c => (c.id === editId ? { ...c, ...saved } : c)));
       } else {
-        setCourses(prev => [...prev, { ...saved, skill: saved.skill ?? form.skill_name }]);
+        setCourses(prev => [...prev, saved]);
       }
       setModalOpen(false);
     } catch {
@@ -149,8 +156,10 @@ export default function ManageCoursesPage() {
                           )}
                           {course.title}
                         </h3>
-                        {course.department && (
-                          <p className="text-sm font-medium text-neutral-500">{course.department}</p>
+                        {course.departments?.length > 0 && (
+                          <p className="text-sm font-medium text-neutral-500">
+                            {course.departments.join(' · ')}
+                          </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -209,17 +218,66 @@ export default function ManageCoursesPage() {
               </div>
               <div>
                 <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block mb-1.5">Department</label>
-                <select required value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                  className="w-full h-10 px-3 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white">
-                  <option value="">Select department</option>
-                  {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+                {/* Several, because a module is commonly shared -- Compulsory
+                    for one cohort and a department's elective for another. A
+                    single select made the administrator pick one and be wrong
+                    for everybody else. */}
+                <div className="flex flex-wrap gap-2">
+                  {DEPARTMENTS.map(d => {
+                    const chosen = form.departments.includes(d);
+                    return (
+                      <button key={d} type="button"
+                        onClick={() => setForm(f => ({
+                          ...f,
+                          departments: chosen
+                            ? f.departments.filter(x => x !== d)
+                            : [...f.departments, d],
+                        }))}
+                        className={cn(
+                          'px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors',
+                          chosen
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-white text-neutral-600 border-neutral-300 hover:border-primary/40')}>
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block mb-1.5">Skill *</label>
-                <input required value={form.skill_name} onChange={e => setForm(f => ({ ...f, skill_name: e.target.value }))}
+                {/* A course called "Web Programming" teaches HTML, CSS and
+                    JavaScript. One field is what produced Skill rows whose
+                    name was a comma separated list. The first is the headline
+                    one, which is what the rest of the application reads. */}
+                {form.skill_names.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {form.skill_names.map((name, i) => (
+                      <span key={name}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-primary rounded-lg text-xs font-bold">
+                        {i === 0 && <span className="text-[9px] uppercase tracking-wider opacity-60">main</span>}
+                        {name}
+                        <button type="button" aria-label={`Remove ${name}`}
+                          onClick={() => setForm(f => ({
+                            ...f, skill_names: f.skill_names.filter(x => x !== name),
+                          }))}
+                          className="hover:text-danger">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <input value={skillDraft}
+                  onChange={e => setSkillDraft(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key !== 'Enter' && e.key !== ',') return;
+                    e.preventDefault();
+                    const name = skillDraft.trim();
+                    if (!name || form.skill_names.includes(name)) return;
+                    setForm(f => ({ ...f, skill_names: [...f.skill_names, name] }));
+                    setSkillDraft('');
+                  }}
                   className="w-full h-10 px-3 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="e.g. Python" />
+                  placeholder="e.g. Python — press Enter to add" />
               </div>
               {formError && <p className="text-xs text-danger font-semibold">{formError}</p>}
               <div className="flex gap-3 pt-2">

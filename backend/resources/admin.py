@@ -80,10 +80,17 @@ class LearningResourceAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display  = ("title", "skill", "department", "admin", "updated_at")
-    search_fields = ("title", "department")
-    list_filter   = ("department", "skill__skill_category")
+    list_display  = ("course_code", "title", "skill", "listed_departments",
+                     "admin", "updated_at")
+    search_fields = ("course_code", "title")
+    # departments is a list, which a column filter cannot offer choices for.
+    # The skill category still narrows the table, and searching covers the rest.
+    list_filter   = ("skill__skill_category",)
     readonly_fields = ("updated_at",)
+
+    @admin.display(description="Departments")
+    def listed_departments(self, obj):
+        return ", ".join(obj.departments) if obj.departments else "—"
 
 
 class CertificateSkillEvidenceInline(admin.TabularInline):
