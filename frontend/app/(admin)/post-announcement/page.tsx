@@ -203,8 +203,16 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
       if (res.ok) {
         onSuccess(await res.json());
       } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.detail ?? JSON.stringify(data) ?? 'Failed to publish.');
+        // A server error in production answers with an HTML page, so parsing
+        // fails and there is nothing to report but the status. The previous
+        // version stringified the empty object it fell back to and showed the
+        // operator "{}" -- and its own `?? 'Failed to publish.'` could never
+        // run, because JSON.stringify does not return null.
+        const data = await res.json().catch(() => null);
+        const detail = typeof data?.detail === 'string' ? data.detail : '';
+        const fields = data && Object.keys(data).length ? JSON.stringify(data) : '';
+        setError(detail || fields
+          || `Could not publish — the server returned ${res.status}. Please try again.`);
       }
     } catch { setError('Network error. Please try again.'); }
     finally  { setIsPosting(false); }

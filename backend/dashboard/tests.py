@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import (
     AdminProfile, Company, SkillGap, Student, StudentSkill, StudentTargetRole,
@@ -1709,3 +1709,90 @@ class DemandChangeHonestyTests(TestCase):
 
         self.assertIsNone(data['demand_change_percentage'])
         self.assertEqual(data['change_basis'], 'NOT_ENOUGH_COLLECTED')
+
+
+class AdminWithoutAProfileGetsAnAnswerTests(APITestCase):
+    """An administrator account can be complete enough to pass every check and
+    still have nothing to attribute its work to.
+
+    Only `manage.py create_admin` creates the AdminProfile. `createsuperuser`
+    does not, and neither does adding a user through the Django admin -- so an
+    account reaches these endpoints holding every admin power, and the first
+    thing they do is read `request.user.admin_profile`.
+
+    That raised inside the view. In production it reached the browser as a 500
+    and an HTML error page, which the publish form could not parse, so it
+    showed the operator an empty object and no way to tell what was wrong.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="unprovisioned@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.ADMIN, is_staff=True, is_active=True,
+            email_verified=True)
+        self.client.force_authenticate(user=self.user)
+
+    def test_publishing_an_announcement_says_what_is_wrong(self):
+        response = self.client.post("/api/dashboard/announcements/create/", {
+            "title": "Bootcamp",
+            "message": "<p>Join us.</p>",
+            "audience": "EVERYONE",
+        }, format="json")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("admin profile", response.data["detail"].lower())
+
+    def test_the_answer_names_the_command_that_fixes_it(self):
+        """An operator reading this should not have to come and ask."""
+        response = self.client.post("/api/dashboard/announcements/create/", {
+            "title": "Bootcamp", "message": "<p>Join us.</p>",
+            "audience": "EVERYONE"}, format="json")
+
+        self.assertIn("create_admin", response.data["detail"])
+
+    def test_it_is_not_a_server_error(self):
+        """The distinction that matters to whoever is on call: this is an
+        account that was never finished, not a broken endpoint."""
+        response = self.client.post("/api/dashboard/announcements/create/", {
+            "title": "Bootcamp", "message": "<p>Join us.</p>",
+            "audience": "EVERYONE"}, format="json")
+
+        self.assertLess(response.status_code, 500)
+
+    def test_no_announcement_is_created(self):
+        from dashboard.models import Announcement
+
+        self.client.post("/api/dashboard/announcements/create/", {
+            "title": "Bootcamp", "message": "<p>Join us.</p>",
+            "audience": "EVERYONE"}, format="json")
+
+        self.assertFalse(Announcement.objects.exists())
+
+    def test_a_provisioned_admin_still_publishes(self):
+        """The fix must not cost the working path."""
+        from accounts.models import AdminProfile
+        from dashboard.models import Announcement
+
+        AdminProfile.objects.create(user=self.user, admin_name="Root")
+
+        response = self.client.post("/api/dashboard/announcements/create/", {
+            "title": "Bootcamp", "message": "<p>Join us.</p>",
+            "audience": "EVERYONE"}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Announcement.objects.count(), 1)
+        self.assertEqual(Announcement.objects.get().admin.admin_name, "Root")
+
+    def test_nothing_creates_the_profile_on_the_way_past(self):
+        """Deliberately not self-healing. A second, silent path to an
+        AdminProfile is the shape of a bug this codebase replaced once, and
+        the accounts serializer says so."""
+        from accounts.models import AdminProfile
+
+        self.client.post("/api/dashboard/announcements/create/", {
+            "title": "Bootcamp", "message": "<p>Join us.</p>",
+            "audience": "EVERYONE"}, format="json")
+
+        self.assertFalse(AdminProfile.objects.filter(user=self.user).exists())
+
+

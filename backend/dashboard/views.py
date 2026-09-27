@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User, Student, Company, StudentSkill
-from accounts.permissions import IsStudent, IsCompany, IsAdminUserRole
+from accounts.permissions import admin_profile_for, IsStudent, IsCompany, IsAdminUserRole
 from scrape_jobs.models import JobCategory, MarketRole, Skill
 from job_listings.matching import proficiency_value, skill_score
 from job_listings.models import JobListing, ScrapeLog
@@ -1068,7 +1068,7 @@ class AnnouncementCreateView(generics.CreateAPIView):
     permission_classes = [IsAdminUserRole]
 
     def perform_create(self, serializer):
-        serializer.save(admin=self.request.user.admin_profile)
+        serializer.save(admin=admin_profile_for(self.request.user))
 
 
 class AnnouncementFileUploadView(APIView):

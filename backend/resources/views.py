@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 from accounts.audit import record_privacy_event
 from accounts.models import PrivacyAuditLog, UserConsent
 from accounts.permissions import (
-    IsAdminUserRole, IsCompany, IsStudent, is_platform_admin,
+    IsAdminUserRole, IsCompany, IsStudent, admin_profile_for, is_platform_admin,
 )
 from accounts.privacy_notice import CURRENT_VERSION
 from .file_validation import MAX_BYTES as MAX_UPLOAD_BYTES
@@ -148,7 +148,7 @@ class CourseListView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(admin=self.request.user.admin_profile)
+        serializer.save(admin=admin_profile_for(self.request.user))
 
 
 class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -523,7 +523,7 @@ class CertificateEndorseView(generics.UpdateAPIView):
             # Who decided, and when, is stamped here rather than accepted from
             # the request body, so it cannot be supplied by the client.
             certificate = serializer.save(
-                admin=self.request.user.admin_profile,
+                admin=admin_profile_for(self.request.user),
                 verified_at=timezone.now(),
             )
 
@@ -913,7 +913,7 @@ class AdminTrainingReviewView(generics.UpdateAPIView):
     http_method_names  = ['patch', 'options', 'head']
 
     def perform_update(self, serializer):
-        serializer.save(admin=self.request.user.admin_profile)
+        serializer.save(admin=admin_profile_for(self.request.user))
 
 
 class ApprovedTrainingListView(generics.ListAPIView):
