@@ -3319,6 +3319,45 @@ class TheAdminsCourseMappingReachesTheTranscriptTests(TestCase):
 
     # ---- the seeded baseline -------------------------------------------------
 
+    def test_a_course_saved_before_courseskill_still_counts(self):
+        """Every course in the table predates that table.
+
+        Such a course has the headline foreign key and no links at all, and
+        reading only the links made it look like a course nobody had mapped --
+        so the seed answered for it and the administrator's own entry was
+        silently ignored.
+        """
+        Course.objects.create(course_code="WIF2003", title="Web Programming",
+                              skill=self.js)
+
+        levels = resolve_skills(self._subjects("WIF2003"))
+
+        self.assertEqual([s.skill_name for s in levels], ["JavaScript"])
+
+    def test_a_comma_named_skill_does_not_reach_a_profile(self):
+        """The pathology CourseSkill exists for: one Skill row whose name is a
+        comma separated list. Typed into the old single-skill form it was
+        created inactive, pending review, and the quarantine is what keeps it
+        off a student's profile."""
+        junk = Skill.objects.create(skill_name="JavaScript, CSS, MongoDB",
+                                    is_active=False)
+        Course.objects.create(course_code="WIF2003", title="Web Programming",
+                              skill=junk)
+
+        self.assertEqual(resolve_skills(self._subjects("WIF2003")), {})
+
+    def test_links_win_over_the_headline_key_when_both_exist(self):
+        """The fallback is for courses that have no links, not a second source
+        for the ones that do."""
+        course = self._course("WIF2003", [self.js, self.css])
+        course.skill = self.html
+        course.save(update_fields=["skill"])
+
+        levels = resolve_skills(self._subjects("WIF2003"))
+
+        self.assertEqual(sorted(s.skill_name for s in levels),
+                         ["CSS", "JavaScript"])
+
     def test_a_module_with_no_course_still_uses_the_seed(self):
         """The 29 seeded modules keep working for anything nobody has entered."""
         SubjectSkillMapping.objects.create(

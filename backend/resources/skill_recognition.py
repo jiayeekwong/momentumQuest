@@ -43,11 +43,19 @@ def _skills_for(codes):
     from_courses = defaultdict(list)
     for course in (Course.objects
                    .filter(course_code__in=codes)
+                   .select_related("skill")
                    .prefetch_related("skill_links__skill")):
-        for link in sorted(course.skill_links.all(),
-                           key=lambda l: (not l.is_primary, l.skill.skill_name)):
-            if link.skill.is_active:
-                from_courses[course.course_code].append(link.skill)
+        links = sorted(course.skill_links.all(),
+                       key=lambda l: (not l.is_primary, l.skill.skill_name))
+        # A course saved before CourseSkill existed has the headline foreign
+        # key and no links at all, and reading only the links made it look
+        # like a course nobody had mapped -- so the seed answered for it and
+        # the administrator's own entry was silently ignored.
+        skills = [link.skill for link in links] or (
+            [course.skill] if course.skill else [])
+        for skill in skills:
+            if skill.is_active:
+                from_courses[course.course_code].append(skill)
 
     remaining = {code for code in codes if code not in from_courses}
     by_code = dict(from_courses)
