@@ -6,6 +6,8 @@ import { Card, Badge } from '@/src/components/ui';
 import { Users, Briefcase, GraduationCap, Bell, TrendingUp, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/src/lib/apiFetch';
+import AnnouncementDetailModal, { type Announcement }
+  from '@/src/components/AnnouncementDetailModal';
 
 interface AdminStats {
   total_users: number;
@@ -16,12 +18,7 @@ interface AdminStats {
   total_skills: number;
 }
 
-interface Announcement {
-  id: number;
-  title: string;
-  admin_name: string | null;
-  publish_time: string;
-}
+
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -35,6 +32,9 @@ function timeAgo(dateStr: string): string {
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  // The endpoint already returns the whole announcement, so opening one
+  // needs no further request -- it was only ever missing something to click.
+  const [detailItem, setDetailItem] = useState<Announcement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -100,7 +100,8 @@ export default function AdminDashboardPage() {
             ) : announcements.length > 0 ? (
               <div className="space-y-3">
                 {announcements.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-100">
+                  <button key={item.id} type="button" onClick={() => setDetailItem(item)}
+                    className="w-full text-left flex items-start gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-100 hover:border-primary/30 hover:bg-indigo-50/40 transition-colors">
                     <div className="w-8 h-8 bg-sky-50 text-secondary rounded-lg flex items-center justify-center shrink-0">
                       <Bell size={16} />
                     </div>
@@ -109,7 +110,7 @@ export default function AdminDashboardPage() {
                       <p className="text-xs font-bold text-neutral-900 truncate">{item.title}</p>
                       <p className="text-[10px] text-neutral-400 font-medium mt-0.5">{timeAgo(item.publish_time)}</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -143,6 +144,11 @@ export default function AdminDashboardPage() {
           </div>
         </Card>
       </div>
+
+      {detailItem && (
+        <AnnouncementDetailModal announcement={detailItem}
+          onClose={() => setDetailItem(null)} />
+      )}
     </DashboardLayout>
   );
 }
