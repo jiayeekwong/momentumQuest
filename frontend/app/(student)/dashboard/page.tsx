@@ -288,8 +288,6 @@ export default function DashboardPage() {
 
   const plottedPoints = marketDemand?.series.filter(
     (point) => point.job_count !== null) ?? [];
-  const collectedGaps = (marketDemand?.series ?? []).filter(
-    (point) => !point.observed).length;
 
   return (
     <DashboardLayout title="Dashboard">
@@ -438,20 +436,6 @@ export default function DashboardPage() {
                 <p className="text-sm font-bold text-neutral-600">No observed demand data yet</p>
                 <p className="text-xs text-neutral-400 mt-1">The chart will appear after job listings are collected.</p>
               </div>
-            )}
-
-            {marketDemand && (collectedGaps > 0 || marketDemand.month_in_progress) && (
-              <p className="text-xs text-neutral-400 mt-3">
-                {collectedGaps > 0 && (
-                  <>Gaps are months the scraper did not run — not months without demand. </>
-                )}
-                {marketDemand.month_in_progress && (
-                  <>{marketDemand.month_in_progress.label} is still in progress
-                    ({marketDemand.month_in_progress.job_count} so far), shown as a
-                    hollow point. It will keep rising until the month ends, so it is
-                    not compared against a finished month.</>
-                )}
-              </p>
             )}
 
             {marketDemand && (
