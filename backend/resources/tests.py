@@ -29,7 +29,8 @@ from .file_validation import InvalidUpload, validate_document
 from .models import (
     Certificate,
     CertificateSkillEvidence, Course, CourseCatalogue, LearningResource,
-    SubjectSkillMapping, TranscriptSkillEvidence, TranscriptUpload,
+    SubjectSkillMapping, TrainingProgramme, TranscriptSkillEvidence,
+    TranscriptUpload,
 )
 from .skill_evidence import (
     recalculate_student_skill, recalculate_student_skills,
@@ -2865,3 +2866,253 @@ class TrainingBrochuresSurviveTests(APITestCase):
                 response = self.client.get(
                     f"/api/resources/training/attachment/{name}")
                 self.assertIn(response.status_code, (404, 301))
+
+
+class CompaniesCanCorrectTheirOwnProgrammesTests(APITestCase):
+    """A company could post a programme and then do nothing with it.
+
+    A typo in the title, a date that moved, a programme that was cancelled --
+    all of it needed an administrator, for content the company had written
+    about itself. The same company can already edit and delete its own job
+    postings, and that asymmetry is what marks this as never built rather than
+    withheld on purpose: nothing in the code argued for it.
+    """
+
+    def setUp(self):
+        from accounts.models import Company, User
+
+        self.user = User.objects.create_user(
+            email="owner@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.COMPANY)
+        self.company = Company.objects.create(user=self.user,
+                                              company_name="ACME")
+        self.client.force_authenticate(user=self.user)
+        self.programme = TrainingProgramme.objects.create(
+            company=self.company, title="Full-Stack with React",
+            description="Six weeks.", programme_duration="6 weeks")
+
+    def _url(self, programme=None):
+        return f"/api/resources/training/{(programme or self.programme).pk}/"
+
+    # ---- editing -------------------------------------------------------------
+
+    def test_a_company_can_correct_its_own_programme(self):
+        response = self.client.patch(self._url(), {"title": "Corrected Title"},
+                                     format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.programme.refresh_from_db()
+        self.assertEqual(self.programme.title, "Corrected Title")
+
+    def test_editing_an_approved_programme_sends_it_back_for_review(self):
+        """Approval is a statement about what an administrator read, and that
+        text no longer exists once the company rewrites it."""
+        from accounts.models import AdminProfile, User as U
+
+        reviewer = AdminProfile.objects.create(
+            user=U.objects.create_user(email="rev@example.edu",
+                                       password="Sufficient-Pass-1",
+                                       role=U.Role.ADMIN),
+            admin_name="Reviewer")
+        self.programme.approval_status = TrainingProgramme.ApprovalStatus.APPROVED
+        self.programme.admin = reviewer
+        self.programme.save()
+
+        self.client.patch(self._url(), {"title": "Rewritten"}, format="json")
+        self.programme.refresh_from_db()
+
+        self.assertEqual(self.programme.approval_status,
+                         TrainingProgramme.ApprovalStatus.PENDING)
+
+    def test_the_previous_reviewer_is_not_left_on_it(self):
+        """Leaving them there would credit an administrator with a decision
+        about text they never saw."""
+        from accounts.models import AdminProfile, User as U
+
+        reviewer = AdminProfile.objects.create(
+            user=U.objects.create_user(email="rev2@example.edu",
+                                       password="Sufficient-Pass-1",
+                                       role=U.Role.ADMIN),
+            admin_name="Reviewer")
+        self.programme.approval_status = TrainingProgramme.ApprovalStatus.APPROVED
+        self.programme.admin = reviewer
+        self.programme.save()
+
+        self.client.patch(self._url(), {"title": "Rewritten"}, format="json")
+        self.programme.refresh_from_db()
+
+        self.assertIsNone(self.programme.admin)
+
+    def test_an_edited_programme_leaves_the_students_list(self):
+        """The cost of the rule, and the right way round: an approved-looking
+        programme nobody approved is worse than one briefly missing."""
+        self.programme.approval_status = TrainingProgramme.ApprovalStatus.APPROVED
+        self.programme.save()
+
+        self.client.patch(self._url(), {"title": "Rewritten"}, format="json")
+        listed = self.client.get("/api/resources/training/approved/").data
+        rows = listed["results"] if isinstance(listed, dict) else listed
+
+        self.assertEqual([r for r in rows if r["id"] == self.programme.pk], [])
+
+    # ---- deleting ------------------------------------------------------------
+
+    def test_a_company_can_withdraw_its_own_programme(self):
+        response = self.client.delete(self._url())
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(TrainingProgramme.objects.filter(
+            pk=self.programme.pk).exists())
+
+    def test_an_approved_programme_can_be_withdrawn_too(self):
+        """A cancelled programme is the company's to remove."""
+        self.programme.approval_status = TrainingProgramme.ApprovalStatus.APPROVED
+        self.programme.save()
+
+        self.assertEqual(self.client.delete(self._url()).status_code, 204)
+
+    # ---- somebody else's -----------------------------------------------------
+
+    def test_another_company_cannot_edit_it(self):
+        from accounts.models import Company, User as U
+
+        other = U.objects.create_user(email="other@example.edu",
+                                      password="Sufficient-Pass-1",
+                                      role=U.Role.COMPANY)
+        Company.objects.create(user=other, company_name="Rival")
+        self.client.force_authenticate(user=other)
+
+        response = self.client.patch(self._url(), {"title": "Hijacked"},
+                                     format="json")
+
+        self.assertEqual(response.status_code, 404)
+        self.programme.refresh_from_db()
+        self.assertEqual(self.programme.title, "Full-Stack with React")
+
+    def test_another_company_cannot_delete_it(self):
+        from accounts.models import Company, User as U
+
+        other = U.objects.create_user(email="other2@example.edu",
+                                      password="Sufficient-Pass-1",
+                                      role=U.Role.COMPANY)
+        Company.objects.create(user=other, company_name="Rival")
+        self.client.force_authenticate(user=other)
+
+        self.assertEqual(self.client.delete(self._url()).status_code, 404)
+        self.assertTrue(TrainingProgramme.objects.filter(
+            pk=self.programme.pk).exists())
+
+    def test_a_student_cannot_touch_it(self):
+        from accounts.models import User as U
+
+        student = U.objects.create_user(email="stu@example.edu",
+                                        password="Sufficient-Pass-1",
+                                        role=U.Role.STUDENT)
+        self.client.force_authenticate(user=student)
+
+        self.assertEqual(self.client.delete(self._url()).status_code, 403)
+
+    def test_a_company_cannot_approve_its_own_programme(self):
+        """approval_status is read-only on this serializer, and the write above
+        sets it explicitly -- so a company sending APPROVED still gets PENDING."""
+        self.client.patch(self._url(), {
+            "title": "Self Approved",
+            "approval_status": TrainingProgramme.ApprovalStatus.APPROVED},
+            format="json")
+        self.programme.refresh_from_db()
+
+        self.assertEqual(self.programme.approval_status,
+                         TrainingProgramme.ApprovalStatus.PENDING)
+
+
+class WithdrawingAnApprovedProgrammeTellsTheAdminsTests(APITestCase):
+    """Deleting an approved programme takes it away from students silently.
+
+    A company withdrawing something nobody has reviewed is housekeeping. A
+    company withdrawing something an administrator approved removes a
+    programme students were being shown -- and the row goes with it, so the
+    notice is the only record that it ever existed.
+    """
+
+    def setUp(self):
+        from accounts.models import AdminProfile, Company, User
+
+        owner = User.objects.create_user(email="owner-w@example.edu",
+                                         password="Sufficient-Pass-1",
+                                         role=User.Role.COMPANY)
+        self.company = Company.objects.create(user=owner, company_name="ACME")
+        self.client.force_authenticate(user=owner)
+
+        for address in ("admin-a@example.edu", "admin-b@example.edu"):
+            AdminProfile.objects.create(
+                user=User.objects.create_user(email=address,
+                                              password="Sufficient-Pass-1",
+                                              role=User.Role.ADMIN),
+                admin_name=address)
+
+        self.programme = TrainingProgramme.objects.create(
+            company=self.company, title="Full-Stack with React",
+            approval_status=TrainingProgramme.ApprovalStatus.APPROVED)
+
+    def _delete(self, programme=None):
+        return self.client.delete(
+            f"/api/resources/training/{(programme or self.programme).pk}/")
+
+    def test_withdrawing_an_approved_programme_sends_a_notice(self):
+        from django.core import mail
+
+        self._delete()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Full-Stack with React", mail.outbox[0].subject)
+
+    def test_every_administrator_is_told(self):
+        from django.core import mail
+
+        self._delete()
+
+        self.assertEqual(sorted(mail.outbox[0].to),
+                         ["admin-a@example.edu", "admin-b@example.edu"])
+
+    def test_the_notice_says_which_company_and_which_programme(self):
+        """The row is gone, so whatever is not in this message is lost."""
+        from django.core import mail
+
+        self._delete()
+        body = mail.outbox[0].body
+
+        self.assertIn("ACME", body)
+        self.assertIn("Full-Stack with React", body)
+
+    def test_withdrawing_an_unreviewed_programme_tells_nobody(self):
+        """Nobody approved it and no student saw it."""
+        from django.core import mail
+
+        pending = TrainingProgramme.objects.create(
+            company=self.company, title="Not Reviewed Yet")
+
+        self._delete(pending)
+
+        self.assertEqual(mail.outbox, [])
+
+    def test_a_mail_failure_does_not_keep_the_programme(self):
+        """The programme is the company's to withdraw, and whether the mail
+        server answered is not their problem."""
+        from unittest.mock import patch
+
+        from resources import views
+
+        with patch.object(views, "send_mail",
+                          side_effect=OSError("mail server refused")):
+            response = self._delete()
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(TrainingProgramme.objects.filter(
+            pk=self.programme.pk).exists())
+
+    def test_no_administrators_is_not_an_error(self):
+        from accounts.models import AdminProfile
+
+        AdminProfile.objects.all().delete()
+
+        self.assertEqual(self._delete().status_code, 204)

@@ -118,6 +118,8 @@ export default function PostTrainingPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  // The programme being corrected, or null when submitting a new one.
+  const [editId, setEditId] = useState<number | null>(null);
 
   const [title, setTitle] = useState('');
   const [skillName, setSkillName] = useState('');
@@ -165,14 +167,44 @@ export default function PostTrainingPage() {
     }
   };
 
+  const openEdit = (prog: TrainingProgramme) => {
+    setEditId(prog.id);
+    setTitle(prog.title);
+    setSkillName(prog.skill ?? '');
+    setDuration(prog.programme_duration ?? '');
+    setDescription(prog.description ?? '');
+    setSupportingDoc(prog.supporting_doc ?? '');
+    setUploadedName(prog.supporting_doc ? 'Existing attachment' : null);
+    setError('');
+    setFormOpen(true);
+  };
+
+  // Withdrawing an approved programme takes it away from students and deletes
+  // the row, so it is confirmed rather than done on one click.
+  const handleWithdraw = async (prog: TrainingProgramme) => {
+    const approved = prog.approval_status === 'APPROVED';
+    const warning = approved
+      ? `Withdraw "${prog.title}"? Students will no longer see it, and the administrators will be told.`
+      : `Withdraw "${prog.title}"? This cannot be undone.`;
+    if (!window.confirm(warning)) return;
+
+    const res = await apiFetch(`/api/resources/training/${prog.id}/`, { method: 'DELETE' });
+    if (res.ok) {
+      setProgrammes(prev => prev.filter(p => p.id !== prog.id));
+    } else {
+      setError('Could not withdraw the programme. Please try again.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
     try {
-      const res = await apiFetch('/api/resources/training/', {
-        method: 'POST',
+      const res = await apiFetch(
+        editId ? `/api/resources/training/${editId}/` : '/api/resources/training/', {
+        method: editId ? 'PUT' : 'POST',
         body: JSON.stringify({
           title,
           description,
@@ -182,13 +214,18 @@ export default function PostTrainingPage() {
         }),
       });
 
-      if (res.status === 201) {
-        const newProgramme = await res.json();
-        setProgrammes(prev => [newProgramme, ...prev]);
+      if (res.status === 201 || res.status === 200) {
+        const saved = await res.json();
+        // An edit sends the programme back for review, so the row that comes
+        // back carries PENDING again -- replacing it is what shows that.
+        setProgrammes(prev => editId
+          ? prev.map(p => (p.id === saved.id ? saved : p))
+          : [saved, ...prev]);
         setSubmitted(true);
         setTimeout(() => {
           setSubmitted(false);
           setFormOpen(false);
+          setEditId(null);
           setTitle('');
           setSkillName('');
           setDuration('');
@@ -277,10 +314,28 @@ export default function PostTrainingPage() {
                             html={prog.description} />
                         )}
                       </div>
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex flex-col items-end gap-2">
                         <Badge variant={config.variant} className={cn('flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black tracking-widest')}>
                           <Icon size={12} /> {config.label}
                         </Badge>
+                        {/* A company's own programme is theirs to correct or
+                            withdraw. Editing an approved one sends it back for
+                            review, which the button says so nobody is
+                            surprised by it leaving the students' list. */}
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => openEdit(prog)}
+                            title={prog.approval_status === 'APPROVED'
+                              ? 'Edit — this will send it back for review'
+                              : 'Edit'}
+                            className="px-2 py-1 text-[10px] font-bold text-neutral-500 hover:text-primary hover:bg-indigo-50 rounded transition-colors">
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => handleWithdraw(prog)}
+                            title="Withdraw this programme"
+                            className="px-2 py-1 text-[10px] font-bold text-neutral-500 hover:text-danger hover:bg-danger/5 rounded transition-colors">
+                            Withdraw
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </Card>

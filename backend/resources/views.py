@@ -3,6 +3,7 @@ import os
 import uuid
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
@@ -17,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.audit import record_privacy_event
-from accounts.models import PrivacyAuditLog, UserConsent
+from accounts.models import AdminProfile, PrivacyAuditLog, UserConsent
 from accounts.permissions import (
     IsAdminUserRole, IsCompany, IsStudent, admin_profile_for, is_platform_admin,
 )
@@ -851,6 +852,122 @@ class CompanyTrainingView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(company=request.user.company_profile)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+def notify_admins_of_withdrawal(programme):
+    """Tell the administrators that an approved programme has been withdrawn.
+
+    Only for one that was approved. A company deleting something nobody has
+    reviewed yet is housekeeping; deleting something an administrator approved
+    removes a programme students were being shown, and the row goes with it --
+    so this mail is the only record that it ever existed.
+
+    Never fails the deletion. The programme is the company's to withdraw, and
+    whether the mail server answered is not their problem; a notification that
+    can refuse an action is worse than one that is occasionally missed.
+    """
+    recipients = sorted(
+        AdminProfile.objects
+        .filter(user__is_active=True)
+        .exclude(user__email="")
+        .values_list("user__email", flat=True))
+    if not recipients:
+        logger.warning("Approved programme %s withdrawn; no administrator to "
+                       "tell.", programme.pk)
+        return
+
+    company = programme.company.company_name if programme.company else "Unknown"
+    try:
+        send_mail(
+            subject=f"Training programme withdrawn — {programme.title}",
+            message=(
+                f"{company} has withdrawn a training programme that had "
+                f"been approved, so it is no longer shown to students.\n\n"
+                f"Programme : {programme.title}\n"
+                f"Company   : {company}\n"
+                f"Submitted : {programme.submission_time:%Y-%m-%d %H:%M}\n\n"
+                f"The record has been deleted; this message is the only "
+                f"copy of it."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipients,
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception(
+            "Could not tell the administrators that approved programme %s was "
+            "withdrawn.", programme.pk)
+
+
+class CompanyTrainingDetailView(APIView):
+    """
+    PUT/PATCH /api/resources/training/<int:pk>/  — company edits its own programme
+    DELETE    /api/resources/training/<int:pk>/  — company withdraws it
+
+    A company could post a programme and then do nothing with it. A typo in the
+    title, a date that moved, a programme that was cancelled -- all of it
+    needed an administrator, for content the company had written about itself.
+    The same company can already edit and delete its own job postings, which is
+    what marks this as never built rather than withheld on purpose.
+
+    An edit sends the programme back to PENDING. Approval is a statement about
+    what an administrator read, and the text it was granted for no longer
+    exists once the company rewrites it -- so it is re-reviewed, and while that
+    happens the programme leaves the students' list. That is the cost of the
+    rule and it is the right way round: an approved-looking programme nobody
+    approved is worse than one that is briefly missing.
+
+    The reviewing admin is cleared with it. Leaving the previous reviewer on a
+    row that is pending again would credit them with a decision about text they
+    never saw.
+
+    Another company's programme answers 404 rather than 403, as elsewhere:
+    whether it exists is not something to confirm to somebody who may not
+    know.
+    """
+
+    permission_classes = [IsCompany]
+
+    def _own(self, pk, request):
+        programme = (TrainingProgramme.objects
+                     .filter(pk=pk, company=request.user.company_profile)
+                     .first())
+        if programme is None:
+            return None, Response({"detail": "Not found."},
+                                  status=status.HTTP_404_NOT_FOUND)
+        return programme, None
+
+    def put(self, request, pk):
+        return self._update(request, pk, partial=False)
+
+    def patch(self, request, pk):
+        return self._update(request, pk, partial=True)
+
+    def _update(self, request, pk, partial):
+        programme, err = self._own(pk, request)
+        if err:
+            return err
+
+        serializer = TrainingProgrammeSerializer(programme, data=request.data,
+                                                 partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            approval_status=TrainingProgramme.ApprovalStatus.PENDING,
+            admin=None,
+        )
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        programme, err = self._own(pk, request)
+        if err:
+            return err
+
+        was_approved = (programme.approval_status
+                        == TrainingProgramme.ApprovalStatus.APPROVED)
+        programme.delete()
+        if was_approved:
+            notify_admins_of_withdrawal(programme)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TrainingFileUploadView(APIView):
