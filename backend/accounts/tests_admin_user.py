@@ -179,3 +179,153 @@ class OtherUserCreationPathsAreUnaffectedTests(TestCase):
         self.assertEqual(identify_hasher(user.password).algorithm, "pbkdf2_sha256")
         self.assertIsNotNone(
             authenticate(username="cli@example.edu", password=NEW_PASSWORD))
+
+
+class TheAdminOffersTheProfileForTheRoleTests(TestCase):
+    """A user row is half an account, and the admin only ever made that half.
+
+    Everything the application reads about a person -- a student's name and
+    department, a company's details, the administrator a record is attributed
+    to -- lives in a table joined one-to-one. Sign-up creates those through the
+    registration serializer and `create_admin` creates an AdminProfile; the
+    Add User page went through neither, so an account made here was missing the
+    half that gets used. It first showed up as a 500 on publishing an
+    announcement, weeks after the account was made.
+
+    The profile is offered as an inline rather than conjured by a signal: an
+    administrator filling one in is making a decision, and a second silent path
+    to an AdminProfile is the shape of a bug this codebase replaced once.
+    """
+
+    def setUp(self):
+        User.objects.create_superuser(email=ADMIN_EMAIL, password=ADMIN_PASSWORD)
+        self.client.login(email=ADMIN_EMAIL, password=ADMIN_PASSWORD)
+
+    def _change_page(self, user):
+        return self.client.get(f"/admin/accounts/user/{user.pk}/change/").content.decode()
+
+    def test_an_admin_account_offers_an_administrator_profile(self):
+        user = User.objects.create_user(email="new-admin@example.edu",
+                                        password=NEW_PASSWORD,
+                                        role=User.Role.ADMIN)
+
+        self.assertIn("admin_profile-0-admin_name", self._change_page(user))
+
+    def test_a_student_account_offers_a_student_profile(self):
+        user = User.objects.create_user(email="new-student@example.edu",
+                                        password=NEW_PASSWORD,
+                                        role=User.Role.STUDENT)
+        page = self._change_page(user)
+
+        self.assertIn("student_profile-0-student_name", page)
+        self.assertNotIn("admin_profile-0-admin_name", page)
+
+    def test_a_company_account_offers_a_company_profile(self):
+        user = User.objects.create_user(email="new-company@example.edu",
+                                        password=NEW_PASSWORD,
+                                        role=User.Role.COMPANY)
+        page = self._change_page(user)
+
+        self.assertIn("company_profile-0-company_name", page)
+        self.assertNotIn("student_profile-0-student_name", page)
+
+    def test_the_add_page_offers_none_of_them(self):
+        """The role is chosen in the same submission, so nothing yet decides
+        which profile applies. Django goes to the change page next, which is
+        where it appears."""
+        page = self.client.get(ADD_URL).content.decode()
+
+        for prefix in ("admin_profile-0-", "student_profile-0-",
+                       "company_profile-0-"):
+            self.assertNotIn(prefix, page)
+
+    def test_a_profile_can_be_filled_in_from_the_user_page(self):
+        """The whole point: the account can be completed where it was made."""
+        from accounts.models import AdminProfile
+
+        user = User.objects.create_user(email="fill-me@example.edu",
+                                        password=NEW_PASSWORD,
+                                        role=User.Role.ADMIN)
+
+        self.client.post(f"/admin/accounts/user/{user.pk}/change/", {
+            "email": user.email, "role": User.Role.ADMIN, "is_active": "on",
+            "created_time_0": "2026-09-27", "created_time_1": "10:00:00",
+            "admin_profile-TOTAL_FORMS": "1",
+            "admin_profile-INITIAL_FORMS": "0",
+            "admin_profile-MIN_NUM_FORMS": "0",
+            "admin_profile-MAX_NUM_FORMS": "1",
+            "admin_profile-0-admin_name": "Filled In",
+            "_save": "Save"}, follow=True)
+
+        self.assertEqual(AdminProfile.objects.get(user=user).admin_name,
+                         "Filled In")
+
+
+class UnfinishedAccountsAreReportedTests(TestCase):
+    """The inline stops new half-built accounts. This finds the existing ones.
+
+    An account with no profile passes every permission check and then fails the
+    moment something needs the profile -- which may be weeks later, and was a
+    500 before it was a 409. The check says so where somebody can act on it,
+    rather than waiting for the administrator to try to do something.
+    """
+
+    def _warnings(self):
+        from accounts.checks import accounts_have_their_profiles
+
+        return accounts_have_their_profiles(None)
+
+    def test_an_administrator_without_a_profile_is_reported(self):
+        User.objects.create_user(email="unprofiled@example.edu",
+                                 password=NEW_PASSWORD, role=User.Role.ADMIN)
+
+        messages = self._warnings()
+
+        self.assertEqual(len(messages), 1)
+        self.assertIn("unprofiled@example.edu", messages[0].msg)
+        self.assertIn("AdminProfile", messages[0].msg)
+
+    def test_the_report_names_the_command_that_fixes_it(self):
+        """An operator reading this should not have to come and ask."""
+        User.objects.create_user(email="unprofiled@example.edu",
+                                 password=NEW_PASSWORD, role=User.Role.ADMIN)
+
+        self.assertIn("create_admin", self._warnings()[0].hint)
+
+    def test_it_is_a_warning_and_not_an_error(self):
+        """A half-built account is a thing to repair, not a reason to refuse to
+        start. The deployment still works for everybody else."""
+        from django.core.checks import WARNING
+
+        User.objects.create_user(email="unprofiled@example.edu",
+                                 password=NEW_PASSWORD, role=User.Role.ADMIN)
+
+        self.assertEqual(self._warnings()[0].level, WARNING)
+
+    def test_students_and_companies_are_reported_too(self):
+        """The gap was never only about administrators: the Add User page made
+        every role without its profile."""
+        User.objects.create_user(email="s@example.edu", password=NEW_PASSWORD,
+                                 role=User.Role.STUDENT)
+        User.objects.create_user(email="c@example.edu", password=NEW_PASSWORD,
+                                 role=User.Role.COMPANY)
+
+        reported = " ".join(m.msg for m in self._warnings())
+
+        self.assertIn("Student", reported)
+        self.assertIn("Company", reported)
+
+    def test_a_complete_account_is_not_reported(self):
+        from accounts.models import AdminProfile
+
+        user = User.objects.create_user(email="complete@example.edu",
+                                        password=NEW_PASSWORD,
+                                        role=User.Role.ADMIN)
+        AdminProfile.objects.create(user=user, admin_name="Complete")
+
+        self.assertEqual(self._warnings(), [])
+
+    def test_nothing_is_reported_on_an_empty_database(self):
+        self.assertEqual(self._warnings(), [])
+
+

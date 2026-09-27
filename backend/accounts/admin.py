@@ -15,6 +15,57 @@ from .models import (
     UserConsent,
 )
 
+#: A user is only half an account. The row in `accounts_user` carries the
+#: login and the role; what the rest of the application reads -- a student's
+#: name and department, a company's details, the administrator a record is
+#: attributed to -- lives in a separate table joined one-to-one.
+#:
+#: Nothing created those alongside the user. Sign-up creates a Student or a
+#: Company through the registration serializer, and `manage.py create_admin`
+#: creates an AdminProfile; the admin's Add User form went through neither, so
+#: every account made here was missing the half the application actually uses.
+#: The first symptom was a 500 on publishing an announcement.
+#:
+#: Shown as inlines rather than created silently. An administrator filling one
+#: in is making a decision the application can attribute; a profile conjured
+#: by a signal is a second, silent path to an AdminProfile, which is the shape
+#: of a bug this codebase has already replaced once.
+
+
+class StudentInline(admin.StackedInline):
+    model = Student
+    can_delete = False
+    extra = 1
+    max_num = 1
+    verbose_name = "Student profile"
+    verbose_name_plural = "Student profile"
+
+
+class CompanyInline(admin.StackedInline):
+    model = Company
+    can_delete = False
+    extra = 1
+    max_num = 1
+    verbose_name = "Company profile"
+    verbose_name_plural = "Company profile"
+
+
+class AdminProfileInline(admin.StackedInline):
+    model = AdminProfile
+    can_delete = False
+    extra = 1
+    max_num = 1
+    verbose_name = "Administrator profile"
+    verbose_name_plural = "Administrator profile"
+
+
+PROFILE_INLINES = {
+    User.Role.STUDENT: StudentInline,
+    User.Role.COMPANY: CompanyInline,
+    User.Role.ADMIN: AdminProfileInline,
+}
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     """The user admin, with Django's password handling rather than a text box.
@@ -67,6 +118,22 @@ class UserAdmin(DjangoUserAdmin):
                        "password2"),
         }),
     )
+
+    def get_inline_instances(self, request, obj=None):
+        """The profile for this user's role, and only once there is a role.
+
+        None on the Add page: the role is chosen in the same submission, so
+        there is nothing yet to decide which profile applies. Django sends the
+        administrator to the change page immediately after adding, which is
+        where the inline appears -- and the system check in accounts/checks.py
+        is what catches an account where somebody stopped at the first page.
+        """
+        if obj is None:
+            return []
+        inline = PROFILE_INLINES.get(obj.role)
+        if inline is None:
+            return []
+        return [inline(self.model, self.admin_site)]
 admin.site.register(Student)
 admin.site.register(Company)
 admin.site.register(AdminProfile)
