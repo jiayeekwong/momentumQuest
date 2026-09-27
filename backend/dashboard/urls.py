@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AnnouncementListView,
     AnnouncementCreateView,
+    AnnouncementAttachmentView,
     AnnouncementDeleteView,
     AnnouncementFileUploadView,
     StudentDashboardView,
@@ -21,6 +22,11 @@ urlpatterns = [
     path('announcements/',          AnnouncementListView.as_view()),
     path('announcements/create/',   AnnouncementCreateView.as_view()),
     path('announcements/upload/',   AnnouncementFileUploadView.as_view()),
+    # No trailing slash, unlike the rest of this module: the value is a
+    # file, and a URL ending in its extension is what an <img> tag, a
+    # download and anything sniffing the type all expect.
+    path('announcements/attachment/<str:name>',
+         AnnouncementAttachmentView.as_view(), name='announcement-attachment'),
     path('announcements/<int:pk>/', AnnouncementDeleteView.as_view()),
     path('student/',                StudentDashboardView.as_view()),
     path('skill-gap/',              StudentSkillGapView.as_view(),   name='student-skill-gap'),

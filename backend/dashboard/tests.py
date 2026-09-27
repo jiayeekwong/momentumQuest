@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -1794,5 +1795,129 @@ class AdminWithoutAProfileGetsAnAnswerTests(APITestCase):
             "audience": "EVERYONE"}, format="json")
 
         self.assertFalse(AdminProfile.objects.filter(user=self.user).exists())
+
+
+class AnnouncementAttachmentsSurviveTests(APITestCase):
+    """A poster has to still be there when somebody opens the announcement.
+
+    Uploads went to MEDIA_ROOT, which is inside the container. Nothing serves
+    it once DEBUG is off -- Django's static() helper is a no-op then, and
+    WhiteNoise only serves STATIC_ROOT -- and the deployment has no disk, so
+    the file was discarded whenever the container was replaced. The upload
+    reported success, the URL was stored on the announcement, and the poster
+    was never retrievable: the same silent loss the free-tier notes describe
+    for certificates, which is why those were moved to object storage.
+
+    These drive the real endpoints, because the defect was in where the bytes
+    went rather than in any function's behaviour.
+    """
+
+    #: A real PNG. The validator reads the file's own bytes, so a renamed text
+    #: file will not do -- which is the point of it.
+    PNG = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00"
+        b"\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    def setUp(self):
+        from accounts.models import AdminProfile
+
+        self.admin = User.objects.create_user(
+            email="poster-admin@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.ADMIN, is_staff=True, is_active=True,
+            email_verified=True)
+        AdminProfile.objects.create(user=self.admin, admin_name="Poster Admin")
+        self.client.force_authenticate(user=self.admin)
+
+    def _upload(self, name="poster.png", content=None):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        upload = SimpleUploadedFile(name, content if content is not None else self.PNG,
+                                    content_type="image/png")
+        return self.client.post("/api/dashboard/announcements/upload/",
+                                {"file": upload}, format="multipart")
+
+    def test_an_uploaded_poster_can_be_fetched_back(self):
+        """The whole of it. Upload, then open what the upload handed you."""
+        created = self._upload()
+        self.assertEqual(created.status_code, 201)
+
+        fetched = self.client.get(created.data["url"])
+
+        self.assertEqual(fetched.status_code, 200)
+        self.assertEqual(b"".join(fetched.streaming_content), self.PNG)
+
+    def test_it_is_not_written_to_the_instance_filesystem(self):
+        """MEDIA_ROOT is discarded with the container, and unserved besides.
+
+        Compares before and after rather than asserting the directory is
+        empty: a developer's machine has whatever earlier uploads left there,
+        and a test that reads it would be measuring that history instead of
+        what this upload did.
+        """
+        from django.conf import settings
+
+        media = Path(settings.MEDIA_ROOT) / "announcements"
+        before = set(media.iterdir()) if media.exists() else set()
+
+        self._upload()
+
+        after = set(media.iterdir()) if media.exists() else set()
+        self.assertEqual(after - before, set(),
+                         "the poster went to the container filesystem again")
+
+    def test_the_url_points_at_the_api_rather_than_media(self):
+        url = self._upload().data["url"]
+
+        self.assertIn("/api/dashboard/announcements/attachment/", url)
+        self.assertNotIn("/media/", url)
+
+    def test_the_url_is_absolute_so_another_origin_can_render_it(self):
+        """The dashboards are served from somewhere else entirely, and an
+        <img> tag resolves a relative path against its own page."""
+        url = self._upload().data["url"]
+
+        self.assertTrue(url.startswith("http://") or url.startswith("https://"),
+                        f"not absolute: {url}")
+
+    def test_a_poster_is_served_without_a_token(self):
+        """An <img> element cannot carry a bearer token, and a poster is not a
+        secret -- which is why the upload reads the file's type from its own
+        bytes rather than trusting the name."""
+        url = self._upload().data["url"]
+        self.client.force_authenticate(user=None)
+
+        self.assertEqual(self.client.get(url).status_code, 200)
+
+    def test_a_name_this_view_did_not_write_is_refused(self):
+        """Nothing that fails the shape is joined onto a storage path."""
+        for name in ("../../etc/passwd", "not-a-uuid.png", "a" * 31 + ".png",
+                     "0123456789abcdef0123456789abcdef.exe."):
+            with self.subTest(name=name):
+                response = self.client.get(
+                    f"/api/dashboard/announcements/attachment/{name}")
+                self.assertIn(response.status_code, (404, 301))
+
+    def test_a_name_that_was_never_uploaded_is_not_found(self):
+        response = self.client.get(
+            "/api/dashboard/announcements/attachment/" + "0" * 32 + ".png")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_a_file_that_is_not_what_it_claims_is_refused(self):
+        """The file type is the security boundary for something served to
+        anyone with the link: an .html or .svg would run script on this origin."""
+        response = self._upload(name="poster.png", content=b"<script>alert(1)</script>")
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_only_an_administrator_can_upload(self):
+        student = User.objects.create_user(
+            email="student@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.STUDENT)
+        self.client.force_authenticate(user=student)
+
+        self.assertEqual(self._upload().status_code, 403)
 
 

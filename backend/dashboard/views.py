@@ -1,15 +1,19 @@
 import os
+import re
 import uuid
+
 from collections import defaultdict
 from datetime import date
 
+from django.http import FileResponse, Http404
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db.models import Count, DateField, Max, Min, Q
 from django.db.models.functions import Cast, Coalesce, TruncMonth
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,6 +26,7 @@ from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate, LearningResource  # Certificate: admin dashboard only
 from resources.providers import authority_index, get_provider, provider_names
 from resources.relevance import DEFAULT_PER_SKILL, free_status, related_resources
+from resources import private_storage
 from resources.file_validation import InvalidUpload, validate_document
 
 from .models import Announcement
@@ -1071,6 +1076,10 @@ class AnnouncementCreateView(generics.CreateAPIView):
         serializer.save(admin=admin_profile_for(self.request.user))
 
 
+#: Where announcement posters live in the private store.
+ANNOUNCEMENT_ATTACHMENT_DIR = "announcements"
+
+
 class AnnouncementFileUploadView(APIView):
     """
     POST /api/dashboard/announcements/upload/
@@ -1099,10 +1108,74 @@ class AnnouncementFileUploadView(APIView):
                                        "A supporting document must be")
             return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
 
-        name = f"announcements/{uuid.uuid4().hex}{extension}"
-        saved_path = default_storage.save(name, file)
-        url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+        # Object storage, not the instance's filesystem. MEDIA_ROOT lives
+        # inside the container: nothing serves it once DEBUG is off, because
+        # Django's static() helper is a no-op then and WhiteNoise only serves
+        # STATIC_ROOT -- and the deployment has no disk, so the file is
+        # discarded when the container is next replaced. The upload reported
+        # success, the URL was stored, and the poster was never retrievable.
+        stored_name = f"{uuid.uuid4().hex}{extension}"
+        relative_path = private_storage.build_relative_path(
+            ANNOUNCEMENT_ATTACHMENT_DIR, stored_name)
+        private_storage.save(relative_path, file.chunks())
+
+        url = request.build_absolute_uri(
+            reverse('announcement-attachment', args=[stored_name]))
         return Response({'url': url}, status=status.HTTP_201_CREATED)
+
+
+class AnnouncementAttachmentView(APIView):
+    """
+    GET /api/dashboard/announcements/attachment/<name>/
+    The poster or brochure attached to an announcement.
+
+    Served without authentication, which is what a poster is for: it is
+    rendered by an <img> tag on every dashboard that shows the announcement,
+    and an image element cannot carry the bearer token the rest of the API
+    uses. That was already the design -- the upload validates the file's type
+    from its own bytes precisely because the result is served to anyone with
+    the link, so an .html or .svg would run script on this origin.
+
+    Streamed through here rather than from a public bucket. The bytes are not
+    secret, but a public bucket is a second surface to configure, and this
+    keeps one storage backend for the whole application.
+
+    The name is generated at upload -- a UUID4 with the extension the file's
+    contents earned -- so a link cannot be guessed from the announcement, and
+    anything that does not look like one is refused before it reaches storage.
+    """
+
+    permission_classes = [AllowAny]
+
+    #: What an uploaded name looks like. Anything else is not something this
+    #: view wrote, and is never joined onto a storage path.
+    NAME = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{1,5}$")
+
+    CONTENT_TYPES = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".pdf": "application/pdf",
+    }
+
+    def get(self, request, name):
+        if not self.NAME.match(name):
+            raise Http404("No such attachment.")
+
+        stream = private_storage.open_stored(
+            private_storage.build_relative_path(
+                ANNOUNCEMENT_ATTACHMENT_DIR, name))
+        if stream is None:
+            raise Http404("No such attachment.")
+
+        extension = os.path.splitext(name)[1].lower()
+        return FileResponse(
+            stream,
+            content_type=self.CONTENT_TYPES.get(extension,
+                                                "application/octet-stream"),
+        )
 
 
 class AnnouncementDeleteView(generics.DestroyAPIView):
