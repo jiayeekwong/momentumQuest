@@ -412,7 +412,17 @@ export default function DashboardPage() {
                   <Line name="Job postings" type="monotone" dataKey="job_count" connectNulls={false} stroke="#4f46e5" strokeWidth={3} activeDot={{ r: 6 }}
                     dot={(props: { cx?: number; cy?: number; index?: number; key?: string }) => {
                       const point = (marketDemand?.series ?? [])[props.index ?? -1];
-                      const running = Boolean(point?.partial);
+                      // A month nobody collected has no value and so no
+                      // position. Recharts skips those itself when the dot is
+                      // a plain object, but calls this for every point in the
+                      // series -- and a circle with no cy is drawn at the top
+                      // of the chart, which put a row of half dots above
+                      // every gap in the line.
+                      if (point?.job_count == null
+                          || !Number.isFinite(props.cx) || !Number.isFinite(props.cy)) {
+                        return <g key={props.key ?? `gap-${props.index}`} />;
+                      }
+                      const running = Boolean(point.partial);
                       return (
                         <circle key={props.key ?? `dot-${props.index}`} cx={props.cx} cy={props.cy} r={running ? 5 : 4}
                           fill={running ? '#ffffff' : '#4f46e5'} stroke="#4f46e5" strokeWidth={running ? 2 : 0}
