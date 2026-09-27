@@ -172,11 +172,18 @@ export default function ManageCoursesPage() {
                         </Button>
                       </div>
                     </div>
-                    {course.skill && (
-                      <span className="inline-block mt-2 px-2 py-0.5 bg-indigo-50 text-primary rounded-full text-[10px] font-bold">
-                        {course.skill}
+                    {/* Every skill, not just the headline one. The card read
+                        course.skill -- the single foreign key -- so a course
+                        saved with four skills listed one, and the only way to
+                        see the rest was to open the edit form. */}
+                    {(course.skill_names?.length ? course.skill_names
+                      : course.skill ? [course.skill] : []).map((name, i) => (
+                      <span key={name}
+                        className="inline-block mt-2 mr-1.5 px-2 py-0.5 bg-indigo-50 text-primary rounded-full text-[10px] font-bold">
+                        {i === 0 && <span className="mr-1 opacity-50">main</span>}
+                        {name}
                       </span>
-                    )}
+                    ))}
                   </div>
                 </div>
               </Card>
