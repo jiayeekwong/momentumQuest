@@ -173,7 +173,16 @@ export default function ResourcesPage() {
   // fetching all of them to filter in the browser cost 5.4MB and rendered
   // every row into the DOM.
   useEffect(() => {
-    if (showingTraining) return;   // nothing to fetch; training is already in memory
+    if (showingTraining) {
+      // Nothing to fetch -- training is already in memory. The catalogue rows
+      // from whichever filter was showing before have to go, though: the
+      // effect returning early left them in state, and the grid renders both
+      // lists, so choosing Training Programme showed every training programme
+      // *and* the last page of freeCodeCamp courses.
+      setResources([]);
+      setCount(0);
+      return;
+    }
 
     const params = new URLSearchParams({ page: String(page) });
     if (platform !== 'All') params.set('platform', platform);
