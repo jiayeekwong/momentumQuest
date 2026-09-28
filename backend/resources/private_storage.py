@@ -144,6 +144,18 @@ class FilesystemPrivateStorage:
         return True
 
     def iter_keys(self, prefix=""):
+        for key, _modified in self.iter_entries(prefix):
+            yield key
+
+    def iter_entries(self, prefix=""):
+        """(key, last modified) for everything under `prefix`.
+
+        The time comes from the listing rather than from a lookup per object,
+        because the caller that wants it -- the CV purge -- wants it for every
+        file it sees, and asking once per file is a request per file.
+        """
+        from datetime import datetime, timezone as dt_timezone
+
         root = os.path.realpath(settings.PRIVATE_MEDIA_ROOT)
         base = os.path.join(root, *_key_parts(prefix)) if prefix else root
         if not os.path.isdir(base):
@@ -151,7 +163,10 @@ class FilesystemPrivateStorage:
         for directory, _subdirs, filenames in os.walk(base):
             for filename in filenames:
                 absolute = os.path.join(directory, filename)
-                yield os.path.relpath(absolute, root).replace("\\", "/")
+                key = os.path.relpath(absolute, root).replace("\\", "/")
+                modified = datetime.fromtimestamp(
+                    os.path.getmtime(absolute), tz=dt_timezone.utc)
+                yield key, modified
 
 
 # --------------------------------------------------------------------- R2 --
@@ -285,11 +300,25 @@ class R2PrivateStorage:
         return True
 
     def iter_keys(self, prefix=""):
+        for key, _modified in self.iter_entries(prefix):
+            yield key
+
+    def iter_entries(self, prefix=""):
+        """(key, last modified) for everything under `prefix`.
+
+        LastModified is already in the listing, so this costs nothing beyond
+        what iter_keys costs -- while a per-object lookup would be a request
+        for every file the purge examines.
+        """
         paginator = self.client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket,
                                        Prefix=self._normalise(prefix)):
             for entry in page.get("Contents", ()):
-                yield entry["Key"]
+                # .get, because the time is the caller's concern and the key
+                # is not: a listing that omits it should still enumerate.
+                # purge_expired_cvs treats an unknown age as "leave it alone",
+                # which is the safe direction for a file it would delete.
+                yield entry["Key"], entry.get("LastModified")
 
 
 # ---------------------------------------------------------------- backend --
@@ -396,3 +425,7 @@ def delete(relative_path):
 
 def iter_keys(prefix=""):
     return backend().iter_keys(prefix)
+
+
+def iter_entries(prefix=""):
+    return backend().iter_entries(prefix)

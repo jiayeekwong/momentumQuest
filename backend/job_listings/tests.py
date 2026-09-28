@@ -1,3 +1,4 @@
+from rest_framework.test import APITestCase
 import os
 import tempfile
 import time
@@ -1819,3 +1820,320 @@ class EnterpriseSkillVocabularyTests(TestCase):
             'moving software engineering environment.')}
 
         self.assertNotIn('Microsoft Dynamics', names)
+
+
+class TheCVReachesTheEmployerTests(APITestCase):
+    """Notice 1.3 makes four promises about the file. These are them.
+
+    The employer sees the document the student wrote, nobody else can open it,
+    an administrator who does is recorded, and the student can take it back.
+    Each of those is a sentence in a notice students are held to, so each is a
+    test rather than an intention.
+    """
+
+    PDF = b"%PDF-1.4\n" + b"0" * 512
+
+    def setUp(self):
+        from accounts.models import AdminProfile, Company, Student, User
+        from scrape_jobs.models import JobCategory
+
+        self.student_user = User.objects.create_user(
+            email="applicant@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.STUDENT)
+        self.student = Student.objects.create(user=self.student_user,
+                                              student_name="Applicant")
+
+        company_user = User.objects.create_user(
+            email="hiring@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.COMPANY)
+        self.company = Company.objects.create(user=company_user,
+                                              company_name="ACME")
+        self.company_user = company_user
+
+        category = JobCategory.objects.create(category_name="Software")
+        self.job = JobListing.objects.create(
+            job_title="Backend Developer", company=self.company,
+            category=category, source_type=JobListing.SourceType.COMPANY,
+            status=JobListing.Status.ACTIVE,
+            source_url="https://example.test/job")
+
+        self.application = self._application_with_cv()
+
+    def _application_with_cv(self):
+        from resources import private_storage
+        from resources.attachments import store_attachment
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        upload = SimpleUploadedFile("my cv.pdf", self.PDF,
+                                    content_type="application/pdf")
+        name = store_attachment("cv", upload, ".pdf")
+        return JobApplication.objects.create(
+            student=self.student, job=self.job,
+            cv_path=private_storage.build_relative_path("cv", name),
+            cv_original_name="my cv.pdf")
+
+    def _url(self, application=None):
+        return f"/api/job-listings/applications/{(application or self.application).pk}/cv/"
+
+    # ---- who may open it -----------------------------------------------------
+
+    def test_the_employer_it_was_sent_to_can_open_it(self):
+        self.client.force_authenticate(self.company_user)
+
+        response = self.client.get(self._url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), self.PDF)
+
+    def test_the_student_can_open_their_own(self):
+        self.client.force_authenticate(self.student_user)
+
+        self.assertEqual(self.client.get(self._url()).status_code, 200)
+
+    def test_another_employer_cannot(self):
+        """"Only the employer you applied to can open it" is the sentence."""
+        from accounts.models import Company, User
+
+        rival = User.objects.create_user(email="rival@example.edu",
+                                         password="Sufficient-Pass-1",
+                                         role=User.Role.COMPANY)
+        Company.objects.create(user=rival, company_name="Rival")
+        self.client.force_authenticate(rival)
+
+        self.assertEqual(self.client.get(self._url()).status_code, 404)
+
+    def test_another_student_cannot(self):
+        from accounts.models import Student, User
+
+        other = User.objects.create_user(email="other@example.edu",
+                                         password="Sufficient-Pass-1",
+                                         role=User.Role.STUDENT)
+        Student.objects.create(user=other, student_name="Other")
+        self.client.force_authenticate(other)
+
+        self.assertEqual(self.client.get(self._url()).status_code, 404)
+
+    def test_a_stranger_is_told_nothing(self):
+        """404 rather than 403: whether an application exists is not something
+        to confirm to somebody with no business reading it."""
+        self.client.force_authenticate(None)
+
+        self.assertIn(self.client.get(self._url()).status_code, (401, 404))
+
+    # ---- the administrator ---------------------------------------------------
+
+    def test_an_administrator_can_open_it(self):
+        from accounts.models import AdminProfile, User
+
+        admin = User.objects.create_user(
+            email="admin@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.ADMIN, is_staff=True)
+        AdminProfile.objects.create(user=admin, admin_name="Admin")
+        self.client.force_authenticate(admin)
+
+        self.assertEqual(self.client.get(self._url()).status_code, 200)
+
+    def test_an_administrator_opening_one_is_recorded(self):
+        """A CV is the densest personal data here. An access nobody can
+        account for afterwards is the one worth refusing to leave untraceable."""
+        from accounts.models import AdminProfile, PrivacyAuditLog, User
+
+        admin = User.objects.create_user(
+            email="admin2@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.ADMIN, is_staff=True)
+        AdminProfile.objects.create(user=admin, admin_name="Admin")
+        self.client.force_authenticate(admin)
+
+        self.client.get(self._url())
+
+        entry = PrivacyAuditLog.objects.filter(
+            action=PrivacyAuditLog.Action.CV_VIEWED_BY_ADMIN).first()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.target_user, self.student_user)
+
+    def test_the_employer_opening_it_is_not_an_audit_event(self):
+        """They were sent it. Recording every read would bury the access that
+        matters in the ones that are the point of the feature."""
+        from accounts.models import PrivacyAuditLog
+
+        self.client.force_authenticate(self.company_user)
+        self.client.get(self._url())
+
+        self.assertFalse(PrivacyAuditLog.objects.filter(
+            action=PrivacyAuditLog.Action.CV_VIEWED_BY_ADMIN).exists())
+
+    # ---- the student takes it back -------------------------------------------
+
+    def test_the_student_can_remove_it(self):
+        self.client.force_authenticate(self.student_user)
+
+        response = self.client.delete(self._url())
+
+        self.assertEqual(response.status_code, 204)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.cv_path, "")
+
+    def test_removing_it_does_not_withdraw_the_application(self):
+        """The notice says so in as many words."""
+        self.client.force_authenticate(self.student_user)
+
+        self.client.delete(self._url())
+
+        self.assertTrue(JobApplication.objects.filter(
+            pk=self.application.pk).exists())
+
+    def test_the_employer_cannot_remove_it(self):
+        """An employer who could delete a CV could remove the evidence of what
+        they were sent."""
+        self.client.force_authenticate(self.company_user)
+
+        self.assertEqual(self.client.delete(self._url()).status_code, 404)
+        self.application.refresh_from_db()
+        self.assertNotEqual(self.application.cv_path, "")
+
+    def test_a_removed_cv_cannot_be_opened_afterwards(self):
+        self.client.force_authenticate(self.student_user)
+        self.client.delete(self._url())
+        self.client.force_authenticate(self.company_user)
+
+        self.assertEqual(self.client.get(self._url()).status_code, 404)
+
+    # ---- applications from before 1.3 ----------------------------------------
+
+    def test_an_application_with_no_cv_says_so(self):
+        """Everything submitted under 1.2 keeps none: the file was deleted,
+        because that notice promised it would be."""
+        older = JobApplication.objects.create(
+            student=self.student, job=JobListing.objects.create(
+                job_title="Another", company=self.company,
+                category=self.job.category,
+                source_type=JobListing.SourceType.COMPANY,
+                source_url="https://example.test/job2"))
+        self.client.force_authenticate(self.company_user)
+
+        self.assertEqual(self.client.get(self._url(older)).status_code, 404)
+
+
+class CVsAreDeletedWhenThePeriodEndsTests(TestCase):
+    """The notice says six months, so something has to make that true.
+
+    And a CV is stored when it is parsed, before the student has decided to
+    apply -- so an upload nobody submitted leaves a file no application will
+    ever claim.
+    """
+
+    PDF = b"%PDF-1.4\n" + b"0" * 128
+
+    def setUp(self):
+        from accounts.models import Company, Student, User
+        from scrape_jobs.models import JobCategory
+
+        user = User.objects.create_user(email="s@example.edu",
+                                        password="Sufficient-Pass-1",
+                                        role=User.Role.STUDENT)
+        self.student = Student.objects.create(user=user, student_name="S")
+        company_user = User.objects.create_user(
+            email="c@example.edu", password="Sufficient-Pass-1",
+            role=User.Role.COMPANY)
+        company = Company.objects.create(user=company_user, company_name="ACME")
+        category = JobCategory.objects.create(category_name="Software")
+        self.job = JobListing.objects.create(
+            job_title="Backend Developer", company=company, category=category,
+            source_type=JobListing.SourceType.COMPANY,
+            source_url="https://example.test/job")
+
+    def _store(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from resources import private_storage
+        from resources.attachments import store_attachment
+
+        name = store_attachment("cv", SimpleUploadedFile(
+            "cv.pdf", self.PDF, content_type="application/pdf"), ".pdf")
+        return private_storage.build_relative_path("cv", name)
+
+    def _application(self, applied_days_ago):
+        from django.utils import timezone
+
+        application = JobApplication.objects.create(
+            student=self.student, job=self.job, cv_path=self._store())
+        JobApplication.objects.filter(pk=application.pk).update(
+            applied_time=timezone.now() - timedelta(days=applied_days_ago))
+        application.refresh_from_db()
+        return application
+
+    @staticmethod
+    def _purge(delete=True):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("purge_expired_cvs", delete=delete, stdout=out)
+        return out.getvalue()
+
+    def test_a_cv_past_the_period_is_deleted(self):
+        from resources import private_storage
+
+        application = self._application(applied_days_ago=200)
+        path = application.cv_path
+
+        self._purge()
+        application.refresh_from_db()
+
+        self.assertEqual(application.cv_path, "")
+        self.assertIsNone(private_storage.open_stored(path))
+
+    def test_a_recent_cv_is_left_alone(self):
+        application = self._application(applied_days_ago=30)
+
+        self._purge()
+        application.refresh_from_db()
+
+        self.assertNotEqual(application.cv_path, "")
+
+    def test_the_application_itself_survives(self):
+        """Retention removes the document, not the record of applying."""
+        application = self._application(applied_days_ago=200)
+
+        self._purge()
+
+        self.assertTrue(JobApplication.objects.filter(
+            pk=application.pk).exists())
+
+    def test_a_dry_run_removes_nothing(self):
+        application = self._application(applied_days_ago=200)
+
+        self._purge(delete=False)
+        application.refresh_from_db()
+
+        self.assertNotEqual(application.cv_path, "")
+
+    def test_an_upload_nobody_applied_with_is_removed(self):
+        """Stored at parse time, before the student decides. Someone who
+        uploads three CVs and applies once leaves two nobody claimed."""
+        import os
+
+        from django.conf import settings
+
+        from resources import private_storage
+
+        orphan = self._store()
+        # Older than the grace period, which exists so a student reading their
+        # parsed CV right now does not lose it mid-application.
+        absolute = os.path.join(settings.PRIVATE_MEDIA_ROOT, *orphan.split("/"))
+        old = timezone.now() - timedelta(days=3)
+        os.utime(absolute, (old.timestamp(), old.timestamp()))
+
+        self._purge()
+
+        self.assertIsNone(private_storage.open_stored(orphan))
+
+    def test_a_just_uploaded_file_is_not_swept_away(self):
+        from resources import private_storage
+
+        fresh = self._store()
+
+        self._purge()
+
+        self.assertIsNotNone(private_storage.open_stored(fresh))

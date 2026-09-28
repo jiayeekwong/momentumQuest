@@ -439,8 +439,22 @@ class JobApplicationCreateSerializer(serializers.Serializer):
     def cv_consent_id(self):
         return getattr(self, "_receipt_payload", {}).get("consent_id")
 
+    @property
+    def cv_stored_name(self):
+        """Where the parsed CV was stored, from the receipt this server signed.
+
+        Taken from the receipt rather than the request body: a client naming
+        its own file could attach another student's CV to its application.
+        """
+        return getattr(self, "_receipt_payload", {}).get("cv_name", "")
+
+    @property
+    def cv_original_name(self):
+        return getattr(self, "_receipt_payload", {}).get("cv_original_name", "")
+
 
 class JobApplicationSerializer(serializers.ModelSerializer):
+    has_cv         = serializers.SerializerMethodField()
     student_name   = serializers.CharField(source='student.student_name', read_only=True)
     student_email  = serializers.CharField(source='student.user.email', read_only=True)
     student_skills = serializers.SerializerMethodField()
@@ -454,7 +468,17 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             'match_score', 'job_title', 'job',
             'applicant_snapshot', 'status', 'applied_time', 'is_read',
             'needs_work_permit', 'available_from', 'phone', 'cover_note',
+            'has_cv', 'cv_original_name',
         ]
+
+    def get_has_cv(self, obj):
+        """Whether there is a file to open, without exposing where it is.
+
+        The path is a storage key. The employer needs to know a CV exists so
+        the page can offer it; the route to the bytes is the download view,
+        which checks who is asking.
+        """
+        return bool(obj.cv_path)
 
     def get_student_skills(self, obj):
         """The skills as submitted, each flagged with its verified status.
@@ -537,6 +561,7 @@ class StudentApplicationSerializer(serializers.ModelSerializer):
                                            read_only=True, default=None)
     job_status     = serializers.CharField(source='job.status', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    has_cv         = serializers.SerializerMethodField()
 
     class Meta:
         model = JobApplication
@@ -544,8 +569,13 @@ class StudentApplicationSerializer(serializers.ModelSerializer):
             'id', 'job', 'job_title', 'company_name', 'work_mode',
             'category_name', 'job_status', 'status', 'status_display',
             'applied_time', 'applicant_snapshot', 'needs_work_permit', 'available_from',
-            'phone', 'cover_note',
+            'phone', 'cover_note', 'has_cv', 'cv_original_name',
         ]
+
+    def get_has_cv(self, obj):
+        """Whether the CV is still attached, so the page can offer to remove
+        it -- and stop offering once it is gone."""
+        return bool(obj.cv_path)
 
     def get_company_name(self, obj):
         if obj.job.company:

@@ -13,7 +13,13 @@ from django.utils import timezone
 
 from config.search import WholeWordSearchFilter
 
-from accounts.permissions import IsCompany, IsStudent
+from django.http import FileResponse, Http404
+from rest_framework.permissions import IsAuthenticated
+from accounts.audit import record_privacy_event
+from accounts.models import PrivacyAuditLog
+from accounts.permissions import IsCompany, IsStudent, is_platform_admin
+from resources import private_storage
+from resources.attachments import store_attachment
 from resources.file_validation import (
     MAX_BYTES as MAX_UPLOAD_BYTES, InvalidUpload, validate_document,
 )
@@ -223,6 +229,12 @@ class StudentJobApplicationView(APIView):
                     # from, taken from the signed receipt rather than from a
                     # client-supplied id.
                     cv_processing_consent_id=serializer.cv_consent_id,
+                    # Claims the file the parse stored. Until an application
+                    # names it, it is an orphan that purge_stored_cvs removes.
+                    cv_path=private_storage.build_relative_path(
+                        CV_DIR, serializer.cv_stored_name)
+                    if serializer.cv_stored_name else "",
+                    cv_original_name=serializer.cv_original_name,
                     disclosure_consent=disclosure,
                 )
         except IntegrityError:
@@ -240,23 +252,30 @@ class StudentJobApplicationView(APIView):
                         status=status.HTTP_201_CREATED)
 
 
+#: Where CVs live in the private store.
+CV_DIR = "cv"
+
+
 class CVParseView(APIView):
     """
     POST /api/job-listings/cv/parse/
-    Reads a CV and returns what it says. **Stores nothing.**
+    Reads a CV, keeps it, and returns what it says.
 
-    The file is written to a private temporary path only because the PDF
-    reader needs one, parsed, and deleted in a finally block. Nothing about
-    it survives the request.
+    The file is stored in the private store, never under MEDIA_ROOT -- which
+    is public, and is where an earlier version of this endpoint put CVs and
+    handed back a directly-reachable URL. A CV carries a phone number, an
+    address, referees and often a photograph, so it is served only to the
+    employer it was sent to, through a view that checks who is asking.
 
-    This replaces an upload endpoint that saved CVs under the public
-    MEDIA_ROOT and handed back a directly-reachable URL. A stored CV carries a
-    phone number, an address, referees and often a photograph; keeping only
-    the few fields the system actually uses avoids serving, protecting and
-    deleting all of that.
+    Keeping it is notice 1.3. Reading a CV loses what a person would notice --
+    how a candidate describes their own work, what they chose to put first --
+    and an employer was being shown only the extraction.
 
-    The response is a proposal, not a record. The student corrects it and the
-    confirmed version is attached to an application.
+    Where it was stored travels in the signed receipt rather than the response
+    body, so the submit endpoint cannot be told to attach some other file.
+
+    The parsed response is still a proposal, not a record: the student
+    corrects it, and the confirmed version is attached to the application.
     """
     permission_classes = [IsStudent]
 
@@ -309,7 +328,13 @@ class CVParseView(APIView):
             source=UserConsent.Source.CV_PARSE,
         )
 
+        # Stored before parsing, so a CV that defeats the reader is still the
+        # document the student sent and can still reach the employer. An
+        # unclaimed file is removed by purge_stored_cvs; see its own note.
+        stored_name = store_attachment(CV_DIR, upload, ".pdf")
+
         try:
+            upload.seek(0)
             parsed = parse_cv(upload)
         except Exception:
             logger.exception('CV parsing failed')
@@ -326,8 +351,107 @@ class CVParseView(APIView):
         # is about to submit, without the client naming a consent row itself.
         # It attests that consented processing happened -- not that anything
         # the parser extracted is accurate or verified.
-        parsed['cv_parse_receipt'] = cv_receipt.issue(request.user.id, consent.id)
+        parsed['cv_parse_receipt'] = cv_receipt.issue(
+            request.user.id, consent.id,
+            cv_name=stored_name,
+            cv_original_name=(upload.name or "")[:255])
         return Response(parsed, status=status.HTTP_200_OK)
+
+
+class ApplicationCVView(APIView):
+    """
+    GET    /api/job-listings/applications/<int:pk>/cv/  — open the CV
+    DELETE /api/job-listings/applications/<int:pk>/cv/  — the student removes it
+
+    Who may open it, and nobody else: the employer this application was sent
+    to, the student who sent it, and an administrator investigating a problem.
+    Notice 1.3 says exactly that, so this is the sentence it has to be true of.
+
+    Streamed through here rather than redirected to a signed URL, for the
+    reason the certificate download gives: a signed URL is a second route to
+    the bytes, valid for as long as its expiry regardless of what happens to
+    the permission that granted it, and it appears in browser history and
+    referrers. One rule, one path.
+
+    An administrator opening somebody's CV is recorded. A CV is the densest
+    personal data here -- address, phone, referees, often a photograph -- and
+    an access nobody can account for afterwards is the one worth refusing to
+    leave untraceable.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def _application(self, pk, request):
+        application = (JobApplication.objects
+                       .select_related("student__user", "job__company__user")
+                       .filter(pk=pk).first())
+        if application is None:
+            return None, None
+
+        user = request.user
+        if getattr(user, "student_profile", None) == application.student:
+            return application, "student"
+        company = getattr(user, "company_profile", None)
+        if company is not None and company == application.job.company:
+            return application, "employer"
+        if is_platform_admin(user):
+            return application, "admin"
+        # Not 403: whether an application exists is not something to confirm
+        # to somebody with no business reading it.
+        return None, None
+
+    def get(self, request, pk):
+        application, role = self._application(pk, request)
+        if application is None:
+            raise Http404("No such application.")
+
+        if not application.cv_path:
+            raise Http404(
+                "This application has no CV. Applications submitted before "
+                "the CV was retained keep none, and the student may have "
+                "removed it.")
+
+        stream = private_storage.open_stored(application.cv_path)
+        if stream is None:
+            raise Http404("The CV file is missing from storage.")
+
+        if role == "admin":
+            record_privacy_event(
+                PrivacyAuditLog.Action.CV_VIEWED_BY_ADMIN,
+                actor=request.user,
+                target=application.student.user,
+                resource_id=application.pk,
+                request=request,
+            )
+
+        response = FileResponse(
+            stream,
+            content_type="application/pdf",
+            # The student's own filename, which is what an employer expects to
+            # save. It is used for the download name and never for a path.
+            filename=application.cv_original_name or "cv.pdf",
+        )
+        # Personal data on a possibly shared machine: not cached by a proxy,
+        # and not left in a browser cache after the employer closes it.
+        response["Cache-Control"] = "no-store, private"
+        return response
+
+    def delete(self, request, pk):
+        """The student withdraws the file without withdrawing the application.
+
+        Notice 1.3 offers this in as many words, so it is the student's alone:
+        an employer who could delete a CV could remove the evidence of what
+        they were sent.
+        """
+        application, role = self._application(pk, request)
+        if application is None or role != "student":
+            raise Http404("No such application.")
+
+        if application.cv_path:
+            private_storage.delete(application.cv_path)
+            application.cv_path = ""
+            application.save(update_fields=["cv_path"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SkillExtractionView(APIView):

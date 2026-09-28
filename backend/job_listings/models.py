@@ -301,7 +301,17 @@ class JobApplication(models.Model):
     # Legacy. CVs are no longer stored: they are parsed once and deleted, and
     # only the confirmed structured result is kept. Retained so existing rows
     # keep their value; nothing writes it any more.
+    #: Legacy. The old flow saved CVs under the public MEDIA_ROOT and kept the
+    #: URL here; the files were purged and nothing writes this any more. Rows
+    #: keep whatever text they had so the history is not rewritten.
     cv_url       = models.URLField(blank=True)
+    #: Where the CV is stored, relative to the private store. Empty for an
+    #: application submitted under notice 1.2 or earlier, which promised the
+    #: file would be deleted -- and it was, so there is nothing to show.
+    cv_path      = models.CharField(max_length=255, blank=True)
+    #: The name the student's own file had, for the employer to download it
+    #: as. Never used to build a storage path: the stored name is generated.
+    cv_original_name = models.CharField(max_length=255, blank=True)
     status       = models.CharField(max_length=15, choices=Status.choices,
                                     default=Status.PENDING)
     applied_time = models.DateTimeField(auto_now_add=True)

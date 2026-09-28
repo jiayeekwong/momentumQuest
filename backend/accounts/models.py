@@ -319,6 +319,10 @@ class PrivacyAuditLog(models.Model):
         CERTIFICATE_VERIFIED       = 'CERTIFICATE_VERIFIED',       'Certificate verified'
         CERTIFICATE_REJECTED       = 'CERTIFICATE_REJECTED',       'Certificate rejected'
         CERTIFICATE_DELETED        = 'CERTIFICATE_DELETED',        'Certificate deleted'
+        # A CV is the densest personal data here -- address, phone,
+        # referees, often a photograph -- so an administrator opening
+        # one is an access that has to be accountable afterwards.
+        CV_VIEWED_BY_ADMIN         = 'CV_VIEWED_BY_ADMIN',         'CV viewed by admin'
         # A transcript is an examination result, and the document most likely
         # to show an NRIC, so its handling is logged on the same footing.
         TRANSCRIPT_UPLOADED        = 'TRANSCRIPT_UPLOADED',        'Transcript uploaded'

@@ -33,13 +33,22 @@ class InvalidReceipt(Exception):
     """The receipt is absent, malformed, expired, or another user's."""
 
 
-def issue(user_id, consent_id):
-    """Sign a receipt for a completed, consented parse."""
+def issue(user_id, consent_id, cv_name="", cv_original_name=""):
+    """Sign a receipt for a completed, consented parse.
+
+    ``cv_name`` is where the file was stored. It travels in the receipt rather
+    than in the response body for the same reason the consent id does: the
+    submit endpoint must not take the client's word for which file to attach
+    to an application. A signed receipt can only name a file this server
+    stored, for this user, minutes ago.
+    """
     now = timezone.now()
     return signing.dumps(
         {
             "user_id": user_id,
             "consent_id": consent_id,
+            "cv_name": cv_name,
+            "cv_original_name": cv_original_name,
             "issued_at": now.isoformat(),
             "expires_at": (
                 now + timezone.timedelta(seconds=RECEIPT_MAX_AGE_SECONDS)
