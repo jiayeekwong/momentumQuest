@@ -8,7 +8,9 @@ from unittest.mock import patch
 from django.core import signing
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -2137,3 +2139,102 @@ class CVsAreDeletedWhenThePeriodEndsTests(TestCase):
         self._purge()
 
         self.assertIsNotNone(private_storage.open_stored(fresh))
+
+
+class TheListSaysWhatYouAlreadyAppliedToTests(TestCase):
+    """A student could fill in the whole form before being told no.
+
+    Nothing on the jobs page knew which adverts had already been applied to,
+    so Apply Now stayed enabled on every one and the duplicate was caught by
+    the serializer -- after the permit question, the date, the phone number
+    and the cover note had all been typed again.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.student_user = User.objects.create_user(
+            email='applied@university.test', password='Strong1!',
+            role=User.Role.STUDENT)
+        cls.student = Student.objects.create(
+            user=cls.student_user, student_name='Already Applied')
+        cls.company_user = User.objects.create_user(
+            email='hiring@business.test', password='Strong1!',
+            role=User.Role.COMPANY)
+        cls.company = Company.objects.create(
+            user=cls.company_user, company_name='Hiring Ltd')
+
+        cls.applied_to = JobListing.objects.create(
+            job_title='Frontend Developer', company=cls.company,
+            source_type=JobListing.SourceType.COMPANY,
+            status=JobListing.Status.ACTIVE)
+        cls.not_applied_to = JobListing.objects.create(
+            job_title='Backend Developer', company=cls.company,
+            source_type=JobListing.SourceType.COMPANY,
+            status=JobListing.Status.ACTIVE)
+        JobApplication.objects.create(
+            student=cls.student, job=cls.applied_to)
+
+    def _rows(self, user=None):
+        client = APIClient()
+        if user is not None:
+            client.force_authenticate(user)
+        return {row['id']: row for row in
+                client.get('/api/job-listings/public/').json()}
+
+    def test_a_job_you_applied_to_says_so(self):
+        rows = self._rows(self.student_user)
+
+        self.assertIs(rows[self.applied_to.id]['has_applied'], True)
+
+    def test_a_job_you_have_not_applied_to_says_so(self):
+        rows = self._rows(self.student_user)
+
+        self.assertIs(rows[self.not_applied_to.id]['has_applied'], False)
+
+    def test_another_student_is_not_told_you_applied(self):
+        """The flag is about the person asking, not about the advert."""
+        other_user = User.objects.create_user(
+            email='other@university.test', password='Strong1!',
+            role=User.Role.STUDENT)
+        Student.objects.create(user=other_user, student_name='Other')
+
+        rows = self._rows(other_user)
+
+        self.assertIs(rows[self.applied_to.id]['has_applied'], False)
+
+    def test_an_anonymous_visitor_gets_null_rather_than_false(self):
+        """False would mean "you have not applied", which is a claim about a
+        student. There is nobody here to make it about -- the same reason
+        match_score is null rather than 0."""
+        rows = self._rows()
+
+        self.assertIsNone(rows[self.applied_to.id]['has_applied'])
+
+    def test_a_company_account_gets_null(self):
+        rows = self._rows(self.company_user)
+
+        self.assertIsNone(rows[self.applied_to.id]['has_applied'])
+
+    def test_reading_it_does_not_cost_a_query_per_advert(self):
+        """The flag is per student, not per listing.
+
+        Asked once per advert this is an N+1 that grows with the page, and
+        this file has had to fix that shape before. Measured by counting
+        queries rather than by timing, because a fast N+1 is still an N+1.
+        """
+        client = APIClient()
+        client.force_authenticate(self.student_user)
+
+        with CaptureQueriesContext(connection) as few:
+            client.get('/api/job-listings/public/')
+
+        for n in range(8):
+            JobListing.objects.create(
+                job_title=f'Extra {n}', company=self.company,
+                source_type=JobListing.SourceType.COMPANY,
+                status=JobListing.Status.ACTIVE)
+
+        with CaptureQueriesContext(connection) as many:
+            client.get('/api/job-listings/public/')
+
+        self.assertEqual(len(many), len(few))

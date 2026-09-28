@@ -47,6 +47,9 @@ interface CompanyJob {
   required_skills: string[];
   required_skill_levels: { skill: string; required_level: string }[];
   match_score: number | null;
+  // Null for anyone who is not a student: the question is about the person
+  // asking, and there is nobody to ask it about.
+  has_applied: boolean | null;
   posted_time: string;
   closing_date: string;
 }
@@ -67,6 +70,7 @@ interface MappedJob {
   matchScore: number | null;
   companyJobId?: number;
   description?: string;
+  hasApplied: boolean;
   // Bookmarking is offered on scraped listings only: a company listing is
   // applied to from this page, so a shortlist adds nothing there.
   isSaved: boolean;
@@ -161,6 +165,9 @@ const mapScrapedJob = (job: ScrapedJob): MappedJob => ({
   matchScore: job.match_score,
   isSaved: job.is_saved ?? false,
   isClosed: job.status === 'CLOSED',
+  // Never: a scraped advert is applied to on JobStreet, where we cannot know
+  // and have no business guessing.
+  hasApplied: false,
 });
 
 const mapCompanyJob = (job: CompanyJob): MappedJob => {
@@ -182,6 +189,7 @@ const mapCompanyJob = (job: CompanyJob): MappedJob => {
     category: job.category_name,
     matchScore: job.match_score,
     description: job.description,
+    hasApplied: job.has_applied === true,
   };
 };
 
@@ -459,6 +467,10 @@ export default function JobListingsPage() {
     setSubmitting(false);
 
     if (result.ok) {
+      // Marked here as well as on the next load, so the button behind the
+      // modal does not still read Apply Now for a job just applied to.
+      setCompanyJobs(prev => prev.map(
+        row => row.id === applyModalJob.id ? { ...row, has_applied: true } : row));
       setApplyModalJob(null);
       setApplyMessage('Application submitted successfully! ✓');
       setTimeout(() => setApplyMessage(null), 3000);
@@ -989,12 +1001,18 @@ export default function JobListingsPage() {
                     )}
                     <div className="mt-3">
                       {job.sourceType === 'company' ? (
+                        job.hasApplied ? (
+                          <span className="h-7 px-4 text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 rounded-lg bg-emerald-50 text-success">
+                            <CheckCircle2 size={12} /> Applied
+                          </span>
+                        ) : (
                         <button
                           onClick={(e) => { e.stopPropagation(); openApplyModal(job.companyJobId!, job.title); }}
                           className="h-7 px-4 text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
                         >
                           Apply Now
                         </button>
+                        )
                       ) : (
                         <a
                           href={job.source_url}
@@ -1096,12 +1114,21 @@ export default function JobListingsPage() {
                       </Button>
                     )}
                     {selectedJob.sourceType === 'company' ? (
+                      selectedJob.hasApplied ? (
+                        // Stated rather than disabled: a greyed-out button
+                        // says "not now" without saying why, and the reason
+                        // is the useful half.
+                        <span className="h-11 px-6 rounded-xl bg-emerald-50 text-success font-bold inline-flex items-center gap-2">
+                          <CheckCircle2 size={18} /> Already applied
+                        </span>
+                      ) : (
                       <Button
                         className="h-11 px-8 flex items-center gap-2"
                         onClick={() => openApplyModal(selectedJob.companyJobId!, selectedJob.title)}
                       >
                         Apply Now
                       </Button>
+                      )
                     ) : (
                       <a href={selectedJob.source_url} target="_blank" rel="noopener noreferrer">
                         <Button className="h-11 px-8 flex items-center gap-2">

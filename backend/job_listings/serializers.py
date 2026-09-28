@@ -138,6 +138,9 @@ class JobListingReadSerializer(MatchScoreMixin, serializers.ModelSerializer):
     applicants_count   = serializers.SerializerMethodField()
     # Null for anonymous visitors and company accounts — see MatchScoreMixin.
     match_score        = serializers.SerializerMethodField()
+    # Same rule, same reason: whether *you* applied is not a question an
+    # anonymous visitor or a company account is asking.
+    has_applied        = serializers.SerializerMethodField()
     required_skill_levels = serializers.SerializerMethodField()
     category_name      = serializers.CharField(source='category.category_name',
                                                read_only=True, default=None)
@@ -150,7 +153,7 @@ class JobListingReadSerializer(MatchScoreMixin, serializers.ModelSerializer):
             'salary_min', 'salary_max', 'work_mode', 'experience_level',
             'closing_date', 'status', 'posted_time',
             'required_skills', 'required_skill_levels',
-            'applicants_count', 'match_score',
+            'applicants_count', 'match_score', 'has_applied',
         ]
 
     def get_required_skills(self, obj):
@@ -168,6 +171,27 @@ class JobListingReadSerializer(MatchScoreMixin, serializers.ModelSerializer):
 
     def get_applicants_count(self, obj):
         return obj.applications.count()
+
+    def _applied_job_ids(self):
+        """Every job this student has applied to, read once per page.
+
+        One query for the page rather than one per listing: the alternative
+        reads the same small table once for each advert on screen, which is
+        the shape of every N+1 this file has already had to fix.
+        """
+        if not hasattr(self, '_applied_cache'):
+            student = self.request_student()
+            self._applied_cache = set() if student is None else set(
+                JobApplication.objects
+                .filter(student=student)
+                .values_list('job_id', flat=True)
+            )
+        return self._applied_cache
+
+    def get_has_applied(self, obj):
+        if self.request_student() is None:
+            return None
+        return obj.pk in self._applied_job_ids()
 
     def get_company(self, obj):
         return {
