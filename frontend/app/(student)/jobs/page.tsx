@@ -302,6 +302,39 @@ interface ApplicationPayload {
   cover_note: string;
 }
 
+/** The sentence the server wrote, wherever it put it.
+ *
+ *  DRF reports field problems as {field: ["..."]} and reserves {detail: "..."}
+ *  for a handful of cases, so reading detail alone discarded every message the
+ *  serializer takes care to phrase. "You have already applied to this job" and
+ *  "Your CV was read too long ago -- please upload it again" both arrived as
+ *  "Failed to submit application.", which names neither the problem nor the
+ *  thing the student could do about it.
+ *
+ *  Nested because a snapshot error is {applicant_snapshot: {skills: ["..."]}}.
+ */
+function firstServerMessage(data: unknown): string | null {
+  if (typeof data === 'string') return data.trim() || null;
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const found = firstServerMessage(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    // detail first, then the fields, so the general statement wins when the
+    // response carries both.
+    for (const key of ['detail', ...Object.keys(record)]) {
+      if (!(key in record)) continue;
+      const found = firstServerMessage(record[key]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 async function submitJobApplication(payload: ApplicationPayload): Promise<{ ok: boolean; error?: string }> {
   try {
     const response = await apiFetch('/api/job-listings/applications/', {
@@ -310,7 +343,7 @@ async function submitJobApplication(payload: ApplicationPayload): Promise<{ ok: 
     });
     if (response.ok) return { ok: true };
     const data = await response.json().catch(() => ({}));
-    return { ok: false, error: data.detail || 'Failed to submit application.' };
+    return { ok: false, error: firstServerMessage(data) || 'Failed to submit application.' };
   } catch {
     return { ok: false, error: 'Network error. Make sure the backend is running.' };
   }
