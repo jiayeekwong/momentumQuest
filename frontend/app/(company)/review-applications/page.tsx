@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, CheckCircle2, XCircle, Clock, ChevronDown, Star, BadgeCheck } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Clock, ChevronDown, Star, BadgeCheck, FileText } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
@@ -35,9 +35,15 @@ interface Application {
   // and 0% would read as "this applicant matches none of it".
   match_score: number | null;
   job_title: string;
-  // The applicant as submitted. There is no CV file to open: it is
-  // parsed at upload and deleted, so what remains is this.
+  // The applicant as submitted, alongside the CV itself. Reading a CV loses
+  // what a person would notice -- how a candidate describes their own work,
+  // what they chose to put first -- so this is the extraction and the CV is
+  // the document they actually wrote.
   applicant_snapshot: ApplicantSnapshot;
+  /** Whether there is a file to open. The path is never sent; the download
+   *  route is what checks who is asking. */
+  has_cv: boolean;
+  cv_original_name: string;
   status: AppStatus;
   applied_time: string;
   is_read: boolean;
@@ -68,6 +74,24 @@ export default function ReviewApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  /** Open an applicant's CV in a new tab.
+   *
+   *  Fetched rather than linked. The download route checks who is asking, so
+   *  it needs the bearer token, and an <a href> cannot carry one. The blob URL
+   *  is revoked once the tab has taken it -- it is a handle to personal data
+   *  and there is no reason to leave it lying in the page.
+   */
+  const openCV = async (app: Application) => {
+    const res = await apiFetch(`/api/job-listings/applications/${app.id}/cv/`);
+    if (!res.ok) {
+      alert('That CV is no longer available. The applicant may have removed it.');
+      return;
+    }
+    const url = URL.createObjectURL(await res.blob());
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
 
   useEffect(() => {
     apiFetch('/api/job-listings/company/applications/')
@@ -199,6 +223,20 @@ export default function ReviewApplicationsPage() {
                         <p className="text-sm font-bold text-neutral-900 truncate">{app.student_email}</p>
                       </div>
                     </div>
+                    {app.has_cv && (
+                      <div className="mt-4">
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">CV</p>
+                        {/* Fetched rather than linked: the download carries the
+                            bearer token, which an anchor cannot. The blob is
+                            revoked once the tab has it. */}
+                        <button type="button"
+                          onClick={() => openCV(app)}
+                          className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline underline-offset-2">
+                          <FileText size={14} />
+                          {app.cv_original_name || 'Open CV'}
+                        </button>
+                      </div>
+                    )}
                     {app.cover_note && (
                       <div className="mt-4">
                         <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Why they&apos;re a good fit</p>

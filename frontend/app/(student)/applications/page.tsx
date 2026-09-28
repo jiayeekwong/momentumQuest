@@ -28,9 +28,13 @@ interface Application {
   status: ApplicationStatus;
   status_display: string;
   applied_time: string;
-  // What was submitted, frozen at apply time. The CV file itself is
-  // parsed and deleted; only this is kept.
+  // What was submitted, frozen at apply time. The CV itself goes with it
+  // now, and this is the reading of it.
   applicant_snapshot: ApplicantSnapshot;
+  /** Whether the CV is still attached. Applications submitted before the file
+   *  was kept have none, and the student may have removed it. */
+  has_cv: boolean;
+  cv_original_name: string;
   needs_work_permit: boolean | null;
   available_from: string | null;
   phone: string;
@@ -61,6 +65,25 @@ const formatDate = (value: string) =>
 
 export default function MyApplicationsPage() {
   const [applications, setApplications] = useState<Application[] | null>(null);
+
+  /** Take the CV back without withdrawing the application.
+   *
+   *  Confirmed rather than done on one click: the employer has it now, and
+   *  there is no second copy to restore it from.
+   */
+  const removeCV = async (application: Application) => {
+    if (!window.confirm(
+      `Remove your CV from the application to ${application.job_title}? `
+      + 'The employer will no longer be able to open it, and this cannot be undone. '
+      + 'Your application itself stays.')) return;
+
+    const res = await apiFetch(`/api/job-listings/applications/${application.id}/cv/`,
+                               { method: 'DELETE' });
+    if (res.ok) {
+      setApplications(prev => (prev ?? []).map(
+        a => (a.id === application.id ? { ...a, has_cv: false } : a)));
+    }
+  };
   const [isLoading, setIsLoading] = useState(true);
   // Why the load failed, not merely that it did. An empty list and a failed
   // request look identical once both render a grey card, and the two were
@@ -231,6 +254,27 @@ export default function MyApplicationsPage() {
                           <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Contact number</p>
                           <p className="text-neutral-700">{application.phone || 'Not provided'}</p>
                         </div>
+                        {application.has_cv && (
+                          <div className="sm:col-span-2">
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">CV sent to this employer</p>
+                            <div className="flex items-center gap-3">
+                              <span className="text-neutral-700 truncate">
+                                {application.cv_original_name || 'Your CV'}
+                              </span>
+                              {/* Offered because the notice offers it: the CV
+                                  can be taken back without withdrawing the
+                                  application. */}
+                              <button type="button"
+                                onClick={() => removeCV(application)}
+                                className="text-xs font-bold text-danger hover:underline underline-offset-2 shrink-0">
+                                Remove
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-neutral-400 mt-1">
+                              Deleted automatically six months after you applied.
+                            </p>
+                          </div>
+                        )}
                         {application.cover_note && (
                           <div className="sm:col-span-2">
                             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Cover note</p>
