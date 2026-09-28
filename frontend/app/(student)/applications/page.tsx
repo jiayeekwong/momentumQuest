@@ -71,6 +71,26 @@ export default function MyApplicationsPage() {
    *  Confirmed rather than done on one click: the employer has it now, and
    *  there is no second copy to restore it from.
    */
+  /** Open your own CV in a new tab.
+   *
+   *  The same route the employer uses, which is the point: what opens here is
+   *  the file they were sent, not a copy of what was parsed out of it. Fetched
+   *  rather than linked because the route checks who is asking and an <a href>
+   *  cannot carry the bearer token.
+   */
+  const viewCV = async (application: Application) => {
+    const res = await apiFetch(`/api/job-listings/applications/${application.id}/cv/`);
+    if (!res.ok) {
+      alert('That CV is no longer available.');
+      setApplications(prev => (prev ?? []).map(
+        a => (a.id === application.id ? { ...a, has_cv: false } : a)));
+      return;
+    }
+    const url = URL.createObjectURL(await res.blob());
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   const removeCV = async (application: Application) => {
     if (!window.confirm(
       `Remove your CV from the application to ${application.job_title}? `
@@ -258,9 +278,17 @@ export default function MyApplicationsPage() {
                           <div className="sm:col-span-2">
                             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">CV sent to this employer</p>
                             <div className="flex items-center gap-3">
-                              <span className="text-neutral-700 truncate">
-                                {application.cv_original_name || 'Your CV'}
-                              </span>
+                              {/* The name is the control: "can I see what
+                                  they got?" is answered by clicking the thing
+                                  that names it. */}
+                              <button type="button"
+                                onClick={() => viewCV(application)}
+                                className="flex items-center gap-1.5 text-primary font-semibold hover:underline underline-offset-2 truncate">
+                                <FileText size={14} className="shrink-0" />
+                                <span className="truncate">
+                                  {application.cv_original_name || 'Your CV'}
+                                </span>
+                              </button>
                               {/* Offered because the notice offers it: the CV
                                   can be taken back without withdrawing the
                                   application. */}
