@@ -1157,17 +1157,31 @@ export default function JobListingsPage() {
                   )}
                 </section>
 
+                {/* Where the advert came from, which is not the same sentence
+                    for both kinds. A company post was written here and is
+                    applied to here; sending that student to JobStreet named a
+                    site the job was never on and a button that is not on the
+                    page. */}
                 <section>
                   <h4 className="text-lg font-bold text-neutral-900 mb-3 flex items-center gap-2">
                     <div className="w-1 h-6 bg-primary rounded-full" /> Source
                   </h4>
-                  <p className="text-sm text-neutral-500">
-                    This listing is sourced from{' '}
-                    <a href={selectedJob.source_url} target="_blank" rel="noopener noreferrer" className="text-primary font-semibold hover:underline">
-                      JobStreet ↗
-                    </a>
-                    . Click <strong>View on JobStreet</strong> to apply directly.
-                  </p>
+                  {selectedJob.sourceType === 'company' ? (
+                    <p className="text-sm text-neutral-500">
+                      Posted on MomentumQuest by{' '}
+                      <strong className="text-neutral-700">{selectedJob.company}</strong>.
+                      Click <strong>Apply Now</strong> to apply here — they see your
+                      application in MomentumQuest.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-neutral-500">
+                      This listing is sourced from{' '}
+                      <a href={selectedJob.source_url} target="_blank" rel="noopener noreferrer" className="text-primary font-semibold hover:underline">
+                        JobStreet ↗
+                      </a>
+                      . Click <strong>View on JobStreet</strong> to apply directly.
+                    </p>
+                  )}
                 </section>
               </div>
             </>
