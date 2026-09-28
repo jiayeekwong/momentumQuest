@@ -419,7 +419,7 @@ export default function ManageListingsPage() {
 
                   <Input label="Job Title" value={eTitle} onChange={e => setETitle(e.target.value)} required />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Category</label>
                       <select value={eCategoryId} onChange={e => setECategoryId(e.target.value)}
@@ -438,7 +438,7 @@ export default function ManageListingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input label="Salary Min (RM)" type="number" placeholder="e.g. 3000" value={eSalaryMin} onChange={e => setESalaryMin(e.target.value)} />
                     <Input label="Salary Max (RM)" type="number" placeholder="e.g. 6000" value={eSalaryMax} onChange={e => setESalaryMax(e.target.value)} />
                   </div>

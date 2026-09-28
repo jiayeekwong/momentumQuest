@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Target, Briefcase, GraduationCap, FileText,
-  UserCircle, LogOut, Bell, ShieldCheck, Megaphone, FileCheck, Users
+  UserCircle, LogOut, Bell, ShieldCheck, Megaphone, FileCheck, Users,
+  Menu, X
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { cn } from '@/src/lib/utils';
@@ -239,6 +240,13 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
   const router = useRouter();
   const pathname = usePathname();
 
+  // Below lg the sidebar is a drawer rather than a column, because 240px of
+  // it leaves a phone nothing to read. Closed on every navigation: tapping a
+  // link and landing on a page still covered by the menu you tapped it in is
+  // the one behaviour a drawer must not have.
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { setNavOpen(false); }, [pathname]);
+
   useEffect(() => {
     if (!isLoading && !user) {
       router.replace('/login');
@@ -301,10 +309,35 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
 
   return (
     <div className="flex min-h-screen bg-neutral-100">
+      {/* Dimmed page behind the open drawer, and the way out of it for
+          anyone who opened it by accident. */}
+      {navOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 bg-neutral-900/40 z-20 lg:hidden"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-60 bg-white border-r border-neutral-200 fixed h-full z-20 flex flex-col">
-        <div className="h-16 px-6 flex items-center border-b border-neutral-100">
+      <aside
+        className={cn(
+          'w-60 bg-white border-r border-neutral-200 fixed h-full z-30 flex flex-col',
+          'transition-transform duration-200 lg:translate-x-0',
+          navOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+        )}
+      >
+        <div className="h-16 px-6 flex items-center justify-between border-b border-neutral-100">
           <Logo size="sm" layout="horizontal" />
+          <button
+            type="button"
+            onClick={() => setNavOpen(false)}
+            aria-label="Close menu"
+            className="text-neutral-500 hover:text-neutral-900 lg:hidden"
+          >
+            <X size={20} />
+          </button>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {menuItems.map((item) => {
@@ -338,9 +371,20 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 ml-60 flex flex-col">
-        <header className="h-16 bg-white border-b border-neutral-200 sticky top-0 z-10 px-8 flex items-center justify-between">
-          <span className="text-lg font-semibold text-neutral-900">{title}</span>
+      <div className="flex-1 min-w-0 lg:ml-60 flex flex-col">
+        <header className="h-16 bg-white border-b border-neutral-200 sticky top-0 z-10 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setNavOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={navOpen}
+              className="text-neutral-600 hover:text-neutral-900 lg:hidden"
+            >
+              <Menu size={22} />
+            </button>
+            <span className="text-lg font-semibold text-neutral-900 truncate">{title}</span>
+          </div>
           <div className="flex items-center gap-4">
             {user?.role === 'student' && <NotificationBell />}
             <div className="flex items-center gap-3 pl-4 border-l border-neutral-200">
@@ -357,7 +401,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
             </div>
           </div>
         </header>
-        <main className="p-8 pb-16">{children}</main>
+        <main className="p-4 sm:p-6 lg:p-8 pb-16">{children}</main>
       </div>
     </div>
   );

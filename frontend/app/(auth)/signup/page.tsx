@@ -173,14 +173,14 @@ export default function SignupPage() {
                   <h3 className="text-xl font-bold text-neutral-900">Create your account</h3>
                   <Input label="Full Name" placeholder="Jane Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                   <Input label="Email Address" type="email" placeholder="jane@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     <Input label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">I am joining as a</label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {([
                         { id: 'STUDENT', label: 'Student', icon: User, desc: 'Find your dream job' },
                         { id: 'COMPANY', label: 'Employer', icon: Building2, desc: 'Hire top talent' },

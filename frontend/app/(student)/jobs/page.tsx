@@ -743,7 +743,7 @@ export default function JobListingsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Earliest start date</label>
                   <input
@@ -1052,7 +1052,7 @@ export default function JobListingsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 py-4 border-y border-neutral-100">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-4 border-y border-neutral-100">
                   {[
                     { icon: DollarSign, label: 'Monthly Salary', value: selectedJob.salary, color: 'bg-emerald-50 text-success' },
                     { icon: MapPin, label: 'Location', value: selectedJob.location, color: 'bg-sky-50 text-secondary' },
@@ -1077,7 +1077,7 @@ export default function JobListingsPage() {
                     <h4 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
                       <div className="w-1 h-6 bg-primary rounded-full" /> Compatibility Check
                     </h4>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {selectedJob.requiredSkills.map(skill => {
                         const requiredLevel = requiredLevelFor(selectedJob, skill);
                         const studentLevel = myLevels[skill.toLowerCase()];
