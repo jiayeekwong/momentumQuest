@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, AlertCircle, Bookmark, Briefcase, Sparkles, ExternalLink, ChevronDown } from 'lucide-react';
+import { Search, MapPin, DollarSign, Calendar, CheckCircle2, XCircle, AlertCircle, Bookmark, Briefcase, Sparkles, ExternalLink, ChevronDown, ArrowLeft } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button, Checkbox } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
@@ -323,6 +323,17 @@ export default function JobListingsPage() {
   // what makes the per-skill verdict agree with the match percentage.
   const [myLevels, setMyLevels] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Below lg there is no room for a panel beside the list, so the details
+  // open over it. Separate from selectedId because selectedJob falls back to
+  // the first result -- keyed on that, the sheet would be open on arrival,
+  // covering the list before the student had picked anything.
+  const [detailOpen, setDetailOpen] = useState(false);
+  useEffect(() => {
+    if (!detailOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetailOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailOpen]);
   const [search, setSearch] = useState('');
   // Empty means every location. Held here rather than sent to the API --
   // see the locationOptions comment below for why this one is client-side
@@ -888,7 +899,7 @@ export default function JobListingsPage() {
               <Card
                 key={job.id}
                 className={cn('p-5 cursor-pointer transition-all border-l-4', activeId === job.id ? 'border-l-primary bg-indigo-50/30' : 'border-l-transparent')}
-                onClick={() => setSelectedId(job.id)}
+                onClick={() => { setSelectedId(job.id); setDetailOpen(true); }}
               >
                 <div className="flex gap-4">
                   <div
@@ -999,11 +1010,27 @@ export default function JobListingsPage() {
           </div>
         </div>
 
-        {/* Right — detail panel */}
-        <div className="hidden lg:flex flex-1 bg-white border border-neutral-200 rounded-2xl overflow-hidden flex-col">
+        {/* Right — detail panel. One element rather than two: at lg it is the
+            pane beside the list, and below lg the same markup is a full-screen
+            sheet over it. Duplicating it would be two copies of a job advert
+            to keep in step. */}
+        <div className={cn(
+          'bg-white border-neutral-200 flex-col overflow-hidden',
+          'lg:flex lg:static lg:flex-1 lg:border lg:rounded-2xl lg:z-auto',
+          detailOpen ? 'fixed inset-0 z-40 flex' : 'hidden'
+        )}>
+          {/* Only on the sheet: at lg the list is still there to click. */}
+          <div className="lg:hidden shrink-0 px-4 h-14 flex items-center border-b border-neutral-100">
+            <button type="button"
+              onClick={() => setDetailOpen(false)}
+              className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900">
+              <ArrowLeft size={18} />
+              Back to jobs
+            </button>
+          </div>
           {selectedJob ? (
             <>
-              <div className="p-8 border-b border-neutral-100 bg-neutral-50/30">
+              <div className="p-5 sm:p-6 lg:p-8 border-b border-neutral-100 bg-neutral-50/30">
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex gap-6">
                     <div
@@ -1071,7 +1098,7 @@ export default function JobListingsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
                 {selectedJob.requiredSkills.length > 0 && (
                   <section>
                     <h4 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
