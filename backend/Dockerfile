@@ -23,6 +23,7 @@ FROM python:3.14-slim-trixie
 # libpq5 for psycopg. curl earns its place as the only way to diagnose outbound
 # connectivity from inside a container with no shell access on the free plan.
 RUN apt-get update && apt-get install --no-install-recommends -y \
+        ca-certificates \
         libpq5 \
         curl \
     && rm -rf /var/lib/apt/lists/*
