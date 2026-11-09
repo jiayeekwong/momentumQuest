@@ -3,7 +3,7 @@
 import { useAuth } from '@/src/context/AuthContext';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
-import { Briefcase, Target, Star, Bell, ChevronRight, Sparkles, ArrowUpRight, X, FileText, ExternalLink, Paperclip, AlertTriangle, TrendingDown } from 'lucide-react';
+import { Briefcase, Target, Star, Bell, ChevronRight, Sparkles, ArrowUpRight, X, FileText, ExternalLink, Paperclip, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
@@ -196,29 +196,8 @@ function AnnouncementDetailModal({ a, onClose }: { a: Announcement; onClose: () 
   );
 }
 
-/**
- * Why a month-on-month figure is missing. Shown in place of the number, so
- * the tile says what is wrong instead of leaving the reader to guess.
- */
-const CHANGE_LABEL: Record<string, string> = {
-  UNEVEN_COLLECTION: 'Collection uneven',
-  SINGLE_MONTH: 'One month so far',
-  CURRENT_MONTH_ONLY: 'This month only',
-  NOT_ENOUGH_COLLECTED: 'Not enough history',
-};
-
-const CHANGE_EXPLAINER: Record<string, string> = {
-  UNEVEN_COLLECTION:
-    'The scraper ran a different number of times in the two most recent months, '
-    + 'so the difference between them reflects the collection schedule rather than '
-    + 'employer demand. Run it on a regular schedule and this becomes comparable.',
-  SINGLE_MONTH: 'Only one completed month has been collected, so there is nothing to compare it with.',
-  CURRENT_MONTH_ONLY: 'Only the month in progress has been collected. A part-month cannot be compared with a full one.',
-  NOT_ENOUGH_COLLECTED: 'No completed month has been collected yet.',
-};
-
 export default function DashboardPage() {
-  const { user, updateUser } = useAuth();
+  const { user } = useAuth();
   const firstName = user?.name?.split(' ')[0] ?? 'there';
   const [skillsCount,          setSkillsCount]          = useState<number | null>(null);
   const [applicationsCount,    setApplicationsCount]    = useState<number | null>(null);
@@ -444,38 +423,6 @@ export default function DashboardPage() {
                   <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Open postings</p>
                   <p className="text-xl font-black text-neutral-900 mt-1">{marketDemand.total_postings}</p>
                 </div>
-                {/* Month-on-month, and only when the scraper ran equally
-                    often in both months. A figure computed across an uneven
-                    collection schedule measures how hard we looked, not what
-                    employers advertised -- that is where "+880.9%" came from,
-                    and a number nobody can trust is worse than no number. */}
-                <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                    Month-on-month
-                  </p>
-                  {marketDemand.demand_change_percentage === null ? (
-                    <p className="text-sm font-bold text-neutral-500 mt-2"
-                       title={CHANGE_EXPLAINER[marketDemand.change_basis]}>
-                      {CHANGE_LABEL[marketDemand.change_basis]}
-                    </p>
-                  ) : (
-                    <p className={`text-xl font-black mt-1 flex items-center gap-1 ${
-                      marketDemand.demand_change_percentage >= 0 ? 'text-success' : 'text-danger'
-                    }`}>
-                      {marketDemand.demand_change_percentage >= 0 ? (
-                        <><ArrowUpRight size={17} />+{marketDemand.demand_change_percentage}%</>
-                      ) : (
-                        <><TrendingDown size={17} />{marketDemand.demand_change_percentage}%</>
-                      )}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Months collected</p>
-                  <p className="text-sm font-black text-neutral-900 mt-2">
-                    {marketDemand.collected_months} of {marketDemand.period_months}
-                  </p>
-                </div>
               </div>
             )}
 
@@ -490,21 +437,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {marketDemand?.mode === 'OVERVIEW' && (
-              <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-                <p className="text-sm font-bold text-neutral-900">Personalize this trend</p>
-                {/* A link, not a form. Targets are set in one place only,
-                    so the dashboard points there instead of being a second
-                    writer. */}
-                <p className="text-xs text-neutral-600 mt-1">
-                  Choose your Market Role on the Skill Gap page and this trend
-                  will follow it.
-                </p>
-                <Link href="/skill-gap">
-                  <Button className="h-10 mt-3">Choose your Market Role</Button>
-                </Link>
-              </div>
-            )}
           </Card>
 
           {/* Announcements */}
