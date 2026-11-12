@@ -61,9 +61,14 @@ def send_announcement_email_notifications(announcement_id):
 
     dashboard_url = f"{settings.FRONTEND_URL.rstrip('/')}/dashboard"
     body = _plain_text(announcement.message)
+    attachment_text = (
+        f"View attachment: {announcement.supporting_doc}\n\n"
+        if announcement.supporting_doc else ""
+    )
     text = (
         "A new MomentumQuest announcement has been published.\n\n"
         f"{body}\n\n"
+        f"{attachment_text}"
         f"View it in MomentumQuest: {dashboard_url}\n"
     )
     subject = f"New MomentumQuest announcement: {announcement.title}"

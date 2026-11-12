@@ -37,13 +37,16 @@ class AnnouncementEmailNotificationTests(APITestCase):
         Student.objects.create(user=user, student_name=email.split("@")[0])
         return user
 
-    def _publish(self, audience):
+    def _publish(self, audience, **overrides):
+        payload = {
+            "title": "Career Fair",
+            "message": "<p>Meet employers <strong>tomorrow</strong>.</p>",
+            "audience": audience,
+        }
+        payload.update(overrides)
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post("/api/dashboard/announcements/create/", {
-                "title": "Career Fair",
-                "message": "<p>Meet employers <strong>tomorrow</strong>.</p>",
-                "audience": audience,
-            }, format="json")
+            response = self.client.post(
+                "/api/dashboard/announcements/create/", payload, format="json")
         self.assertEqual(response.status_code, 201)
 
     def test_students_audience_emails_active_verified_students_individually(self):
@@ -68,3 +71,15 @@ class AnnouncementEmailNotificationTests(APITestCase):
         self._publish("COMPANIES")
 
         self.assertEqual([message.to for message in mail.outbox], [[self.company.email]])
+
+    def test_supporting_document_is_linked_in_the_email(self):
+        attachment_url = "https://files.example.edu/career-fair.pdf"
+
+        self._publish("STUDENTS", supporting_doc=attachment_url)
+
+        self.assertIn(f"View attachment: {attachment_url}", mail.outbox[0].body)
+
+    def test_email_without_a_supporting_document_has_no_attachment_line(self):
+        self._publish("STUDENTS")
+
+        self.assertNotIn("View attachment:", mail.outbox[0].body)
