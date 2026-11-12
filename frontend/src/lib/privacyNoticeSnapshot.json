@@ -4,7 +4,7 @@
     "application_disclosure": "By submitting, you agree that the information in this application will be shared with the employer for recruitment purposes.",
     "consent_statements": {
       "APPLICATION_DISCLOSURE_ACKNOWLEDGEMENT": "By submitting, you agree that the information in this application will be shared with the employer for recruitment purposes.",
-      "CV_PROCESSING_CONSENT": "I agree to MomentumQuest reading this CV to prepare my application. The CV file will be deleted after processing.",
+      "CV_PROCESSING_CONSENT": "I agree to MomentumQuest reading this CV and sending it to the employer with my application. I can remove it at any time.",
       "DOCUMENT_VERIFICATION_CONSENT": "I agree to MomentumQuest processing and privately storing documents I submit for qualification and skill verification.",
       "PRIVACY_NOTICE_ACKNOWLEDGEMENT": "I have read and understood the MomentumQuest Privacy Notice."
     },

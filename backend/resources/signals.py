@@ -10,16 +10,12 @@ Deleting a User cascades to Student and then to Certificate and
 TranscriptUpload, so account deletion reaches here on its own.
 """
 
-import logging
-import os
-
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from . import private_storage
-from .models import Certificate, TranscriptUpload
-
-logger = logging.getLogger(__name__)
+from .models import Certificate, TrainingProgramme, TranscriptUpload
 
 
 def _delete_private_file(relative_path):
@@ -40,3 +36,10 @@ def delete_certificate_file(sender, instance, **kwargs):
 @receiver(post_delete, sender=TranscriptUpload)
 def delete_transcript_file(sender, instance, **kwargs):
     _delete_private_file(instance.file_path)
+
+
+@receiver(post_delete, sender=TrainingProgramme)
+def delete_training_attachment(sender, instance, **kwargs):
+    if instance.attachment_path:
+        path = instance.attachment_path
+        transaction.on_commit(lambda path=path: _delete_private_file(path))

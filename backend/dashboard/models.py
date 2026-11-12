@@ -25,6 +25,8 @@ class Announcement(models.Model):
         default=AudienceChoice.EVERYONE,
     )
     supporting_doc = models.URLField(blank=True, null=True)
+    attachment_path = models.CharField(
+        max_length=255, blank=True, null=True, unique=True, editable=False)
     publish_time   = models.DateTimeField(auto_now_add=True)
 
     class Meta:

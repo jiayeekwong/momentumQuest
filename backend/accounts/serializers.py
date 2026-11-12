@@ -180,7 +180,8 @@ def send_verification_email(user, name):
             f"Thank you for registering with MomentumQuest.\n\n"
             f"Please click the link below to verify your email:\n"
             f"{verification_link}\n\n"
-            f"This link will expire after 15 minutes.\n\n"
+            f"This link will expire after "
+            f"{settings.ACCOUNT_LINK_TIMEOUT_MINUTES} minutes.\n\n"
             f"If you did not create this account, you can ignore this email."
         ),
         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -207,7 +208,8 @@ def send_password_reset_email(user):
             f"We received a request to reset your MomentumQuest password.\n\n"
             f"Please click the link below to reset your password:\n"
             f"{reset_link}\n\n"
-            f"This link will expire after 15 minutes.\n\n"
+            f"This link will expire after "
+            f"{settings.ACCOUNT_LINK_TIMEOUT_MINUTES} minutes.\n\n"
             f"If you did not request this, you can ignore this email."
         ),
         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -621,5 +623,13 @@ class UserConsentSerializer(serializers.ModelSerializer):
         ]
 
     def get_statement(self, obj):
-        from .privacy_notice import CONSENT_STATEMENTS
-        return CONSENT_STATEMENTS.get(obj.consent_type, '')
+        from .privacy_notice import CONSENT_STATEMENTS, get_notice
+
+        # Consent text is versioned evidence.  Reading from today's global
+        # defaults can both return an empty string for newer consent types and
+        # rewrite what an older user was actually told.
+        try:
+            statements = get_notice(obj.notice_version)["consent_statements"]
+        except KeyError:
+            statements = CONSENT_STATEMENTS
+        return statements.get(obj.consent_type, '')

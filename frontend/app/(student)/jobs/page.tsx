@@ -404,9 +404,9 @@ export default function JobListingsPage() {
   // student as having agreed to text they never saw.
   const { notice } = usePrivacyNotice();
   const [formError, setFormError] = useState('');
-  const [cvFile, setCvFile] = useState<File | null>(null);
   // Parsed content awaiting the student's confirmation. Nothing is stored
-  // until they submit, and the CV file itself never was.
+  // until they submit. The original file is retained only if this parse is
+  // claimed by the submitted application.
   const [parsedCv, setParsedCv] = useState<ParsedCv | null>(null);
   const [parsingCv, setParsingCv] = useState(false);
   const [excludedSkillIds, setExcludedSkillIds] = useState<number[]>([]);
@@ -422,7 +422,6 @@ export default function JobListingsPage() {
       return;
     }
     // reset form
-    setCvFile(null);
     setNeedsWorkPermit('');
     setAvailableFrom('');
     setPhone('');
@@ -699,7 +698,6 @@ export default function JobListingsPage() {
                   disabled={!cvAckGiven}
                   onChange={async e => {
                     const file = e.target.files?.[0] ?? null;
-                    setCvFile(file);
                     setParsedCv(null);
                     setExcludedSkillIds([]);
                     setEducationLines([]);

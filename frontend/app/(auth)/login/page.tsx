@@ -7,6 +7,7 @@ import { motion } from 'motion/react';
 import { Button, Input, Card } from '@/src/components/ui';
 import { Logo } from '@/src/components/Logo';
 import { useAuth } from '@/src/context/AuthContext';
+import { API_BASE } from '@/src/lib/apiFetch';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login/`, {
+      const res = await fetch(`${API_BASE}/api/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -39,7 +40,7 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', data.access);
       localStorage.setItem('refreshToken', data.refresh);
 
-      const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile/`, {
+      const profileRes = await fetch(`${API_BASE}/api/auth/profile/`, {
         headers: { Authorization: `Bearer ${data.access}` },
       });
       const profileData = await profileRes.json();

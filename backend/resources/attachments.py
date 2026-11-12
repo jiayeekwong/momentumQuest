@@ -27,10 +27,13 @@ onto a storage path.
 import os
 import re
 import uuid
+from urllib.parse import unquote, urlsplit
 
+from django.core import signing
+from django.http import FileResponse, Http404
+from django.urls import reverse
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from django.http import FileResponse, Http404
 
 from . import private_storage
 
@@ -47,6 +50,22 @@ CONTENT_TYPES = {
     ".pdf": "application/pdf",
 }
 
+TRAINING_ATTACHMENT_DIR = "training"
+ANNOUNCEMENT_ATTACHMENT_DIR = "announcements"
+ATTACHMENT_ROUTES = {
+    TRAINING_ATTACHMENT_DIR: "training-attachment",
+    ANNOUNCEMENT_ATTACHMENT_DIR: "announcement-attachment",
+}
+
+# Upload and record creation are separate requests.  This receipt is the
+# ownership proof joining them without accepting a storage key from a client.
+ATTACHMENT_RECEIPT_SALT = "mq-public-attachment-receipt"
+ATTACHMENT_RECEIPT_MAX_AGE_SECONDS = 60 * 60
+
+
+class InvalidAttachmentReceipt(Exception):
+    pass
+
 
 def store_attachment(directory, upload, extension):
     """Save an uploaded file and return the name it was stored under.
@@ -58,6 +77,66 @@ def store_attachment(directory, upload, extension):
     private_storage.save(
         private_storage.build_relative_path(directory, name), upload.chunks())
     return name
+
+
+def issue_attachment_receipt(user_id, directory, name):
+    """Return short-lived proof that this user uploaded this stored object."""
+    if directory not in ATTACHMENT_ROUTES or not STORED_NAME.fullmatch(name):
+        raise ValueError("Refusing to issue a receipt for an unknown attachment")
+    return signing.dumps(
+        {"user_id": user_id, "directory": directory, "name": name},
+        salt=ATTACHMENT_RECEIPT_SALT,
+    )
+
+
+def verify_attachment_receipt(token, user_id, directory):
+    """Return ``(relative_path, name)`` for a valid upload owned by the user."""
+    if not token:
+        raise InvalidAttachmentReceipt("An attachment upload receipt is required.")
+    try:
+        payload = signing.loads(
+            token,
+            salt=ATTACHMENT_RECEIPT_SALT,
+            max_age=ATTACHMENT_RECEIPT_MAX_AGE_SECONDS,
+        )
+    except signing.SignatureExpired:
+        raise InvalidAttachmentReceipt(
+            "This attachment upload has expired. Please upload the file again.")
+    except signing.BadSignature:
+        raise InvalidAttachmentReceipt("This attachment upload is not valid.")
+
+    name = payload.get("name", "")
+    if payload.get("user_id") != user_id or payload.get("directory") != directory:
+        raise InvalidAttachmentReceipt(
+            "This attachment upload belongs to another account or form.")
+    if not STORED_NAME.fullmatch(name):
+        raise InvalidAttachmentReceipt("This attachment upload is not valid.")
+
+    path = private_storage.build_relative_path(directory, name)
+    if not private_storage.exists(path):
+        raise InvalidAttachmentReceipt(
+            "This attachment is no longer available. Please upload it again.")
+    return path, name
+
+
+def build_attachment_url(request, directory, name):
+    return request.build_absolute_uri(reverse(ATTACHMENT_ROUTES[directory], args=[name]))
+
+
+def managed_attachment_name(url, directory):
+    """Return a generated name when ``url`` points at one of our file routes."""
+    if not url or directory not in ATTACHMENT_ROUTES:
+        return None
+    path = unquote(urlsplit(url).path)
+    marker = (
+        "/resources/training/attachment/"
+        if directory == TRAINING_ATTACHMENT_DIR
+        else "/dashboard/announcements/attachment/"
+    )
+    if marker not in path:
+        return None
+    name = path.rsplit("/", 1)[-1]
+    return name if STORED_NAME.fullmatch(name) else None
 
 
 class StoredAttachmentView(APIView):

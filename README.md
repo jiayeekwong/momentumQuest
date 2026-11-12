@@ -606,7 +606,8 @@ Rewritten around the current pipeline, in dependency order:
 ```
 import_skills  ->  load_market_roles  ->  scrape_jobs  ->  dedupe
     ->  recategorize  ->  reextract_job_skills  ->  classify_market_roles
-    ->  scrape_status  ->  scrape_resources  ->  purge_orphaned_documents
+    ->  scrape_status  ->  scrape_resources  ->  purge_expired_cvs
+    ->  purge_orphaned_documents  ->  purge_orphaned_attachments
     ->  refresh_skill_gaps
 ```
 

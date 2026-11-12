@@ -26,7 +26,12 @@ from accounts.privacy_notice import CURRENT_VERSION
 from .file_validation import MAX_BYTES as MAX_UPLOAD_BYTES
 from .pagination import ResourceCataloguePagination
 from . import private_storage
-from .attachments import StoredAttachmentView, store_attachment
+from .attachments import (
+    TRAINING_ATTACHMENT_DIR,
+    StoredAttachmentView,
+    issue_attachment_receipt,
+    store_attachment,
+)
 from .file_validation import InvalidUpload, validate_document
 from .models import (
     Certificate,
@@ -56,8 +61,6 @@ from .transcript_parser import extract_text_from_pdf, parse_transcript_text
 
 
 #: Where training brochures live in the private store.
-TRAINING_ATTACHMENT_DIR = "training"
-
 logger = logging.getLogger(__name__)
 
 
@@ -152,7 +155,11 @@ class CourseListView(generics.ListCreateAPIView):
         if skill:
             qs = qs.filter(skill__skill_name__icontains=skill)
         if department:
-            qs = qs.filter(department__icontains=department)
+            # departments is a JSON array, not the removed singular field.
+            # PostgreSQL's JSON containment operator gives exact membership;
+            # an icontains string match would also make "Engineering" match
+            # "Software Engineering", which is not the requested department.
+            qs = qs.filter(departments__contains=[department])
 
         return qs
 
@@ -850,7 +857,8 @@ class CompanyTrainingView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = TrainingProgrammeSerializer(data=request.data)
+        serializer = TrainingProgrammeSerializer(
+            data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(company=request.user.company_profile)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -950,8 +958,9 @@ class CompanyTrainingDetailView(APIView):
         if err:
             return err
 
-        serializer = TrainingProgrammeSerializer(programme, data=request.data,
-                                                 partial=partial)
+        serializer = TrainingProgrammeSerializer(
+            programme, data=request.data, partial=partial,
+            context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(
             approval_status=TrainingProgramme.ApprovalStatus.PENDING,
@@ -975,8 +984,8 @@ class CompanyTrainingDetailView(APIView):
 class TrainingFileUploadView(APIView):
     """
     POST /api/resources/training/upload/
-    Company uploads a file (brochure, syllabus, poster). Returns the absolute URL
-    to store in supporting_doc — keeps TrainingProgramme.supporting_doc a URLField.
+    Company uploads a file (brochure, syllabus, poster). Returns a display URL
+    and a signed receipt that lets one programme claim the server-owned key.
 
     A poster or brochure is public, and the file type is the whole of the
     security boundary: an .html or .svg accepted here would be served from the
@@ -1005,7 +1014,11 @@ class TrainingFileUploadView(APIView):
         stored_name = store_attachment(TRAINING_ATTACHMENT_DIR, file, extension)
         url = request.build_absolute_uri(
             reverse('training-attachment', args=[stored_name]))
-        return Response({'url': url}, status=status.HTTP_201_CREATED)
+        return Response({
+            'url': url,
+            'attachment_receipt': issue_attachment_receipt(
+                request.user.id, TRAINING_ATTACHMENT_DIR, stored_name),
+        }, status=status.HTTP_201_CREATED)
 
 
 class TrainingAttachmentView(StoredAttachmentView):

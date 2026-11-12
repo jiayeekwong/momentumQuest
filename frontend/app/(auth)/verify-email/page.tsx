@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { API_BASE } from "@/src/lib/apiFetch";
 
 function VerifyEmailPageContent() {
   const searchParams = useSearchParams();
@@ -22,7 +23,7 @@ function VerifyEmailPageContent() {
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/verify-email/`,
+          `${API_BASE}/api/auth/verify-email/`,
           {
             method: "POST",
             headers: {

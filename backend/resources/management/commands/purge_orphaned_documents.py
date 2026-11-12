@@ -21,18 +21,23 @@ notice promises deleted.
     python manage.py purge_orphaned_documents --delete
 
 Reports by default. Deleting student documents is not something a command
-should do because it was run without arguments.
+should do because it was run without arguments. Even with --delete, an orphan
+younger than one day is left alone so the scheduled run cannot race the short
+gap between storing a file and committing its database row.
 """
 
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from resources.models import Certificate, TranscriptUpload
 from resources import private_storage
 
-#: The directories the upload views write into. CVs are deliberately absent:
-#: they are stored as URLs on JobApplication rather than as private files, so
-#: there is nothing here to orphan.
+#: CVs and public posting attachments have their own retention commands and
+#: grace periods; this command owns identity-bearing verification documents.
 MANAGED_DIRECTORIES = ("certificates", "transcripts")
+UNCLAIMED_GRACE = timedelta(days=1)
 
 
 class Command(BaseCommand):
@@ -60,18 +65,23 @@ class Command(BaseCommand):
         # orphans cost money for as long as they sit there.
         orphans, kept = [], 0
         for directory in MANAGED_DIRECTORIES:
-            for key in private_storage.iter_keys(directory):
+            for key, modified in private_storage.iter_entries(directory):
                 if key in referenced:
                     kept += 1
                 else:
-                    orphans.append(key)
+                    orphans.append((key, modified))
+
+        cutoff = timezone.now() - UNCLAIMED_GRACE
+        eligible = [(key, modified) for key, modified in orphans
+                    if modified is not None and modified <= cutoff]
 
         self.stdout.write(
-            "%d file(s) referenced by a database row, %d orphaned"
-            % (kept, len(orphans)))
+            "%d file(s) referenced by a database row, %d orphaned, "
+            "%d old enough to remove"
+            % (kept, len(orphans), len(eligible)))
 
         if options["list"]:
-            for orphan in sorted(orphans):
+            for orphan, _modified in sorted(orphans):
                 self.stdout.write("    " + orphan)
 
         if not options["delete"]:
@@ -80,7 +90,7 @@ class Command(BaseCommand):
             return
 
         removed = failed = 0
-        for orphan in orphans:
+        for orphan, _modified in eligible:
             try:
                 if private_storage.delete(orphan):
                     removed += 1

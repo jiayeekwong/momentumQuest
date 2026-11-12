@@ -99,6 +99,8 @@ export default function ProfilePage() {
   // Student header edit
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(user?.name ?? '');
+  const [studentSaving, setStudentSaving] = useState(false);
+  const [studentError, setStudentError] = useState('');
 
   // Company info edit
   const [companyEditMode, setCompanyEditMode] = useState(false);
@@ -217,6 +219,60 @@ export default function ProfilePage() {
     setCurrentPassword('');
   };
 
+  const openStudentEdit = () => {
+    // Auth is restored after the first client render, so initialise this
+    // field when the editor opens rather than relying on the initial render.
+    setName(user?.name ?? '');
+    setStudentError('');
+    setEditMode(true);
+  };
+
+  const closeStudentEdit = () => {
+    setName(user?.name ?? '');
+    setStudentError('');
+    setEditMode(false);
+  };
+
+  const saveStudentInfo = async () => {
+    if (!user) return;
+
+    const studentName = name.trim();
+    if (!studentName) {
+      setStudentError('Full name is required.');
+      return;
+    }
+
+    setStudentSaving(true);
+    setStudentError('');
+    try {
+      const res = await apiFetch('/api/auth/profile/', {
+        method: 'PATCH',
+        body: JSON.stringify({ student_name: studentName }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setStudentError(
+          data?.student_name?.[0] ?? data?.detail ?? 'Failed to update your profile.'
+        );
+        return;
+      }
+
+      const savedName = data?.student_name ?? studentName;
+      setName(savedName);
+      updateUser({
+        ...user,
+        name: savedName,
+        department: data?.department ?? user.department,
+        targetRoles: data?.target_roles ?? user.targetRoles,
+      });
+      setEditMode(false);
+    } catch {
+      setStudentError('Network error. Please try again.');
+    } finally {
+      setStudentSaving(false);
+    }
+  };
+
   return (
     <DashboardLayout title="My Profile">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -231,6 +287,11 @@ export default function ProfilePage() {
               {editMode && isStudent ? (
                 <div className="space-y-3 mb-4">
                   <Input label="Full Name" value={name} onChange={e => setName(e.target.value)} />
+                  {studentError && (
+                    <p className="text-sm font-medium text-danger" role="alert">
+                      {studentError}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
@@ -254,16 +315,30 @@ export default function ProfilePage() {
             </div>
             {/* Only show Edit Profile button for students */}
             {isStudent && (
-              <Button
-                variant={editMode ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setEditMode(!editMode)}
-                className="h-10"
-              >
-                {editMode
-                  ? <><CheckCircle2 size={16} className="mr-2" /> Save</>
-                  : <><Edit3 size={16} className="mr-2" /> Edit Profile</>}
-              </Button>
+              <div className="flex items-center gap-2">
+                {editMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={closeStudentEdit}
+                    disabled={studentSaving}
+                    className="h-10"
+                  >
+                    Cancel
+                  </Button>
+                )}
+                <Button
+                  variant={editMode ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={editMode ? () => void saveStudentInfo() : openStudentEdit}
+                  isLoading={studentSaving}
+                  className="h-10"
+                >
+                  {editMode
+                    ? <><CheckCircle2 size={16} className="mr-2" /> Save</>
+                    : <><Edit3 size={16} className="mr-2" /> Edit Profile</>}
+                </Button>
+              </div>
             )}
           </div>
         </Card>

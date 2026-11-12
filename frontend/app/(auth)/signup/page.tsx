@@ -8,6 +8,7 @@ import { Button, Input, Card, Checkbox } from '@/src/components/ui';
 import { usePrivacyNotice, useDepartments, toParagraphs } from '@/src/lib/privacyNotice';
 import { Logo } from '@/src/components/Logo';
 import { cn } from '@/src/lib/utils';
+import { API_BASE } from '@/src/lib/apiFetch';
 
 type SignupRole = 'STUDENT' | 'COMPANY';
 
@@ -109,7 +110,7 @@ export default function SignupPage() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register/`, {
+      const res = await fetch(`${API_BASE}/api/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

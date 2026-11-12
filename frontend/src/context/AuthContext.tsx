@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole, TargetRole } from '@/src/types';
+import { API_BASE } from '@/src/lib/apiFetch';
 
 interface BackendProfile {
   email: string;
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile/`, {
+    fetch(`${API_BASE}/api/auth/profile/`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then(async res => {

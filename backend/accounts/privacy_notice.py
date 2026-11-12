@@ -841,6 +841,11 @@ def _the_cv_is_kept_for_the_employer(notice):
             "I agree to MomentumQuest reading this CV and sending it to the employer "
             "with my application. I can remove it at any time.",
     }
+    # 1.3 changed the retention promise, so its recorded consent wording must
+    # change with it.  Leaving the inherited 1.1 sentence here made the upload
+    # checkbox promise deletion while the notice beside it promised retention.
+    updated["consent_statements"]["CV_PROCESSING_CONSENT"] = (
+        updated["cv_notice"]["acknowledgement"])
 
     for section in updated["sections"]:
         if not section.get("heading", "").startswith("6. CV Processing"):

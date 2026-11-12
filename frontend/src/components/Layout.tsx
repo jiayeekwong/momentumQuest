@@ -244,8 +244,10 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
   // it leaves a phone nothing to read. Closed on every navigation: tapping a
   // link and landing on a page still covered by the menu you tapped it in is
   // the one behaviour a drawer must not have.
-  const [navOpen, setNavOpen] = useState(false);
-  useEffect(() => { setNavOpen(false); }, [pathname]);
+  const [navOpenedOnPath, setNavOpenedOnPath] = useState<string | null>(null);
+  // State remembers where the drawer was opened. A route change makes it
+  // closed by derivation, without synchronously resetting state in an effect.
+  const navOpen = navOpenedOnPath === pathname;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -315,7 +317,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
         <button
           type="button"
           aria-label="Close menu"
-          onClick={() => setNavOpen(false)}
+          onClick={() => setNavOpenedOnPath(null)}
           className="fixed inset-0 bg-neutral-900/40 z-20 lg:hidden"
         />
       )}
@@ -332,7 +334,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
           <Logo size="sm" layout="horizontal" />
           <button
             type="button"
-            onClick={() => setNavOpen(false)}
+            onClick={() => setNavOpenedOnPath(null)}
             aria-label="Close menu"
             className="text-neutral-500 hover:text-neutral-900 lg:hidden"
           >
@@ -346,6 +348,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
               <Link
                 key={item.path}
                 href={item.path}
+                onClick={() => setNavOpenedOnPath(null)}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   isActive
@@ -376,7 +379,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => setNavOpen(true)}
+              onClick={() => setNavOpenedOnPath(pathname)}
               aria-label="Open menu"
               aria-expanded={navOpen}
               className="text-neutral-600 hover:text-neutral-900 lg:hidden"

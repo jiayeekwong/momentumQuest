@@ -437,6 +437,15 @@ class JobApplicationCreateSerializer(serializers.Serializer):
                 "The consent for this CV has been withdrawn. Please upload your "
                 "CV again to continue.")
 
+        # A parse receipt authorises one application, not an hour of copying
+        # the same CV to unrelated employers.  The database constraint is the
+        # race-safe backstop; this check provides a useful field error.
+        if JobApplication.objects.filter(
+                cv_processing_consent=consent).exists():
+            raise serializers.ValidationError(
+                "This CV has already been used for an application. Please "
+                "upload it again before applying elsewhere.")
+
         self._receipt_payload = payload
         return token
 

@@ -870,6 +870,21 @@ class CVProcessingConsentTests(TestCase):
         self.assertTrue(UserConsent.objects.filter(
             consent_type='CV_PROCESSING_CONSENT').exists())
 
+    def test_a_cv_that_cannot_be_read_is_removed_immediately(self):
+        from resources import private_storage
+
+        with patch('job_listings.views.private_storage.delete',
+                   wraps=private_storage.delete) as delete:
+            with patch('job_listings.cv_parser.extract_text_from_pdf',
+                       side_effect=RuntimeError('boom')):
+                response = self.client.post(
+                    '/api/job-listings/cv/parse/',
+                    {'file': self._pdf(), 'cv_processing_ack': True},
+                    format='multipart')
+
+        self.assertEqual(response.status_code, 400)
+        delete.assert_called_once()
+
 
 class CVParseReceiptTests(TestCase):
     """The receipt proves consented processing, to one student, for a while."""
@@ -1032,6 +1047,26 @@ class ApplicationDisclosureTests(TestCase):
                                     payload, format='json')
 
         self.assertEqual(response.status_code, 400)
+
+    def test_a_parse_receipt_can_be_used_for_only_one_application(self):
+        first_payload = self._payload()
+        first = self.client.post('/api/job-listings/applications/',
+                                 first_payload, format='json')
+        second_job = JobListing.objects.create(
+            job_title='Another Backend Role', company=self.company,
+            status=JobListing.Status.ACTIVE)
+        second_payload = {
+            **first_payload,
+            'job': second_job.id,
+        }
+
+        second = self.client.post('/api/job-listings/applications/',
+                                  second_payload, format='json')
+
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 400, second.data)
+        self.assertIn('cv_parse_receipt', second.data)
+        self.assertEqual(JobApplication.objects.count(), 1)
 
 
 class ApplicationPayloadValidationTests(TestCase):
@@ -1999,6 +2034,15 @@ class TheCVReachesTheEmployerTests(APITestCase):
         self.client.force_authenticate(self.company_user)
 
         self.assertEqual(self.client.get(self._url()).status_code, 404)
+
+    def test_deleting_the_application_deletes_its_cv(self):
+        from resources import private_storage
+
+        path = self.application.cv_path
+        with self.captureOnCommitCallbacks(execute=True):
+            self.application.delete()
+
+        self.assertFalse(private_storage.exists(path))
 
     # ---- applications from before 1.3 ----------------------------------------
 

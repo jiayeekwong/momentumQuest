@@ -259,6 +259,13 @@ is why the document lifecycle in §7 is part of the smoke test rather than an
 optional extra. If a certificate unexpectedly reads as missing, check the R2
 credentials before assuming the object is gone.
 
+**Retention is scheduled.** The GitHub Actions workflow *Enforce private-data
+retention* runs daily and removes six-month-old CVs plus abandoned CV,
+verification-document, announcement and training uploads after a one-day grace
+period. Configure the same `DB_*`, `DJANGO_SECRET_KEY` and `R2_*` values as the
+production service in repository secrets. The workflow can also be run by hand;
+each management command remains report-only unless passed `--delete`.
+
 Override with `PRIVATE_STORAGE_BACKEND=filesystem` only where local storage
 genuinely persists.
 

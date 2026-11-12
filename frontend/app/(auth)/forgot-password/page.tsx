@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Card, Input } from "@/src/components/ui";
 import { Logo } from "@/src/components/Logo";
+import { API_BASE } from "@/src/lib/apiFetch";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -38,7 +39,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/password-reset/`,
+        `${API_BASE}/api/auth/password-reset/`,
         {
           method: "POST",
           headers: {

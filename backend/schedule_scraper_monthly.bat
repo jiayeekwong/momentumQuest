@@ -1,8 +1,8 @@
 @echo off
 :: MomentumQuest - Monthly data refresh
 ::
-:: This is the ONLY scheduled job. It runs both scrapers and every step that
-:: depends on them, in the order they depend on each other.
+:: This is the workstation's monthly market-data job. Production retention
+:: also runs daily in .github/workflows/purge-private-data.yml.
 ::
 :: Register with Windows Task Scheduler:
 ::   schtasks /create /tn "MomentumQuest Monthly Refresh" ^
@@ -105,11 +105,12 @@ echo [%DATE% %TIME%] Scraping learning resources... >> logs\scraper.log
 python manage.py scrape_resources >> logs\scraper.log 2>&1
 
 :: --- Retention --------------------------------------------------------
-:: Files whose database row is gone. The privacy notice promises a document
-:: is removed when its record is, and the post_delete receivers keep that
-:: promise for ordinary deletes; this catches anything a crash left behind.
-echo [%DATE% %TIME%] Purging orphaned documents... >> logs\scraper.log
-python manage.py purge_orphaned_documents >> logs\scraper.log 2>&1
+:: Enforce every file-retention rule. Each orphan command has a one-day grace
+:: period, so this cannot race an upload that has not committed its row yet.
+echo [%DATE% %TIME%] Enforcing stored-file retention... >> logs\scraper.log
+python manage.py purge_expired_cvs --delete >> logs\scraper.log 2>&1
+python manage.py purge_orphaned_documents --delete >> logs\scraper.log 2>&1
+python manage.py purge_orphaned_attachments --delete >> logs\scraper.log 2>&1
 
 :: --- Skill gaps -------------------------------------------------------
 :: Run once, last, now that the market data, the skills extracted from it,

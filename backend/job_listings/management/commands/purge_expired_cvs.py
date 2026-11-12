@@ -6,11 +6,10 @@ application, and both are promises this command keeps:
   * it is deleted six months after they apply
   * an application they never submitted keeps nothing
 
-The second is the quieter one. A CV is stored when it is parsed, before the
-student has decided to apply -- because a CV that defeats the reader is still
-the document they sent, and should still reach the employer. Someone who
-uploads three CVs and applies once leaves two files nobody claimed, and
-nothing else would ever remove them.
+The second is the quieter one. A successfully parsed CV is stored before the
+student has decided to apply. Someone who uploads three readable CVs and
+applies once leaves two files nobody claimed, and nothing else would remove
+them. Files that fail parsing are deleted in the request itself.
 
 Reports by default. --delete removes the files, and is irreversible: a CV is a
 document the student gave us and there is no second copy.

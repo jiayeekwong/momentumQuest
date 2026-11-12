@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Clock, Briefcase, ChevronRight, ChevronDown, FileText, ExternalLink } from 'lucide-react';
+import { Search, Clock, Briefcase, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';

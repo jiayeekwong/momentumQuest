@@ -514,7 +514,19 @@ DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
     f"MomentumQuest <{EMAIL_HOST_USER}>"
 )
-VERIFICATION_TIMEOUT = int(os.getenv("VERIFICATION_TIMEOUT", 60 * 15))
+# All account-action links use the same lifetime.  Django's built-in
+# PasswordResetTokenGenerator reads PASSWORD_RESET_TIMEOUT; the old setting
+# was never connected to it, so emails promised 15 minutes while reset and
+# verification links actually remained valid for Django's three-day default.
+ACCOUNT_LINK_TIMEOUT_SECONDS = int(os.getenv(
+    "ACCOUNT_LINK_TIMEOUT_SECONDS",
+    os.getenv("VERIFICATION_TIMEOUT", str(60 * 15)),
+))
+PASSWORD_RESET_TIMEOUT = ACCOUNT_LINK_TIMEOUT_SECONDS
+# Kept as a compatibility alias for deployments that still inspect it.
+VERIFICATION_TIMEOUT = ACCOUNT_LINK_TIMEOUT_SECONDS
+ACCOUNT_LINK_TIMEOUT_MINUTES = max(
+    1, (ACCOUNT_LINK_TIMEOUT_SECONDS + 59) // 60)
 
 # Published in the privacy notice as the address students write to about their
 # personal data. Injected at read time rather than baked into the notice text,

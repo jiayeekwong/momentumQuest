@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from config.sanitization import sanitize_html, sanitize_text
 
@@ -349,6 +350,18 @@ class JobApplication(models.Model):
     class Meta:
         unique_together = ('student', 'job')
         ordering = ['-applied_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cv_processing_consent'],
+                condition=Q(cv_processing_consent__isnull=False),
+                name='one_application_per_cv_parse',
+            ),
+            models.UniqueConstraint(
+                fields=['cv_path'],
+                condition=~Q(cv_path=''),
+                name='one_application_per_cv_file',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.student.student_name} → {self.job.job_title} ({self.status})"

@@ -622,6 +622,10 @@ class TrainingProgramme(models.Model):
     description      = models.TextField(blank=True)
     programme_duration = models.CharField(max_length=100, blank=True)
     supporting_doc   = models.URLField(blank=True, null=True)
+    # The storage key is server-owned. supporting_doc may also be an external
+    # URL, so only uploads claimed with a signed receipt populate this field.
+    attachment_path  = models.CharField(
+        max_length=255, blank=True, null=True, unique=True, editable=False)
     approval_status  = models.CharField(max_length=10,
                                         choices=ApprovalStatus.choices,
                                         default=ApprovalStatus.PENDING)

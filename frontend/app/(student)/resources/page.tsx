@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
-import { apiFetch } from '@/src/lib/apiFetch';
+import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
 import { RichText } from '@/src/lib/richText';
 
 const TRAINING_PLATFORM = 'Training Programme';
@@ -174,13 +174,9 @@ export default function ResourcesPage() {
   // every row into the DOM.
   useEffect(() => {
     if (showingTraining) {
-      // Nothing to fetch -- training is already in memory. The catalogue rows
-      // from whichever filter was showing before have to go, though: the
-      // effect returning early left them in state, and the grid renders both
-      // lists, so choosing Training Programme showed every training programme
-      // *and* the last page of freeCodeCamp courses.
-      setResources([]);
-      setCount(0);
+      // Nothing to fetch -- training is already in memory. Catalogue rows are
+      // hidden below as derived presentation state, so they stay cached for a
+      // quick return to the previous tab.
       return;
     }
 
@@ -191,7 +187,7 @@ export default function ResourcesPage() {
     // Aborted rather than merely ignored: a slow earlier response must not
     // overwrite a newer one, and the work is wasted once superseded.
     const controller = new AbortController();
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/resources/?${params.toString()}`,
+    fetch(`${API_BASE}/api/resources/?${params.toString()}`,
           { signal: controller.signal })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data: ResourcePage) => {
@@ -230,7 +226,9 @@ export default function ResourcesPage() {
                                 || (t.skill ?? '').toLowerCase().includes(q))
     : [];
 
-  const totalShown = resources.length + visibleTraining.length;
+  const visibleResources = showingTraining ? [] : resources;
+  const visibleCount = showingTraining ? 0 : count;
+  const totalShown = visibleResources.length + visibleTraining.length;
 
   return (
     <DashboardLayout title="Learning Resources">
@@ -329,7 +327,7 @@ export default function ResourcesPage() {
             ))}
 
             {/* Scraped learning resource cards */}
-            {resources.map((res) => {
+            {visibleResources.map((res) => {
               const color = PLATFORM_COLORS[res.platform] ?? 'bg-neutral-700';
               return (
                 <Card key={`r-${res.id}`} className="p-0 overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
@@ -404,7 +402,7 @@ export default function ResourcesPage() {
             <BookOpen size={48} className="mx-auto text-neutral-200 mb-4" />
             <h3 className="text-lg font-bold text-neutral-900">No resources found</h3>
             <p className="text-neutral-500 mt-1 text-sm">
-              {count === 0 && training.length === 0 && !debouncedSearch && platform === 'All'
+              {visibleCount === 0 && training.length === 0 && !debouncedSearch && platform === 'All'
                 ? 'No resources have been scraped yet. Run the scraper first.'
                 : 'Try adjusting your search or platform filter.'}
             </p>

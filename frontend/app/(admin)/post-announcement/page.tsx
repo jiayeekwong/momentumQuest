@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Plus, Bell, Users, Briefcase, GraduationCap, CheckCircle2, Bold, Italic, Underline, List, Link2, X, Trash2, Clock, FileText, ExternalLink, Paperclip, AlertTriangle, Upload } from 'lucide-react';
+import { Plus, Bell, Users, Briefcase, GraduationCap, CheckCircle2, Bold, Italic, Underline, List, Link2, X, Trash2, Clock, Paperclip, AlertTriangle, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -43,6 +43,7 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
   const [categories,   setCategories]   = useState<string[]>([]);
   const [audience,     setAudience]     = useState('EVERYONE');
   const [supportingDoc, setSupportingDoc] = useState('');
+  const [attachmentReceipt, setAttachmentReceipt] = useState('');
   const [uploadedName, setUploadedName] = useState<string | null>(null);
 
   const editor = useEditor({
@@ -72,8 +73,9 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
       fd.append('file', file);
       const res = await apiFetch('/api/dashboard/announcements/upload/', { method: 'POST', body: fd });
       if (res.ok) {
-        const { url } = await res.json();
+        const { url, attachment_receipt } = await res.json();
         setSupportingDoc(url);
+        setAttachmentReceipt(attachment_receipt);
         setUploadedName(file.name);
       } else {
         setError('File upload failed. Please try again.');
@@ -102,6 +104,7 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
           audience,
           categories,
           supporting_doc: supportingDoc.trim() || null,
+          attachment_receipt: attachmentReceipt || undefined,
         }),
       });
       if (res.ok) {
@@ -195,7 +198,7 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
             <input
               type="url"
               value={supportingDoc}
-              onChange={e => { setSupportingDoc(e.target.value); setUploadedName(null); }}
+              onChange={e => { setSupportingDoc(e.target.value); setAttachmentReceipt(''); setUploadedName(null); }}
               placeholder="Paste a URL  or  upload from computer"
               className="w-full h-10 pl-9 pr-4 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -220,7 +223,7 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg w-fit">
             <CheckCircle2 size={13} className="text-success shrink-0" />
             <span className="text-xs font-semibold text-success truncate max-w-xs">{uploadedName} uploaded</span>
-            <button type="button" onClick={() => { setSupportingDoc(''); setUploadedName(null); }}
+            <button type="button" onClick={() => { setSupportingDoc(''); setAttachmentReceipt(''); setUploadedName(null); }}
               className="text-success/60 hover:text-success ml-1"><X size={12} /></button>
           </div>
         )}

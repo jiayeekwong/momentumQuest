@@ -344,7 +344,8 @@ class EmailChangeRequestView(APIView):
                 f"We received a request to change your MomentumQuest email address.\n\n"
                 f"Click the link below to confirm your new email address:\n"
                 f"{confirm_link}\n\n"
-                f"This link will expire in 15 minutes.\n\n"
+                f"This link will expire in "
+                f"{settings.ACCOUNT_LINK_TIMEOUT_MINUTES} minutes.\n\n"
                 f"If you did not request this change, you can ignore this email."
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -363,7 +364,9 @@ class EmailChangeConfirmView(APIView):
         token = request.data.get('token', '')
 
         try:
-            data = signing.loads(token, salt='mq-email-change', max_age=900)
+            data = signing.loads(
+                token, salt='mq-email-change',
+                max_age=settings.ACCOUNT_LINK_TIMEOUT_SECONDS)
         except signing.SignatureExpired:
             return Response({'detail': 'This link has expired. Please request a new email change.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -467,7 +470,8 @@ class PasswordChangeView(APIView):
                 f"We received a request to change your MomentumQuest password.\n\n"
                 f"Click the link below to confirm the change:\n"
                 f"{confirm_link}\n\n"
-                f"This link will expire in 15 minutes.\n\n"
+                f"This link will expire in "
+                f"{settings.ACCOUNT_LINK_TIMEOUT_MINUTES} minutes.\n\n"
                 f"If you did not request this change, you can ignore this email — your password will not be changed."
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -486,7 +490,9 @@ class PasswordChangeConfirmView(APIView):
         token = request.data.get('token', '')
 
         try:
-            data = signing.loads(token, salt='mq-password-change', max_age=900)
+            data = signing.loads(
+                token, salt='mq-password-change',
+                max_age=settings.ACCOUNT_LINK_TIMEOUT_SECONDS)
         except signing.SignatureExpired:
             return Response(
                 {'detail': 'This link has expired. Please request a new password change.'},

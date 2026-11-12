@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { GraduationCap, Clock, CheckCircle2, XCircle, AlertCircle, BookOpen, Link2, Upload, X, FileText, ExternalLink, ArrowLeft } from 'lucide-react';
+import { GraduationCap, Clock, CheckCircle2, XCircle, AlertCircle, BookOpen, Link2, Upload, X, FileText, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button, Input } from '@/src/components/ui';
@@ -111,7 +110,6 @@ function DetailModal({ programme: p, onClose }: { programme: TrainingProgramme; 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function PostTrainingPage() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [submitted, setSubmitted] = useState(false);
@@ -126,6 +124,7 @@ export default function PostTrainingPage() {
   const [duration, setDuration] = useState('');
   const [description, setDescription] = useState('');
   const [supportingDoc, setSupportingDoc] = useState('');
+  const [attachmentReceipt, setAttachmentReceipt] = useState('');
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -153,8 +152,9 @@ export default function PostTrainingPage() {
       fd.append('file', file);
       const res = await apiFetch('/api/resources/training/upload/', { method: 'POST', body: fd });
       if (res.ok) {
-        const { url } = await res.json();
+        const { url, attachment_receipt } = await res.json();
         setSupportingDoc(url);
+        setAttachmentReceipt(attachment_receipt);
         setUploadedName(file.name);
       } else {
         setError('File upload failed. Please try again.');
@@ -174,6 +174,7 @@ export default function PostTrainingPage() {
     setDuration(prog.programme_duration ?? '');
     setDescription(prog.description ?? '');
     setSupportingDoc(prog.supporting_doc ?? '');
+    setAttachmentReceipt('');
     setUploadedName(prog.supporting_doc ? 'Existing attachment' : null);
     setError('');
     setFormOpen(true);
@@ -211,6 +212,7 @@ export default function PostTrainingPage() {
           skill_name:         skillName.trim() || undefined,
           programme_duration: duration,
           supporting_doc:     supportingDoc.trim() || null,
+          attachment_receipt: attachmentReceipt || undefined,
         }),
       });
 
@@ -231,6 +233,7 @@ export default function PostTrainingPage() {
           setDuration('');
           setDescription('');
           setSupportingDoc('');
+          setAttachmentReceipt('');
           setUploadedName(null);
         }, 2500);
       } else {
@@ -258,7 +261,18 @@ export default function PostTrainingPage() {
             </div>
             <Button
               size="sm"
-              onClick={() => setFormOpen(!formOpen)}
+              onClick={() => {
+                if (formOpen) { setFormOpen(false); return; }
+                setEditId(null);
+                setTitle('');
+                setSkillName('');
+                setDuration('');
+                setDescription('');
+                setSupportingDoc('');
+                setAttachmentReceipt('');
+                setUploadedName(null);
+                setFormOpen(true);
+              }}
               className="h-9 text-xs"
             >
               <GraduationCap size={14} className="mr-1.5" />
@@ -396,7 +410,7 @@ export default function PostTrainingPage() {
                         <div className="relative flex-1">
                           <Link2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
                           <input type="url" value={supportingDoc}
-                            onChange={e => { setSupportingDoc(e.target.value); setUploadedName(null); }}
+                            onChange={e => { setSupportingDoc(e.target.value); setAttachmentReceipt(''); setUploadedName(null); }}
                             placeholder="Paste a URL  or  upload from computer →"
                             className="w-full h-10 pl-9 pr-4 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                         </div>
@@ -415,7 +429,7 @@ export default function PostTrainingPage() {
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg w-fit">
                           <CheckCircle2 size={13} className="text-success shrink-0" />
                           <span className="text-xs font-semibold text-success truncate max-w-xs">{uploadedName} uploaded</span>
-                          <button type="button" onClick={() => { setSupportingDoc(''); setUploadedName(null); }}
+                          <button type="button" onClick={() => { setSupportingDoc(''); setAttachmentReceipt(''); setUploadedName(null); }}
                             className="text-success/60 hover:text-success ml-1"><X size={12} /></button>
                         </div>
                       )}

@@ -1881,6 +1881,30 @@ class AnnouncementAttachmentsSurviveTests(APITestCase):
         self.assertTrue(url.startswith("http://") or url.startswith("https://"),
                         f"not absolute: {url}")
 
+    def test_a_claimed_poster_is_deleted_with_its_announcement(self):
+        from resources import private_storage
+
+        upload = self._upload()
+        created = self.client.post('/api/dashboard/announcements/create/', {
+            'title': 'Open Day',
+            'message': '<p>Join us.</p>',
+            'audience': 'EVERYONE',
+            'supporting_doc': upload.data['url'],
+            'attachment_receipt': upload.data['attachment_receipt'],
+        }, format='json')
+
+        self.assertEqual(created.status_code, 201, created.data)
+        announcement = Announcement.objects.get(pk=created.data['id'])
+        path = announcement.attachment_path
+        self.assertTrue(private_storage.exists(path))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            deleted = self.client.delete(
+                f'/api/dashboard/announcements/{announcement.pk}/')
+
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(private_storage.exists(path))
+
     def test_a_poster_is_served_without_a_token(self):
         """An <img> element cannot carry a bearer token, and a poster is not a
         secret -- which is why the upload reads the file's type from its own
@@ -1919,5 +1943,4 @@ class AnnouncementAttachmentsSurviveTests(APITestCase):
         self.client.force_authenticate(user=student)
 
         self.assertEqual(self._upload().status_code, 403)
-
 

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, Input } from "@/src/components/ui";
 import { Logo } from "@/src/components/Logo";
+import { API_BASE } from "@/src/lib/apiFetch";
 
 type ApiErrorResponse = {
   detail?: string | string[];
@@ -75,7 +76,7 @@ function ResetPasswordPageContent() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/password-reset/confirm/`,
+        `${API_BASE}/api/auth/password-reset/confirm/`,
         {
           method: "POST",
           headers: {

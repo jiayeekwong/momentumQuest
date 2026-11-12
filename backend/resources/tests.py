@@ -2818,11 +2818,11 @@ class TrainingBrochuresSurviveTests(APITestCase):
     def setUp(self):
         from accounts.models import Company, User
 
-        user = User.objects.create_user(email="co-upload@example.edu",
-                                        password="Sufficient-Pass-1",
-                                        role=User.Role.COMPANY)
-        Company.objects.create(user=user, company_name="ACME")
-        self.client.force_authenticate(user=user)
+        self.user = User.objects.create_user(email="co-upload@example.edu",
+                                             password="Sufficient-Pass-1",
+                                             role=User.Role.COMPANY)
+        Company.objects.create(user=self.user, company_name="ACME")
+        self.client.force_authenticate(user=self.user)
 
     def _upload(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -2847,6 +2847,46 @@ class TrainingBrochuresSurviveTests(APITestCase):
 
         self.assertIn("/api/resources/training/attachment/", url)
         self.assertNotIn("/media/", url)
+
+    def test_a_claimed_brochure_is_deleted_with_its_programme(self):
+        from resources import private_storage
+
+        upload = self._upload()
+        created = self.client.post('/api/resources/training/', {
+            'title': 'Secure Python',
+            'supporting_doc': upload.data['url'],
+            'attachment_receipt': upload.data['attachment_receipt'],
+        }, format='json')
+
+        self.assertEqual(created.status_code, 201, created.data)
+        programme = TrainingProgramme.objects.get(pk=created.data['id'])
+        path = programme.attachment_path
+        self.assertTrue(private_storage.exists(path))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            deleted = self.client.delete(
+                f'/api/resources/training/{programme.pk}/')
+
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(private_storage.exists(path))
+
+    def test_an_upload_receipt_cannot_be_reused(self):
+        upload = self._upload()
+        payload = {
+            'title': 'First Programme',
+            'supporting_doc': upload.data['url'],
+            'attachment_receipt': upload.data['attachment_receipt'],
+        }
+
+        first = self.client.post(
+            '/api/resources/training/', payload, format='json')
+        second = self.client.post(
+            '/api/resources/training/',
+            {**payload, 'title': 'Second Programme'}, format='json')
+
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 400, second.data)
+        self.assertIn('attachment_receipt', second.data)
 
     def test_it_is_not_written_to_the_instance_filesystem(self):
         from pathlib import Path
@@ -3171,6 +3211,20 @@ class CoursesBelongToMoreThanOneThingTests(APITestCase):
 
         self.assertEqual(rows[0]["departments"],
                          ["Compulsory", "Software Engineering"])
+
+    def test_courses_can_be_filtered_by_exact_department_membership(self):
+        self._add()
+        self._add(
+            course_code="WIA2001", title="Artificial Intelligence",
+            departments=["Artificial Intelligence"], skill_names=["Python"],
+        )
+
+        response = self.client.get(
+            "/api/resources/courses/?department=Software%20Engineering")
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual([row["course_code"] for row in rows], ["WIF2003"])
 
     def test_a_department_nobody_has_is_refused(self):
         response = self._add(departments=["Compulsory", "Hogwarts"])

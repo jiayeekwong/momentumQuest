@@ -8,6 +8,7 @@ from datetime import date
 from django.http import FileResponse, Http404
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Count, DateField, Max, Min, Q
 from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.urls import reverse
@@ -26,10 +27,16 @@ from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate, LearningResource  # Certificate: admin dashboard only
 from resources.providers import authority_index, get_provider, provider_names
 from resources.relevance import DEFAULT_PER_SKILL, free_status, related_resources
-from resources.attachments import StoredAttachmentView, store_attachment
+from resources.attachments import (
+    ANNOUNCEMENT_ATTACHMENT_DIR,
+    StoredAttachmentView,
+    issue_attachment_receipt,
+    store_attachment,
+)
 from resources.file_validation import InvalidUpload, validate_document
 
 from .models import Announcement
+from .announcement_email import send_announcement_email_notifications
 from .notifications import build_feed
 from .serializers import AnnouncementSerializer
 
@@ -1073,21 +1080,23 @@ class AnnouncementCreateView(generics.CreateAPIView):
     permission_classes = [IsAdminUserRole]
 
     def perform_create(self, serializer):
-        serializer.save(admin=admin_profile_for(self.request.user))
+        announcement = serializer.save(admin=admin_profile_for(self.request.user))
+        transaction.on_commit(
+            lambda announcement_id=announcement.pk:
+            send_announcement_email_notifications(announcement_id)
+        )
 
 
 #: Where announcement posters live in the private store.
-ANNOUNCEMENT_ATTACHMENT_DIR = "announcements"
-
 
 class AnnouncementFileUploadView(APIView):
     """
     POST /api/dashboard/announcements/upload/
-    Admin uploads a file (poster, document). Returns the absolute URL to store
-    in supporting_doc — keeps the Announcement model a plain URLField per ERD.
+    Admin uploads a file (poster, document). Returns a display URL and a signed
+    receipt that lets one announcement claim the server-owned storage key.
 
-    A poster or brochure is public: it is written into MEDIA_ROOT, which is
-    served without authentication. That makes the file type the whole of the
+    A poster or brochure is public: it is streamed from object storage without
+    authentication. That makes the file type the whole of the
     security boundary -- an .html or .svg accepted here would be served from
     the application's own origin and could run script against anyone who
     opened it. The extension is therefore never taken from the client's
@@ -1118,7 +1127,11 @@ class AnnouncementFileUploadView(APIView):
                                        extension)
         url = request.build_absolute_uri(
             reverse('announcement-attachment', args=[stored_name]))
-        return Response({'url': url}, status=status.HTTP_201_CREATED)
+        return Response({
+            'url': url,
+            'attachment_receipt': issue_attachment_receipt(
+                request.user.id, ANNOUNCEMENT_ATTACHMENT_DIR, stored_name),
+        }, status=status.HTTP_201_CREATED)
 
 
 class AnnouncementAttachmentView(StoredAttachmentView):

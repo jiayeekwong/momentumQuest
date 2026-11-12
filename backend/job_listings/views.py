@@ -238,11 +238,24 @@ class StudentJobApplicationView(APIView):
                     disclosure_consent=disclosure,
                 )
         except IntegrityError:
-            # Lost the race against a concurrent submission of the same
-            # application. unique_together already rejected it; the student
-            # should see the same message as the serializer's check, not a 500.
-            return Response({'detail': 'You have already applied to this job.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            # Both rules have database constraints because the serializer
+            # checks can race. Report the rule that actually lost the race.
+            if JobApplication.objects.filter(
+                    cv_processing_consent_id=serializer.cv_consent_id).exists():
+                return Response({
+                    'cv_parse_receipt': [
+                        'This CV has already been used for an application. '
+                        'Please upload it again before applying elsewhere.'
+                    ]
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if JobApplication.objects.filter(
+                    student=student, job=data['job']).exists():
+                return Response(
+                    {'detail': 'You have already applied to this job.'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            # An unrelated database constraint is a server fault, not an
+            # "already applied" error. Preserve its traceback.
+            raise
 
         # The acknowledgement names no company, but the record identifies one:
         # disclosure_consent -> application -> job -> company. The audit trail
@@ -328,9 +341,10 @@ class CVParseView(APIView):
             source=UserConsent.Source.CV_PARSE,
         )
 
-        # Stored before parsing, so a CV that defeats the reader is still the
-        # document the student sent and can still reach the employer. An
-        # unclaimed file is removed by purge_stored_cvs; see its own note.
+        # Stored before parsing because a successful parse and its retained
+        # original must refer to the same bytes. A failed/unreadable parse is
+        # deleted below immediately; a successful parse the student abandons
+        # is removed by purge_expired_cvs after its grace period.
         stored_name = store_attachment(CV_DIR, upload, ".pdf")
 
         try:
@@ -338,12 +352,16 @@ class CVParseView(APIView):
             parsed = parse_cv(upload)
         except Exception:
             logger.exception('CV parsing failed')
+            private_storage.delete(
+                private_storage.build_relative_path(CV_DIR, stored_name))
             return Response(
                 {'detail': 'We could not read that PDF. Please try exporting '
                            'your CV again.'},
                 status=status.HTTP_400_BAD_REQUEST)
 
         if not parsed['readable']:
+            private_storage.delete(
+                private_storage.build_relative_path(CV_DIR, stored_name))
             return Response({'detail': parsed['detail']},
                             status=status.HTTP_400_BAD_REQUEST)
 

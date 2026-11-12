@@ -362,6 +362,27 @@ class MyConsentsEndpointTests(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertTrue(response.data[0]["statement"])
 
+    def test_statement_comes_from_the_version_the_user_accepted(self):
+        from accounts.privacy_notice import get_notice
+
+        UserConsent.objects.create(
+            user=self.user,
+            consent_type=UserConsent.ConsentType.CV_PROCESSING_CONSENT,
+            notice_version="1.1",
+            accepted=True,
+            source=UserConsent.Source.CV_PARSE,
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(reverse("my_consents"))
+        cv_row = next(row for row in response.data
+                      if row["consent_type"] == "CV_PROCESSING_CONSENT")
+
+        self.assertEqual(
+            cv_row["statement"],
+            get_notice("1.1")["consent_statements"]["CV_PROCESSING_CONSENT"],
+        )
+
     def test_anonymous_visitor_is_refused(self):
         response = self.client.get(reverse("my_consents"))
 
@@ -601,6 +622,28 @@ class PrivacyNoticeVersioningTests(TestCase):
 
         self.assertIsNone(get_notice("1.0")["cv_notice"])
         self.assertEqual(get_notice("1.0")["application_disclosure"], "")
+
+    def test_1_3_cv_consent_matches_its_retention_notice(self):
+        from accounts.privacy_notice import get_notice
+
+        notice = get_notice("1.3")
+
+        self.assertEqual(
+            notice["consent_statements"]["CV_PROCESSING_CONSENT"],
+            notice["cv_notice"]["acknowledgement"],
+        )
+        self.assertNotIn(
+            "deleted after processing",
+            notice["consent_statements"]["CV_PROCESSING_CONSENT"],
+        )
+
+    def test_account_action_links_share_the_configured_timeout(self):
+        from django.conf import settings
+
+        self.assertEqual(
+            settings.PASSWORD_RESET_TIMEOUT,
+            settings.ACCOUNT_LINK_TIMEOUT_SECONDS,
+        )
 
     def test_an_unknown_version_is_an_error_not_a_guess(self):
         from accounts.privacy_notice import get_notice

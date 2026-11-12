@@ -562,3 +562,16 @@ class MonthlyScheduleTests(TestCase):
         order = self.batch_commands()
 
         self.assertEqual(order[-1], "refresh_skill_gaps")
+
+    def test_scheduled_retention_actually_deletes_eligible_files(self):
+        from pathlib import Path
+
+        batch = (Path(__file__).resolve().parent.parent
+                 / "schedule_scraper_monthly.bat")
+        text = batch.read_text(encoding="utf-8")
+
+        for command in (
+                "purge_expired_cvs", "purge_orphaned_documents",
+                "purge_orphaned_attachments"):
+            with self.subTest(command=command):
+                self.assertIn(f"python manage.py {command} --delete", text)
