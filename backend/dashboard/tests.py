@@ -7,8 +7,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import (
-    AdminProfile, Company, SkillGap, Student, StudentSkill, StudentTargetRole,
-    User,
+    AdminProfile, Company, SkillGap, Student, StudentSkill, StudentSkillEvent,
+    StudentTargetRole, User,
 )
 from job_listings.models import JobApplication, JobListing, JobSkill
 from resources.models import LearningResource
@@ -577,6 +577,92 @@ class BroadAreaSkillGapTests(TestCase):
             '/api/dashboard/market-role/?role=Software%20Engineer')
 
         self.assertEqual(response.status_code, 401)
+
+
+class SkillProgressApiTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="progress-student@test.com", password="pw", role="STUDENT")
+        self.student = Student.objects.create(
+            user=self.user, student_name="Progress Student")
+        self.client.force_authenticate(self.user)
+
+        self.software = MarketRole.objects.create(
+            name="Software Engineer", broad_area="Software & Applications")
+        self.data = MarketRole.objects.create(
+            name="Data Analyst", broad_area="Data & AI")
+        self.python = Skill.objects.create(skill_name="Python")
+        self.sql = Skill.objects.create(skill_name="SQL")
+
+        software_job = JobListing.objects.create(
+            job_title="Software Engineer",
+            source_type=JobListing.SourceType.SCRAPED,
+            status=JobListing.Status.ACTIVE,
+            market_role=self.software,
+        )
+        data_job = JobListing.objects.create(
+            job_title="Data Analyst",
+            source_type=JobListing.SourceType.SCRAPED,
+            status=JobListing.Status.ACTIVE,
+            market_role=self.data,
+        )
+        JobSkill.objects.create(job=software_job, skill=self.python)
+        JobSkill.objects.create(job=data_job, skill=self.sql)
+
+        apply_skills(self.student, {self.python: "BEGINNER"})
+        apply_skills(self.student, {self.python: "ADVANCED"})
+        apply_skills(self.student, {self.sql: "INTERMEDIATE"})
+
+    def test_without_a_target_returns_history_for_all_possessed_skills(self):
+        response = self.client.get('/api/dashboard/skill-progress/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['scope']['mode'], 'ALL')
+        self.assertEqual(response.data['summary']['skills_in_scope'], 2)
+        self.assertEqual(
+            {event['skill_name'] for event in response.data['events']},
+            {'Python', 'SQL'},
+        )
+
+    def test_selected_role_returns_only_that_roles_possessed_skills(self):
+        response = self.client.get(
+            '/api/dashboard/skill-progress/?role=Software%20Engineer')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['scope']['mode'], 'ROLE')
+        self.assertEqual(response.data['scope']['label'], 'Software Engineer')
+        self.assertEqual(response.data['summary'], {
+            'skills_in_scope': 1,
+            'new_skills': 1,
+            'level_upgrades': 1,
+        })
+        self.assertEqual(
+            {event['skill_name'] for event in response.data['events']},
+            {'Python'},
+        )
+
+    def test_progress_is_private_to_the_logged_in_student(self):
+        other_user = User.objects.create_user(
+            email="other-progress@test.com", password="pw", role="STUDENT")
+        other = Student.objects.create(
+            user=other_user, student_name="Other Student")
+        other_skill = Skill.objects.create(skill_name="Rust")
+        apply_skills(other, {other_skill: "ADVANCED"})
+
+        response = self.client.get('/api/dashboard/skill-progress/')
+
+        self.assertNotIn(
+            'Rust', {event['skill_name'] for event in response.data['events']})
+
+    def test_company_cannot_read_student_progress(self):
+        company_user = User.objects.create_user(
+            email="progress-company@test.com", password="pw", role="COMPANY")
+        Company.objects.create(user=company_user, company_name="Progress Co")
+        self.client.force_authenticate(company_user)
+
+        response = self.client.get('/api/dashboard/skill-progress/')
+
+        self.assertEqual(response.status_code, 403)
 
 
 class SkillGapSnapshotTests(TestCase):
@@ -1943,4 +2029,3 @@ class AnnouncementAttachmentsSurviveTests(APITestCase):
         self.client.force_authenticate(user=student)
 
         self.assertEqual(self._upload().status_code, 403)
-

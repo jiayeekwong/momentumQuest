@@ -21,6 +21,7 @@ from accounts.models import (
     PrivacyAuditLog,
     Student,
     StudentSkill,
+    StudentSkillEvent,
     User,
     UserConsent,
 )
@@ -214,6 +215,10 @@ class SkillRecognitionTests(TestCase):
         self.assertEqual((added, upgraded), (1, 0))
         row = StudentSkill.objects.get(student=self.student, skill=self.programming)
         self.assertEqual(row.skill_level, "ADVANCED")
+        event = StudentSkillEvent.objects.get(
+            student=self.student, skill=self.programming)
+        self.assertEqual(event.change_type, StudentSkillEvent.ChangeType.ACQUIRED)
+        self.assertEqual(event.new_level, "ADVANCED")
 
     def test_apply_upgrades_but_never_downgrades(self):
         apply_skills(self.student, {self.programming: "ADVANCED"})
@@ -232,12 +237,20 @@ class SkillRecognitionTests(TestCase):
         self.assertEqual((added, upgraded), (0, 1))
         row = StudentSkill.objects.get(student=self.student, skill=self.programming)
         self.assertEqual(row.skill_level, "ADVANCED")
+        self.assertEqual(
+            list(StudentSkillEvent.objects.filter(student=self.student)
+                 .values_list("change_type", flat=True)),
+            [StudentSkillEvent.ChangeType.UPGRADED,
+             StudentSkillEvent.ChangeType.ACQUIRED],
+        )
 
     def test_reapplying_same_skills_is_idempotent(self):
         apply_skills(self.student, {self.programming: "ADVANCED"})
         apply_skills(self.student, {self.programming: "ADVANCED"})
 
         self.assertEqual(StudentSkill.objects.filter(student=self.student).count(), 1)
+        self.assertEqual(
+            StudentSkillEvent.objects.filter(student=self.student).count(), 1)
 
 
 class CertificateUploadTests(TestCase):
@@ -1955,6 +1968,12 @@ class HighestLiveEvidenceTests(TestCase):
         recalculate_student_skills(self.student, skills=[self.python])
 
         self.assertEqual(self.level(), "BEGINNER")
+        latest = StudentSkillEvent.objects.filter(
+            student=self.student, skill=self.python).first()
+        self.assertEqual(latest.change_type,
+                         StudentSkillEvent.ChangeType.DOWNGRADED)
+        self.assertEqual((latest.previous_level, latest.new_level),
+                         ("ADVANCED", "BEGINNER"))
 
     def test_removing_all_evidence_removes_the_skill(self):
         certificate = self.certificate("INTERMEDIATE")
@@ -1965,6 +1984,10 @@ class HighestLiveEvidenceTests(TestCase):
         recalculate_student_skills(self.student, skills=[self.python])
 
         self.assertIsNone(self.level())
+        latest = StudentSkillEvent.objects.filter(
+            student=self.student, skill=self.python).first()
+        self.assertEqual(latest.change_type,
+                         StudentSkillEvent.ChangeType.REMOVED)
 
     def test_pending_evidence_counts_for_nothing(self):
         self.certificate("ADVANCED", status="PENDING", review="PENDING")

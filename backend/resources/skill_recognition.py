@@ -13,7 +13,7 @@ from collections import defaultdict
 
 from django.db import transaction
 
-from accounts.models import StudentSkill
+from accounts.models import StudentSkill, StudentSkillEvent
 from .models import Course, SubjectSkillMapping
 from .transcript_parser import GRADE_TO_LEVEL, LEVEL_RANK
 
@@ -124,10 +124,25 @@ def apply_skills(student, skill_levels):
             defaults={"skill_level": level},
         )
         if created:
+            StudentSkillEvent.record_change(
+                student=student,
+                skill=skill,
+                previous_level='',
+                new_level=level,
+                source=StudentSkillEvent.Source.VERIFIED_EVIDENCE,
+            )
             added += 1
         elif LEVEL_RANK[level] > LEVEL_RANK.get(row.skill_level, 0):
+            previous_level = row.skill_level
             row.skill_level = level
             row.save(update_fields=["skill_level"])
+            StudentSkillEvent.record_change(
+                student=student,
+                skill=skill,
+                previous_level=previous_level,
+                new_level=level,
+                source=StudentSkillEvent.Source.VERIFIED_EVIDENCE,
+            )
             upgraded += 1
 
     if added or upgraded:

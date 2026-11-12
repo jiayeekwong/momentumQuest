@@ -31,7 +31,7 @@ import logging
 
 from django.db import transaction
 
-from accounts.models import StudentSkill
+from accounts.models import StudentSkill, StudentSkillEvent
 
 from .transcript_parser import LEVEL_RANK
 
@@ -158,8 +158,10 @@ def recalculate_student_skills(student, skills=None, refresh_gaps=True):
     Returns ``{"created": n, "updated": n, "removed": n}``.
     """
     levels = live_skill_levels(student, skills)
+    from scrape_jobs.models import Skill
+    catalogue_skills = Skill.objects.in_bulk(levels.keys())
 
-    existing = StudentSkill.objects.filter(student=student)
+    existing = StudentSkill.objects.filter(student=student).select_related('skill')
     if skills is not None:
         existing = existing.filter(skill_id__in=[s.id for s in skills])
         removable = {s.id for s in skills}
@@ -172,12 +174,28 @@ def recalculate_student_skills(student, skills=None, refresh_gaps=True):
     for skill_id, level in levels.items():
         row = existing.get(skill_id)
         if row is None:
+            skill = catalogue_skills[skill_id]
             StudentSkill.objects.create(
-                student=student, skill_id=skill_id, skill_level=level)
+                student=student, skill=skill, skill_level=level)
+            StudentSkillEvent.record_change(
+                student=student,
+                skill=skill,
+                previous_level='',
+                new_level=level,
+                source=StudentSkillEvent.Source.EVIDENCE_RECALCULATION,
+            )
             created += 1
         elif row.skill_level != level:
+            previous_level = row.skill_level
             row.skill_level = level
             row.save(update_fields=["skill_level"])
+            StudentSkillEvent.record_change(
+                student=student,
+                skill=row.skill,
+                previous_level=previous_level,
+                new_level=level,
+                source=StudentSkillEvent.Source.EVIDENCE_RECALCULATION,
+            )
             updated += 1
 
     # A skill with no evidence left is not a skill this platform can claim the
@@ -186,6 +204,15 @@ def recalculate_student_skills(student, skills=None, refresh_gaps=True):
     orphaned = [skill_id for skill_id in existing
                 if skill_id not in levels and skill_id in removable]
     if orphaned:
+        for skill_id in orphaned:
+            row = existing[skill_id]
+            StudentSkillEvent.record_change(
+                student=student,
+                skill=row.skill,
+                previous_level=row.skill_level,
+                new_level='',
+                source=StudentSkillEvent.Source.EVIDENCE_RECALCULATION,
+            )
         removed = StudentSkill.objects.filter(
             student=student, skill_id__in=orphaned).delete()[0]
 

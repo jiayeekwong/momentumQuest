@@ -221,6 +221,88 @@ class StudentSkill(models.Model):
         return f"{self.student.student_name} — {self.skill.skill_name} ({self.skill_level})"
 
 
+class StudentSkillEvent(models.Model):
+    """Append-only history of a student's evidence-backed skill level.
+
+    ``StudentSkill`` remains the materialized current answer used everywhere
+    else. This row records only genuine transitions so the skill-gap page can
+    show progress without changing matching, validation, or recommendation
+    behaviour. ``skill_name`` is a snapshot: catalogue maintenance must not
+    erase the name that was shown when the event happened.
+    """
+
+    class ChangeType(models.TextChoices):
+        BASELINE   = 'BASELINE',   'Tracking started'
+        ACQUIRED   = 'ACQUIRED',   'Skill acquired'
+        UPGRADED   = 'UPGRADED',   'Level upgraded'
+        DOWNGRADED = 'DOWNGRADED', 'Level adjusted down'
+        REMOVED    = 'REMOVED',    'Skill removed'
+
+    class Source(models.TextChoices):
+        BASELINE = 'BASELINE', 'Existing portfolio baseline'
+        VERIFIED_EVIDENCE = 'VERIFIED_EVIDENCE', 'Validated evidence'
+        EVIDENCE_RECALCULATION = ('EVIDENCE_RECALCULATION',
+                                  'Evidence recalculation')
+
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name='skill_events')
+    skill = models.ForeignKey(
+        'scrape_jobs.Skill', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='student_skill_events')
+    skill_name = models.CharField(max_length=255)
+    previous_level = models.CharField(
+        max_length=20, choices=StudentSkill.SkillLevel.choices, blank=True)
+    new_level = models.CharField(
+        max_length=20, choices=StudentSkill.SkillLevel.choices, blank=True)
+    change_type = models.CharField(max_length=20, choices=ChangeType.choices)
+    source = models.CharField(max_length=30, choices=Source.choices)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-occurred_at', '-id']
+        indexes = [
+            models.Index(fields=['student', '-occurred_at'],
+                         name='skill_event_student_time'),
+        ]
+
+    @classmethod
+    def record_change(cls, *, student, skill, previous_level, new_level,
+                      source):
+        """Record one real transition and return it; identical levels are no-op."""
+        previous_level = previous_level or ''
+        new_level = new_level or ''
+        if previous_level == new_level:
+            return None
+
+        rank = {
+            StudentSkill.SkillLevel.BEGINNER: 1,
+            StudentSkill.SkillLevel.INTERMEDIATE: 2,
+            StudentSkill.SkillLevel.ADVANCED: 3,
+        }
+        if not previous_level:
+            change_type = cls.ChangeType.ACQUIRED
+        elif not new_level:
+            change_type = cls.ChangeType.REMOVED
+        elif rank.get(new_level, 0) > rank.get(previous_level, 0):
+            change_type = cls.ChangeType.UPGRADED
+        else:
+            change_type = cls.ChangeType.DOWNGRADED
+
+        return cls.objects.create(
+            student=student,
+            skill=skill,
+            skill_name=skill.skill_name,
+            previous_level=previous_level,
+            new_level=new_level,
+            change_type=change_type,
+            source=source,
+        )
+
+    def __str__(self):
+        return (f"{self.student.student_name} - {self.skill_name}: "
+                f"{self.previous_level or 'none'} -> {self.new_level or 'none'}")
+
+
 class UserConsent(models.Model):
     """Evidence that a user agreed to a specific version of the privacy notice.
 

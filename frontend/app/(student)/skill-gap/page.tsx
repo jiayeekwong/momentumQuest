@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, AlertCircle, GraduationCap, ExternalLink, Info } from 'lucide-react';
+import {
+  CheckCircle2, AlertCircle, GraduationCap, ExternalLink, Info,
+  TrendingUp, History, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
@@ -157,6 +160,56 @@ interface RoleProfile {
   reviewed_titles: string[];
 }
 
+type SkillProgressChange =
+  | 'BASELINE'
+  | 'ACQUIRED'
+  | 'UPGRADED'
+  | 'DOWNGRADED'
+  | 'REMOVED';
+
+interface SkillProgressEvent {
+  id: number;
+  skill_id: number | null;
+  skill_name: string;
+  previous_level: ProficiencyLevel | null;
+  new_level: ProficiencyLevel | null;
+  change_type: SkillProgressChange;
+  source: 'BASELINE' | 'VERIFIED_EVIDENCE' | 'EVIDENCE_RECALCULATION';
+  source_label: string;
+  occurred_at: string;
+}
+
+interface SkillProgress {
+  scope: {
+    mode: 'ALL' | 'ROLE' | 'BROAD_AREA' | 'MARKET';
+    label: string;
+    requested_role: string | null;
+  };
+  summary: {
+    skills_in_scope: number;
+    new_skills: number;
+    level_upgrades: number;
+  };
+  events: SkillProgressEvent[];
+}
+
+function progressDescription(event: SkillProgressEvent): string {
+  const previous = event.previous_level ? LEVEL_LABEL[event.previous_level] : null;
+  const current = event.new_level ? LEVEL_LABEL[event.new_level] : null;
+
+  if (event.change_type === 'BASELINE') return `Tracking started at ${current}`;
+  if (event.change_type === 'ACQUIRED') return `Added at ${current}`;
+  if (event.change_type === 'UPGRADED') return `${previous} → ${current}`;
+  if (event.change_type === 'DOWNGRADED') return `Adjusted from ${previous} to ${current}`;
+  return 'Removed from the verified portfolio';
+}
+
+function progressDate(value: string): string {
+  return new Intl.DateTimeFormat('en-MY', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  }).format(new Date(value));
+}
+
 const LEVEL_COLORS: Record<string, string> = {
   INTERN: 'bg-sky-100 text-sky-800',
   GRADUATE: 'bg-teal-100 text-teal-800',
@@ -202,6 +255,9 @@ export default function SkillGapPage() {
   const [expandedSkills, setExpandedSkills] =
     useState<Record<number, Resource[]>>({});
   const [loadingSkillId, setLoadingSkillId] = useState<number | null>(null);
+  const [progress, setProgress] = useState<SkillProgress | null>(null);
+  const [loadedProgressScope, setLoadedProgressScope] = useState<string | null>(null);
+  const [showAllProgress, setShowAllProgress] = useState(false);
 
   const loadAllResources = async (skillId: number) => {
     setLoadingSkillId(skillId);
@@ -226,6 +282,8 @@ export default function SkillGapPage() {
   const [loadedScope, setLoadedScope] = useState<string | null>(null);
   const scopeKey = selectedRole ? `role:${selectedRole}` : `area:${selectedArea}`;
   const isLoading = loadedScope !== scopeKey;
+  const progressLoading = loadedProgressScope !== scopeKey;
+  const visibleProgress = loadedProgressScope === scopeKey ? progress : null;
 
   // The Market Roles the analysis can actually answer for, grouped by Broad
   // Area. Broad Area is presentation only -- it groups the list and widens a
@@ -282,6 +340,29 @@ export default function SkillGapPage() {
     return () => { cancelled = true; };
   }, [selectedRole, selectedArea, scopeKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const query = selectedRole
+      ? `?role=${encodeURIComponent(selectedRole)}`
+      : (selectedArea
+        ? `?broad_area=${encodeURIComponent(selectedArea)}`
+        : '');
+
+    apiFetch(`/api/dashboard/skill-progress/${query}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: SkillProgress | null) => {
+        if (!cancelled) setProgress(data);
+      })
+      .catch(() => {
+        if (!cancelled) setProgress(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedProgressScope(scopeKey);
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedRole, selectedArea, scopeKey]);
+
   // What the market says about the selected role: how many adverts it rests
   // on, at which career levels, and how each was classified. There is no
   // progression ladder, deliberately -- the scraped adverts make no claim
@@ -317,6 +398,10 @@ export default function SkillGapPage() {
     : 'the whole ICT market';
 
   const roleLabel = gap?.target_role ?? gap?.target_broad_area ?? 'your target';
+  const progressEvents = visibleProgress?.events ?? [];
+  const shownProgressEvents = showAllProgress
+    ? progressEvents
+    : progressEvents.slice(0, 5);
 
   const saveTarget = async () => {
     if (!selectedRole) return;
@@ -897,6 +982,158 @@ export default function SkillGapPage() {
                 )}
               </section>
             )}
+
+            {/* Personal progress is kept between the analysis and the courses:
+                first understand the gap, then see what has already improved,
+                then choose what to learn next. */}
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-primary flex items-center justify-center shrink-0">
+                  <TrendingUp size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-neutral-900">Skill Progress</h4>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    {visibleProgress?.scope.mode === 'ALL'
+                      ? 'Your verified skill changes across your whole portfolio.'
+                      : visibleProgress
+                        ? `Your possessed skills that matter for ${visibleProgress.scope.label}.`
+                        : 'Your verified skill changes for the selected career scope.'}
+                  </p>
+                </div>
+              </div>
+
+              {progressLoading ? (
+                <Card className="p-6">
+                  <div className="grid grid-cols-3 gap-3 mb-6">
+                    {[0, 1, 2].map(item => (
+                      <div key={item} className="h-16 rounded-xl bg-neutral-100 animate-pulse" />
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    {[0, 1, 2].map(item => (
+                      <div key={item} className="h-12 rounded-lg bg-neutral-50 animate-pulse" />
+                    ))}
+                  </div>
+                </Card>
+              ) : !visibleProgress ? (
+                <Card className="p-6 text-center text-sm text-neutral-500">
+                  Skill progress could not be loaded. Your skill-gap analysis is unaffected.
+                </Card>
+              ) : (
+                <Card className="p-5 md:p-6 bg-gradient-to-br from-white to-indigo-50/40">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                    {[
+                      {
+                        label: 'Skills in scope',
+                        value: visibleProgress.summary.skills_in_scope,
+                      },
+                      {
+                        label: 'New skills',
+                        value: visibleProgress.summary.new_skills,
+                      },
+                      {
+                        label: 'Level upgrades',
+                        value: visibleProgress.summary.level_upgrades,
+                      },
+                    ].map(item => (
+                      <div
+                        key={item.label}
+                        className="rounded-xl border border-neutral-100 bg-white/80 px-4 py-3"
+                      >
+                        <p className="text-2xl font-black text-neutral-900">{item.value}</p>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400 mt-0.5">
+                          {item.label}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {visibleProgress.summary.skills_in_scope === 0 ? (
+                    <div className="py-6 text-center">
+                      <History size={22} className="mx-auto text-neutral-300" />
+                      <p className="text-sm font-semibold text-neutral-700 mt-3">
+                        No possessed skills match this scope yet
+                      </p>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Validate a relevant skill and its progress will appear here.
+                      </p>
+                    </div>
+                  ) : progressEvents.length === 0 ? (
+                    <div className="py-6 text-center">
+                      <History size={22} className="mx-auto text-neutral-300" />
+                      <p className="text-sm font-semibold text-neutral-700 mt-3">
+                        Progress tracking has started
+                      </p>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Your next verified skill change will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {shownProgressEvents.map(event => {
+                        const isPositive = event.change_type === 'ACQUIRED'
+                          || event.change_type === 'UPGRADED';
+                        const isBaseline = event.change_type === 'BASELINE';
+                        return (
+                          <div
+                            key={event.id}
+                            className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-white/80 transition-colors"
+                          >
+                            <div className={cn(
+                              'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
+                              isPositive
+                                ? 'bg-emerald-50 text-success'
+                                : isBaseline
+                                  ? 'bg-indigo-50 text-primary'
+                                  : 'bg-amber-50 text-warning'
+                            )}>
+                              {isPositive
+                                ? <TrendingUp size={15} />
+                                : <History size={15} />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                <p className="text-sm font-bold text-neutral-900">
+                                  {event.skill_name}
+                                </p>
+                                <p className="text-xs font-semibold text-neutral-600">
+                                  {progressDescription(event)}
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-neutral-400 mt-0.5">
+                                {event.source_label} · {progressDate(event.occurred_at)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {progressEvents.length > 5 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllProgress(value => !value)}
+                          className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-primary hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          {showAllProgress ? (
+                            <><ChevronUp size={14} /> Show recent only</>
+                          ) : (
+                            <><ChevronDown size={14} /> Show all {progressEvents.length} changes</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {progressEvents.some(event => event.change_type === 'BASELINE') && (
+                    <p className="text-[10px] text-neutral-400 border-t border-neutral-100 mt-4 pt-3">
+                      Existing portfolio levels are marked as a baseline; only later verified
+                      changes are counted as new skills or upgrades.
+                    </p>
+                  )}
+                </Card>
+              )}
+            </section>
 
             {/* Learning resources, grouped by the skill they teach.
                 Named for what it is. This was "Recommended Learning Paths"

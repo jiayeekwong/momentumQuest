@@ -18,7 +18,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import User, Student, Company, StudentSkill
+from accounts.models import (
+    User, Student, Company, StudentSkill, StudentSkillEvent,
+)
 from accounts.permissions import admin_profile_for, IsStudent, IsCompany, IsAdminUserRole
 from scrape_jobs.models import JobCategory, MarketRole, Skill
 from job_listings.matching import proficiency_value, skill_score
@@ -887,6 +889,111 @@ class StudentSkillGapView(APIView):
             resolve_market_role(request.query_params.get('role')),
             use_saved_target=request.query_params.get('scope') != 'market',
         ))
+
+
+class StudentSkillProgressView(APIView):
+    """GET the student's skill history, scoped to the career being viewed.
+
+    With no role or Broad Area selected, every currently possessed skill is in
+    scope. Once the student selects a career, only possessed skills demanded
+    by active adverts in the same scope as the gap analysis are returned.
+    """
+
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        student = request.user.student_profile
+        role = resolve_market_role(request.query_params.get('role'))
+        broad_area = resolve_broad_area(
+            request.query_params.get('broad_area'))
+
+        current_skill_ids = set(
+            student.student_skills.values_list('skill_id', flat=True))
+        scope = {
+            'mode': 'ALL',
+            'label': 'All possessed skills',
+            'requested_role': None,
+        }
+        scoped_skill_ids = current_skill_ids
+
+        if role is not None or broad_area:
+            from job_listings.models import JobSkill
+
+            market_jobs = live_market_jobs()
+            scoped_jobs = None
+            requested_role = role.name if role is not None else None
+
+            if role is not None:
+                role_jobs = market_jobs.filter(market_role=role)
+                if role_jobs.count() >= MIN_LISTINGS_FOR_TARGET:
+                    scoped_jobs = role_jobs
+                    scope = {
+                        'mode': 'ROLE',
+                        'label': role.name,
+                        'requested_role': requested_role,
+                    }
+                else:
+                    broad_area = broad_area or role.broad_area
+
+            if scoped_jobs is None and broad_area:
+                area_jobs = market_jobs.filter(
+                    market_role__broad_area=broad_area)
+                if area_jobs.count() >= MIN_LISTINGS_FOR_TARGET:
+                    scoped_jobs = area_jobs
+                    scope = {
+                        'mode': 'BROAD_AREA',
+                        'label': broad_area,
+                        'requested_role': requested_role,
+                    }
+
+            if scoped_jobs is None:
+                scoped_jobs = market_jobs
+                scope = {
+                    'mode': 'MARKET',
+                    'label': 'the whole ICT market',
+                    'requested_role': requested_role,
+                }
+
+            demanded_skill_ids = set(
+                JobSkill.objects
+                .filter(job__in=scoped_jobs)
+                .values_list('skill_id', flat=True)
+                .distinct()
+            )
+            scoped_skill_ids = current_skill_ids & demanded_skill_ids
+
+        events = list(
+            StudentSkillEvent.objects
+            .filter(student=student, skill_id__in=scoped_skill_ids)
+            .select_related('skill')
+        )
+
+        return Response({
+            'scope': scope,
+            'summary': {
+                'skills_in_scope': len(scoped_skill_ids),
+                'new_skills': sum(
+                    event.change_type == StudentSkillEvent.ChangeType.ACQUIRED
+                    for event in events),
+                'level_upgrades': sum(
+                    event.change_type == StudentSkillEvent.ChangeType.UPGRADED
+                    for event in events),
+            },
+            'events': [
+                {
+                    'id': event.id,
+                    'skill_id': event.skill_id,
+                    'skill_name': event.skill_name,
+                    'previous_level': event.previous_level or None,
+                    'new_level': event.new_level or None,
+                    'change_type': event.change_type,
+                    'source': event.source,
+                    'source_label': event.get_source_display(),
+                    'occurred_at': event.occurred_at,
+                }
+                for event in events
+            ],
+        })
 
 
 def resolve_market_role(name):
