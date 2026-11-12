@@ -23,7 +23,7 @@ interface ScrapedJob {
   source_portal: string;
   job_category: string | null;
   skills: string[];
-  required_skill_levels: { skill: string; required_level: string }[];
+  required_skill_levels: { skill: string; required_level: string | null }[];
   // Proficiency-weighted, computed server-side against the logged-in student.
   // Null when the advert lists no skills, so the UI can show nothing at all
   // rather than a misleading 0%.
@@ -45,7 +45,7 @@ interface CompanyJob {
   salary_max: number | null;
   work_mode: string;
   required_skills: string[];
-  required_skill_levels: { skill: string; required_level: string }[];
+  required_skill_levels: { skill: string; required_level: string | null }[];
   match_score: number | null;
   // Null for anyone who is not a student: the question is about the person
   // asking, and there is nobody to ask it about.
@@ -64,7 +64,7 @@ interface MappedJob {
   postedDate: string;
   job_type: string;
   requiredSkills: string[];
-  requiredSkillLevels: { skill: string; required_level: string }[];
+  requiredSkillLevels: { skill: string; required_level: string | null }[];
   source_url: string;
   category: string;
   matchScore: number | null;
@@ -91,14 +91,14 @@ const PROFICIENCY_VALUE: Record<string, number> = {
 type SkillVerdict = 'met' | 'partial' | 'missing';
 
 const skillVerdict = (
-  requiredLevel: string | undefined,
+  requiredLevel: string | null | undefined,
   studentLevel: string | undefined,
 ): SkillVerdict => {
   if (!studentLevel) return 'missing';
-  // No stated requirement means holding the skill is all that is asked.
-  if (!requiredLevel) return 'met';
   const held = PROFICIENCY_VALUE[studentLevel] ?? 0;
-  const needed = PROFICIENCY_VALUE[requiredLevel] ?? 0;
+  // Preserve null as "not stated" in the payload, but apply the same
+  // Intermediate assumption used by the server-side match percentage.
+  const needed = PROFICIENCY_VALUE[requiredLevel ?? 'INTERMEDIATE'] ?? 0;
   return held >= needed ? 'met' : 'partial';
 };
 
@@ -108,7 +108,7 @@ const LEVEL_LABEL: Record<string, string> = {
   ADVANCED: 'Advanced',
 };
 
-const requiredLevelFor = (job: MappedJob, skill: string): string | undefined =>
+const requiredLevelFor = (job: MappedJob, skill: string): string | null | undefined =>
   job.requiredSkillLevels.find(
     row => row.skill.toLowerCase() === skill.toLowerCase()
   )?.required_level;
@@ -1179,12 +1179,19 @@ export default function JobListingsPage() {
                               {verdict === 'partial' && (
                                 <span className="text-[11px] font-semibold">
                                   You are {LEVEL_LABEL[studentLevel!] ?? studentLevel} · asks for{' '}
-                                  {LEVEL_LABEL[requiredLevel!] ?? requiredLevel}
+                                  {requiredLevel
+                                    ? LEVEL_LABEL[requiredLevel] ?? requiredLevel
+                                    : 'Intermediate (assumed)'}
                                 </span>
                               )}
                               {verdict === 'met' && requiredLevel && (
                                 <span className="text-[11px] font-semibold opacity-70">
                                   {LEVEL_LABEL[requiredLevel] ?? requiredLevel} required
+                                </span>
+                              )}
+                              {!requiredLevel && (
+                                <span className="text-[11px] font-semibold opacity-70">
+                                  Intermediate assumed · advert level not stated
                                 </span>
                               )}
                             </div>

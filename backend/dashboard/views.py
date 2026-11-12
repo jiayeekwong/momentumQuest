@@ -23,7 +23,10 @@ from accounts.models import (
 )
 from accounts.permissions import admin_profile_for, IsStudent, IsCompany, IsAdminUserRole
 from scrape_jobs.models import JobCategory, MarketRole, Skill
-from job_listings.matching import proficiency_value, skill_score
+from job_listings.matching import (
+    effective_required_level, proficiency_value, requirement_weight,
+    skill_score,
+)
 from job_listings.models import JobListing, ScrapeLog
 from scrape_jobs.serializers import ScrapeLogSerializer
 from resources.models import Certificate, LearningResource  # Certificate: admin dashboard only
@@ -471,16 +474,15 @@ def build_market_demand(student, months=DEMAND_TREND_MONTHS, broad_area=None,
 READINESS_MATCHED = 'MATCHED'
 READINESS_DEVELOPING = 'DEVELOPING'
 READINESS_MISSING = 'MISSING'
+UNSPECIFIED_LEVEL = 'UNSPECIFIED'
 
 
 def required_levels(scoped_jobs):
-    """{skill_id: (required_level, distribution)} for a set of adverts.
+    """{skill_id: (required_level, distribution, assumed)} for adverts.
 
-    The requirement is the level *most* adverts ask for, not the highest one
-    any advert asks for. A single Advanced posting among eight Intermediate
-    ones does not make Advanced the market requirement, and reporting it that
-    way would tell most of a cohort they are unready for a role they can
-    already do.
+    Each unstated advert contributes to Intermediate when resolving the market
+    requirement. Its raw count remains under UNSPECIFIED in the distribution,
+    and ``assumed`` tells the UI when that default affected the result.
 
     The distribution comes back with it so the page can show the spread rather
     than asking the student to trust a single word.
@@ -494,15 +496,30 @@ def required_levels(scoped_jobs):
 
     spread = defaultdict(dict)
     for row in rows:
-        spread[row['skill_id']][row['required_level']] = row['n']
+        level = row['required_level'] or UNSPECIFIED_LEVEL
+        spread[row['skill_id']][level] = row['n']
 
     resolved = {}
     for skill_id, distribution in spread.items():
-        # Ties break towards the higher level: when the market is evenly
-        # split, understating the requirement is the more harmful error.
-        level = max(distribution.items(),
-                    key=lambda item: (item[1], proficiency_value(item[0])))[0]
-        resolved[skill_id] = (level, distribution)
+        # Resolve against effective levels, but never rewrite the evidence:
+        # callers still see how many adverts genuinely stated each level.
+        effective_distribution = {
+            level: distribution.get(level, 0)
+            for level in StudentSkill.SkillLevel.values
+        }
+        unstated_count = distribution.get(UNSPECIFIED_LEVEL, 0)
+        effective_distribution[StudentSkill.SkillLevel.INTERMEDIATE] += (
+            unstated_count
+        )
+        level = max(
+            effective_distribution.items(),
+            key=lambda item: (item[1], proficiency_value(item[0])),
+        )[0]
+        resolved[skill_id] = (
+            level,
+            distribution,
+            level == StudentSkill.SkillLevel.INTERMEDIATE and unstated_count > 0,
+        )
     return resolved
 
 
@@ -510,7 +527,8 @@ def readiness(student_level, required_level):
     """MATCHED / DEVELOPING / MISSING for one skill."""
     if student_level is None:
         return READINESS_MISSING
-    if proficiency_value(student_level) >= proficiency_value(required_level):
+    if proficiency_value(student_level) >= proficiency_value(
+            effective_required_level(required_level)):
         return READINESS_MATCHED
     return READINESS_DEVELOPING
 
@@ -659,8 +677,14 @@ def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
             round(skill.demand_count / total_listings * 100, 1)
             if total_listings else 0
         )
-        required_level, distribution = requirements.get(
-            skill.id, (StudentSkill.SkillLevel.INTERMEDIATE, {}))
+        required_level, distribution, required_level_assumed = requirements.get(
+            skill.id,
+            (
+                StudentSkill.SkillLevel.INTERMEDIATE,
+                {UNSPECIFIED_LEVEL: skill.demand_count},
+                True,
+            ),
+        )
         student_level = owned_levels.get(skill.id)
         return {
             'skill_id': skill.id,
@@ -673,6 +697,7 @@ def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
             # Python against an Advanced requirement was previously counted as
             # a full match, which flattered the score and hid the actual gap.
             'required_level': required_level,
+            'required_level_assumed': required_level_assumed,
             'student_level': student_level,
             'level_distribution': distribution,
             'readiness_status': readiness(student_level, required_level),
@@ -715,7 +740,7 @@ def build_skill_gap(student, broad_area=None, role=None, use_saved_target=True):
     # comparing like with like. Counting skills held would answer a different
     # question and give a different number.
     required_points = sum(
-        proficiency_value(row['required_level']) for row in technical)
+        requirement_weight(row['required_level']) for row in technical)
     achieved_points = sum(
         skill_score(row['required_level'], row['student_level'])
         for row in technical)

@@ -15,18 +15,17 @@ class RequiredSkillField(serializers.Field):
     """One entry of ``required_skills``.
 
     Accepts either ``"Python"`` or ``{"name": "Python", "level": "ADVANCED"}``.
-    The bare-string form is what the post-job form has always sent and is kept
-    working; it means INTERMEDIATE, the same default a scraped listing gets.
+    The bare-string form is kept for older clients. It stores the level as not
+    stated; matching later applies the documented Intermediate assumption
+    without presenting it as an explicit employer requirement.
     """
-
-    default_level = StudentSkill.SkillLevel.INTERMEDIATE
 
     def to_internal_value(self, data):
         if isinstance(data, str):
-            name, level = data, self.default_level
+            name, level = data, None
         elif isinstance(data, dict):
             name = data.get('name', '')
-            level = data.get('level') or self.default_level
+            level = data.get('level') or None
         else:
             raise serializers.ValidationError(
                 'Expected a skill name or {"name": ..., "level": ...}.')
@@ -34,7 +33,7 @@ class RequiredSkillField(serializers.Field):
         name = str(name).strip()
         if not name:
             raise serializers.ValidationError('Skill name is required.')
-        if level not in StudentSkill.SkillLevel.values:
+        if level is not None and level not in StudentSkill.SkillLevel.values:
             raise serializers.ValidationError(
                 f'Unknown proficiency level: {level}. '
                 f'Expected one of {", ".join(StudentSkill.SkillLevel.values)}.')
@@ -43,7 +42,9 @@ class RequiredSkillField(serializers.Field):
             'level': level,
             # Distinguishes "Advanced, explicitly" from "level not stated".
             # _sync_skills preserves an existing level in the latter case.
-            'level_specified': isinstance(data, dict) and bool(data.get('level')),
+            # A present null explicitly means "not stated". Only a missing
+            # key (or the legacy bare-string shape) preserves an old value.
+            'level_specified': isinstance(data, dict) and 'level' in data,
         }
 
     def to_representation(self, value):
@@ -70,11 +71,10 @@ class JobListingWriteSerializer(serializers.ModelSerializer):
     def _sync_skills(self, job, skill_specs):
         # Requirements are rebuilt from scratch on every edit, so a level the
         # payload does not state has to be carried across explicitly.
-        # Otherwise a client that sends names only -- which the edit form
-        # still does -- would silently reset every Advanced requirement to the
-        # Intermediate default, changing who matches the job.
+        # Otherwise an older client that sends names only would silently clear
+        # every explicit requirement, changing who matches the job.
         previous_levels = {
-            row.skill_id: row.required_level
+            row.skill_id: (row.required_level, row.required_level_source)
             for row in JobSkill.objects.filter(job=job)
         }
         JobSkill.objects.filter(job=job).delete()
@@ -102,12 +102,19 @@ class JobListingWriteSerializer(serializers.ModelSerializer):
 
             level = spec['level']
             if not spec['level_specified'] and skill.id in previous_levels:
-                level = previous_levels[skill.id]
+                level, source = previous_levels[skill.id]
+            else:
+                source = (JobSkill.RequiredLevelSource.MANUAL
+                          if spec['level_specified'] and level
+                          else JobSkill.RequiredLevelSource.NOT_STATED)
 
             JobSkill.objects.get_or_create(
                 job=job,
                 skill=skill,
-                defaults={'required_level': level},
+                defaults={
+                    'required_level': level,
+                    'required_level_source': source,
+                },
             )
 
     def create(self, validated_data):

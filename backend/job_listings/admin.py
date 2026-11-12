@@ -40,9 +40,23 @@ class JobListingAdmin(admin.ModelAdmin):
 
 @admin.register(JobSkill)
 class JobSkillAdmin(admin.ModelAdmin):
-    list_display  = ("job", "skill", "importance_level")
-    list_filter   = ("importance_level", "skill__skill_category")
+    list_display  = (
+        "job", "skill", "importance_level", "required_level",
+        "required_level_source",
+    )
+    list_filter   = (
+        "importance_level", "required_level", "required_level_source",
+        "skill__skill_category",
+    )
     search_fields = ("job__job_title", "skill__skill_name")
+
+    def save_model(self, request, obj, form, change):
+        if "required_level" in form.changed_data:
+            obj.required_level_source = (
+                JobSkill.RequiredLevelSource.MANUAL
+                if obj.required_level else
+                JobSkill.RequiredLevelSource.NOT_STATED)
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(JobApplication)

@@ -899,7 +899,9 @@ class SkillGapRefreshTriggerTests(TestCase):
                 source_url=f'https://example.test/trigger-{index}',
                 market_role=self.role,
                 classification_method='EXACT_MARKET_ROLE')
-            JobSkill.objects.create(job=listing, skill=self.python)
+            JobSkill.objects.create(
+                job=listing, skill=self.python,
+                required_level='INTERMEDIATE')
 
     def test_validating_a_skill_closes_the_gap_immediately(self):
         # The gap exists first...
@@ -1429,6 +1431,7 @@ class ProficiencyAwareSkillGapTests(TestCase):
         _data, rows = self.rows()
 
         self.assertEqual(rows['Python']['required_level'], 'ADVANCED')
+        self.assertFalse(rows['Python']['required_level_assumed'])
         self.assertEqual(rows['Python']['student_level'], 'INTERMEDIATE')
         self.assertIsNone(rows['Docker']['student_level'])
 
@@ -1445,6 +1448,34 @@ class ProficiencyAwareSkillGapTests(TestCase):
 
         self.assertEqual(rows['Python']['level_distribution'],
                          {'INTERMEDIATE': 2, 'ADVANCED': 4})
+
+    def test_unstated_levels_use_a_disclosed_intermediate_assumption(self):
+        JobSkill.objects.filter(skill=self.docker).update(required_level=None)
+        self.hold(self.docker, 'BEGINNER')
+
+        _data, rows = self.rows()
+
+        self.assertEqual(rows['Docker']['required_level'], 'INTERMEDIATE')
+        self.assertTrue(rows['Docker']['required_level_assumed'])
+        self.assertEqual(rows['Docker']['level_distribution'],
+                         {'UNSPECIFIED': 6})
+        self.assertEqual(rows['Docker']['readiness_status'], 'DEVELOPING')
+
+    def test_effective_level_tie_prefers_the_higher_explicit_level(self):
+        links = list(JobSkill.objects.filter(skill=self.python).order_by('id'))
+        for link in links[:3]:
+            link.required_level = None
+            link.save(update_fields=['required_level'])
+        for link in links[3:]:
+            link.required_level = 'ADVANCED'
+            link.save(update_fields=['required_level'])
+
+        _data, rows = self.rows()
+
+        self.assertEqual(rows['Python']['required_level'], 'ADVANCED')
+        self.assertFalse(rows['Python']['required_level_assumed'])
+        self.assertEqual(rows['Python']['level_distribution'],
+                         {'UNSPECIFIED': 3, 'ADVANCED': 3})
 
     def test_a_developing_skill_is_both_held_and_still_a_gap(self):
         self.hold(self.python, 'BEGINNER')

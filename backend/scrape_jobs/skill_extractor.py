@@ -1,3 +1,4 @@
+import html
 import re
 
 from .models import Skill, SkillAlias
@@ -313,6 +314,129 @@ def _term_pattern(term):
     right = (r'\b' if (term[-1:].isalnum() or term[-1:] == '_')
              else rf'(?![{_RIGHT_TOKEN_CHARS}])')
     return re.compile(left + re.escape(term) + right, re.IGNORECASE)
+
+
+# A required level is inferred only from wording attached to the skill itself.
+# Job seniority is deliberately not used: a senior analyst may need advanced
+# SQL and only basic cloud familiarity, so one title-level label cannot be
+# copied onto every skill in the advert.
+_LEVEL_RANK = {"BEGINNER": 1, "INTERMEDIATE": 2, "ADVANCED": 3}
+_LEVEL_NOUN = (
+    r"(?:knowledge|skills?|proficiency|experience|understanding|command|"
+    r"competenc(?:e|y))"
+)
+_LEVEL_CONNECTOR = r"(?:\s+(?:in|of|with))?"
+
+_BEFORE_LEVEL_PATTERNS = {
+    "ADVANCED": re.compile(
+        rf"(?:"
+        rf"(?:advanced|expert)(?:-level)?(?:\s+{_LEVEL_NOUN})?{_LEVEL_CONNECTOR}|"
+        rf"expertise(?:\s+(?:in|with))?|"
+        rf"(?:deep|in-depth|extensive|strong)\s+{_LEVEL_NOUN}{_LEVEL_CONNECTOR}|"
+        rf"strong(?:-level)?"
+        rf")\s*$",
+        re.IGNORECASE,
+    ),
+    "INTERMEDIATE": re.compile(
+        rf"(?:"
+        rf"intermediate(?:-level)?(?:\s+{_LEVEL_NOUN})?{_LEVEL_CONNECTOR}|"
+        rf"proficient(?:\s+(?:in|with))?|"
+        rf"(?:solid|good|practical|hands-on)\s+{_LEVEL_NOUN}{_LEVEL_CONNECTOR}|"
+        rf"working\s+(?:knowledge|proficiency){_LEVEL_CONNECTOR}"
+        rf")\s*$",
+        re.IGNORECASE,
+    ),
+    "BEGINNER": re.compile(
+        rf"(?:"
+        rf"(?:basic|foundational|introductory|beginner|entry-level)"
+        rf"(?:\s+{_LEVEL_NOUN})?{_LEVEL_CONNECTOR}|"
+        rf"familiarity\s+with|familiar\s+with|exposure\s+to"
+        rf")\s*$",
+        re.IGNORECASE,
+    ),
+}
+
+_AFTER_LEVEL_PATTERNS = {
+    "ADVANCED": re.compile(
+        rf"^\s*(?:\(|:|[-\u2013\u2014])\s*(?:an?\s+)?"
+        rf"(?:advanced(?:-level)?|expert(?:-level)?|expertise|"
+        rf"strong\s+{_LEVEL_NOUN})(?:\s+{_LEVEL_NOUN})?",
+        re.IGNORECASE,
+    ),
+    "INTERMEDIATE": re.compile(
+        rf"^\s*(?:\(|:|[-\u2013\u2014])\s*(?:an?\s+)?"
+        rf"(?:intermediate(?:-level)?|proficient|proficiency|"
+        rf"working\s+(?:knowledge|proficiency))(?:\s+{_LEVEL_NOUN})?",
+        re.IGNORECASE,
+    ),
+    "BEGINNER": re.compile(
+        rf"^\s*(?:\(|:|[-\u2013\u2014])\s*(?:an?\s+)?"
+        rf"(?:basic|beginner|foundational|introductory|familiarity)"
+        rf"(?:-level)?(?:\s+{_LEVEL_NOUN})?",
+        re.IGNORECASE,
+    ),
+}
+
+_YEARS_BEFORE = re.compile(
+    r"(?:minimum(?:\s+of)?|at\s+least)?\s*(?P<years>\d{1,2})\s*\+?\s*"
+    r"(?:years?|yrs?)(?:\s+of)?(?:\s+(?:hands-on|professional|practical|relevant))?"
+    r"(?:\s+experience)?\s+(?:in|with|using)\s*$",
+    re.IGNORECASE,
+)
+_YEARS_AFTER = re.compile(
+    r"^\s*(?:\(|:|[-\u2013\u2014])?\s*"
+    r"(?:minimum(?:\s+of)?|at\s+least)?\s*(?P<years>\d{1,2})\s*\+?\s*"
+    r"(?:years?|yrs?)(?:\s+of)?(?:\s+(?:hands-on|professional|practical|relevant))?"
+    r"(?:\s+experience)?",
+    re.IGNORECASE,
+)
+
+
+def _level_for_years(value):
+    years = int(value)
+    if years >= 5:
+        return "ADVANCED"
+    if years >= 2:
+        return "INTERMEDIATE"
+    return "BEGINNER"
+
+
+def infer_required_level(text, terms):
+    """Return an explicitly stated level for one skill, or ``None``.
+
+    ``terms`` is the canonical name plus active aliases for that skill. Only a
+    cue immediately beside one of those terms is considered. Generic wording
+    elsewhere in the advert and the job title's career level are intentionally
+    ignored. If the advert makes several statements, the strongest explicit
+    requirement wins.
+    """
+    if not text or not terms:
+        return None
+
+    # Descriptions are sanitized HTML. Replacing tags with spaces prevents
+    # adjacent list items ("advanced Python" / "basic SQL") from becoming one
+    # sentence during inference.
+    plain = html.unescape(re.sub(r"<[^>]*>", " ", text))
+    plain = re.sub(r"\s+", " ", plain)
+    inferred = []
+
+    for term, _method in terms:
+        for found in _term_pattern(term).finditer(plain):
+            before = plain[max(0, found.start() - 100):found.start()]
+            after = plain[found.end():found.end() + 100]
+
+            years = _YEARS_BEFORE.search(before) or _YEARS_AFTER.search(after)
+            if years:
+                inferred.append(_level_for_years(years.group("years")))
+
+            for level in ("ADVANCED", "INTERMEDIATE", "BEGINNER"):
+                if (_BEFORE_LEVEL_PATTERNS[level].search(before)
+                        or _AFTER_LEVEL_PATTERNS[level].search(after)):
+                    inferred.append(level)
+
+    if not inferred:
+        return None
+    return max(inferred, key=_LEVEL_RANK.get)
 
 
 def extract_skill_matches(text, terms_by_skill=None):

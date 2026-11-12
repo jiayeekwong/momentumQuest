@@ -318,14 +318,31 @@ class MatchScoreFormulaTests(TestCase):
 
         self.assertEqual(match_score(job, {}), 0)
 
-    def test_scraped_listings_default_to_intermediate(self):
+    def test_unstated_level_uses_intermediate_assumption(self):
+        job = self._job([(self.python, None)])
+        self._hold(self.python, 'BEGINNER')
+
+        self.assertEqual(self._score(job), 50)
+
+        self._hold(self.python, 'INTERMEDIATE')
+        self.assertEqual(self._score(job), 100)
+
+    def test_missing_unstated_skill_scores_zero(self):
+        job = self._job([(self.python, None)])
+
+        self.assertEqual(self._score(job), 0)
+
+    def test_scraped_listings_default_to_not_stated(self):
         job = JobListing.objects.create(
             job_title='Scraped Role',
             source_type=JobListing.SourceType.SCRAPED,
             source_url='https://example.test/level-default')
         relation = JobSkill.objects.create(job=job, skill=self.python)
 
-        self.assertEqual(relation.required_level, 'INTERMEDIATE')
+        self.assertIsNone(relation.required_level)
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.NOT_STATED)
 
 
 class MatchScoreIsTheSameOnBothSidesTests(TestCase):
@@ -447,12 +464,15 @@ class RequiredSkillLevelWriteTests(TestCase):
             'required_skills': required_skills,
         }, format='json')
 
-    def test_plain_string_still_accepted_and_defaults_to_intermediate(self):
+    def test_plain_string_is_accepted_without_inventing_a_level(self):
         response = self._post(['Python'])
 
         self.assertEqual(response.status_code, 201)
         relation = JobSkill.objects.get(job_id=response.json()['id'])
-        self.assertEqual(relation.required_level, 'INTERMEDIATE')
+        self.assertIsNone(relation.required_level)
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.NOT_STATED)
 
     def test_level_can_be_stated_per_skill(self):
         response = self._post([{'name': 'Python', 'level': 'ADVANCED'}])
@@ -460,6 +480,9 @@ class RequiredSkillLevelWriteTests(TestCase):
         self.assertEqual(response.status_code, 201)
         relation = JobSkill.objects.get(job_id=response.json()['id'])
         self.assertEqual(relation.required_level, 'ADVANCED')
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.MANUAL)
 
     def test_unknown_level_is_rejected(self):
         response = self._post([{'name': 'Python', 'level': 'GURU'}])
@@ -489,6 +512,20 @@ class RequiredSkillLevelWriteTests(TestCase):
 
         relation = JobSkill.objects.get(job_id=created['id'])
         self.assertEqual(relation.required_level, 'BEGINNER')
+
+    def test_an_explicit_null_clears_a_previous_level(self):
+        created = self._post([{'name': 'Python', 'level': 'ADVANCED'}]).json()
+
+        self.client.patch(
+            f"/api/job-listings/jobs/{created['id']}/",
+            {'required_skills': [{'name': 'Python', 'level': None}]},
+            format='json')
+
+        relation = JobSkill.objects.get(job_id=created['id'])
+        self.assertIsNone(relation.required_level)
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.NOT_STATED)
 
 
 class CompanyVisibilityTests(TestCase):

@@ -33,7 +33,7 @@ interface ListingDetail {
   closing_date: string | null;
   status: string;
   required_skills: string[];
-  required_skill_levels: { skill: string; required_level: SkillLevel }[];
+  required_skill_levels: { skill: string; required_level: SkillLevel | null }[];
 }
 
 interface JobCategory { id: number; category_name: string; }
@@ -51,7 +51,7 @@ type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
 interface RequiredSkill {
   name: string;
-  level: SkillLevel;
+  level: SkillLevel | null;
 }
 
 const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
@@ -497,12 +497,16 @@ export default function ManageListingsPage() {
                         <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
                           {skill.name}
                           <select
-                            value={skill.level}
+                            value={skill.level ?? ''}
                             onChange={e => setESkills(prev => prev.map(s =>
-                              s.name === skill.name ? { ...s, level: e.target.value as SkillLevel } : s))}
+                              s.name === skill.name
+                                ? { ...s, level: e.target.value
+                                  ? e.target.value as SkillLevel : null }
+                                : s))}
                             aria-label={`Required proficiency for ${skill.name}`}
                             className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
                           >
+                            <option value="">Not stated</option>
                             {SKILL_LEVELS.map(level => (
                               <option key={level.value} value={level.value}>{level.label}</option>
                             ))}
@@ -626,12 +630,16 @@ export default function ManageListingsPage() {
                         <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
                           {skill.name}
                           <select
-                            value={skill.level}
+                            value={skill.level ?? ''}
                             onChange={e => setPostSkills(prev => prev.map(s =>
-                              s.name === skill.name ? { ...s, level: e.target.value as SkillLevel } : s))}
+                              s.name === skill.name
+                                ? { ...s, level: e.target.value
+                                  ? e.target.value as SkillLevel : null }
+                                : s))}
                             aria-label={`Required proficiency for ${skill.name}`}
                             className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
                           >
+                            <option value="">Not stated</option>
                             {SKILL_LEVELS.map(level => (
                               <option key={level.value} value={level.value}>{level.label}</option>
                             ))}

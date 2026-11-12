@@ -3,7 +3,9 @@
     Job Matching Percentage = (total matched skill score / total required
                                skill score) x 100
 
-    Proficiency value: Beginner = 1, Intermediate = 2, Advanced = 3
+    Proficiency value: Beginner = 1, Intermediate = 2, Advanced = 3.
+    An advert that does not state a level is evaluated as Intermediate. The
+    database still keeps it as null so callers can disclose that assumption.
 
       * student has the skill and level >= required level -> full score
       * student has the skill but level <  required level -> partial score,
@@ -36,6 +38,21 @@ def proficiency_value(level):
     return PROFICIENCY_VALUE.get(level, 0)
 
 
+def effective_required_level(level):
+    """Return the level used for matching.
+
+    Null is preserved in the database as evidence that the advert did not
+    state a level. Only the comparison applies the product rule that an
+    unstated requirement means Intermediate.
+    """
+    return level or StudentSkill.SkillLevel.INTERMEDIATE
+
+
+def requirement_weight(level):
+    """Weight one requirement, defaulting an unstated level to Intermediate."""
+    return proficiency_value(effective_required_level(level))
+
+
 def skill_score(required_level, student_level):
     """Score one required skill for a student.
 
@@ -43,7 +60,10 @@ def skill_score(required_level, student_level):
     """
     if student_level is None:
         return 0
-    return min(proficiency_value(student_level), proficiency_value(required_level))
+    return min(
+        proficiency_value(student_level),
+        proficiency_value(effective_required_level(required_level)),
+    )
 
 
 def student_skill_levels(student):
@@ -95,10 +115,8 @@ def match_score(job, student_levels):
         return None
 
     total_required = sum(
-        proficiency_value(row.required_level) for row in required
+        requirement_weight(row.required_level) for row in required
     )
-    if not total_required:
-        return None
 
     total_matched = sum(
         skill_score(row.required_level, student_levels.get(row.skill_id))

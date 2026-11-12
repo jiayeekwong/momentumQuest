@@ -19,6 +19,14 @@ const LEVEL_LABEL: Record<ProficiencyLevel, string> = {
   ADVANCED: 'Advanced',
 };
 
+const requiredLevelLabel = (
+  level: ProficiencyLevel | null,
+  assumed = false,
+): string => {
+  const effectiveLevel = level ?? 'INTERMEDIATE';
+  return `${LEVEL_LABEL[effectiveLevel]}${assumed || !level ? ' (assumed)' : ''}`;
+};
+
 interface DemandSkill {
   skill_id: number;
   skill: string;
@@ -30,12 +38,13 @@ interface DemandSkill {
   // Holding a skill is not the same as being ready for it. The level the
   // market asks for, the level the student holds, and the verdict comparing
   // them -- reporting only "you have it" hid every partial gap.
-  required_level: ProficiencyLevel;
+  required_level: ProficiencyLevel | null;
+  required_level_assumed: boolean;
   student_level: ProficiencyLevel | null;
   readiness_status: 'MATCHED' | 'DEVELOPING' | 'MISSING';
   // How the adverts in scope actually split, so the required level can be
   // checked rather than taken on trust.
-  level_distribution: Partial<Record<ProficiencyLevel, number>>;
+  level_distribution: Partial<Record<ProficiencyLevel | 'UNSPECIFIED', number>>;
 }
 
 interface OwnedSkill {
@@ -733,14 +742,19 @@ export default function SkillGapPage() {
                                 key={skill.skill_id}
                                 variant={skill.readiness_status === 'MATCHED' ? 'success' : 'warning'}
                                 className="bg-white px-3 py-1.5 flex items-center gap-1.5"
-                                title={`Market asks ${LEVEL_LABEL[skill.required_level]}`}
+                                title={skill.required_level_assumed
+                                  ? 'Advert does not state a level; Intermediate default applied'
+                                  : `Market asks ${requiredLevelLabel(skill.required_level)}`}
                               >
                                 <CheckCircle2 size={14} /> {skill.skill}
                                 {' · '}
                                 {skill.student_level ? LEVEL_LABEL[skill.student_level] : '—'}
                                 {skill.readiness_status === 'DEVELOPING' && (
                                   <span className="font-normal opacity-70">
-                                    {` of ${LEVEL_LABEL[skill.required_level]}`}
+                                    {` of ${requiredLevelLabel(
+                                      skill.required_level,
+                                      skill.required_level_assumed,
+                                    )}`}
                                   </span>
                                 )}
                               </Badge>
@@ -786,8 +800,14 @@ export default function SkillGapPage() {
                             <h5 className="font-bold text-neutral-900">{gapSkill.skill}</h5>
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
                               {gapSkill.readiness_status === 'DEVELOPING'
-                                ? `${LEVEL_LABEL[gapSkill.student_level!]} → ${LEVEL_LABEL[gapSkill.required_level]}`
-                                : `Needs ${LEVEL_LABEL[gapSkill.required_level]}`}
+                                ? `${LEVEL_LABEL[gapSkill.student_level!]} → ${requiredLevelLabel(
+                                  gapSkill.required_level,
+                                  gapSkill.required_level_assumed,
+                                )}`
+                                : `Needs ${requiredLevelLabel(
+                                  gapSkill.required_level,
+                                  gapSkill.required_level_assumed,
+                                )}`}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -822,8 +842,10 @@ export default function SkillGapPage() {
                               single word. */}
                           <span className="text-[10px] text-neutral-400">
                             {(Object.entries(gapSkill.level_distribution) as
-                              [ProficiencyLevel, number][])
-                              .map(([level, n]) => `${LEVEL_LABEL[level]} ${n}`)
+                              [ProficiencyLevel | 'UNSPECIFIED', number][])
+                              .map(([level, n]) => `${level === 'UNSPECIFIED'
+                                ? 'Not stated'
+                                : LEVEL_LABEL[level]} ${n}`)
                               .join(' · ')}
                           </span>
                         </div>

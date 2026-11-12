@@ -27,7 +27,7 @@ from django.db import transaction
 
 from job_listings.models import JobListing, JobSkill
 from scrape_jobs.skill_extractor import (
-    build_skill_terms, extract_skills_from_text)
+    build_skill_terms, extract_skill_matches, infer_required_level)
 
 
 class Command(BaseCommand):
@@ -71,10 +71,12 @@ class Command(BaseCommand):
         else:
             stats = self._reextract(ids, terms)
 
-        touched, removed, added = stats
+        touched, removed, added, level_changes = stats
         self.stdout.write(self.style.SUCCESS(
-            "%d advert(s) changed: %d skill link(s) removed, %d added%s"
+            "%d advert(s) changed: %d skill link(s) removed, %d added, "
+            "%d proficiency value(s) changed%s"
             % (touched, sum(removed.values()), sum(added.values()),
+               level_changes,
                "  (dry run, rolled back)" if options["dry_run"] else "")))
 
         show = options["show"]
@@ -88,7 +90,7 @@ class Command(BaseCommand):
                 self.stdout.write("    +%-4d %s" % (count, name))
 
     def _reextract(self, ids, terms):
-        """Re-extract in committed chunks. Returns (touched, removed, added).
+        """Re-extract skills and explicit proficiency cues in chunks.
 
         One transaction per chunk rather than one for the whole command: a run
         over several thousand adverts takes minutes, and a connection dropped
@@ -97,6 +99,7 @@ class Command(BaseCommand):
         removed = collections.Counter()
         added = collections.Counter()
         touched = 0
+        level_changes = 0
 
         for start in range(0, len(ids), self.CHUNK):
             batch = ids[start:start + self.CHUNK]
@@ -105,36 +108,87 @@ class Command(BaseCommand):
                 # advert. Another few thousand round trips otherwise, for rows
                 # that could be asked for together.
                 existing_by_job = {}
-                for job_id, skill_id, name in (
-                        JobSkill.objects.filter(job_id__in=batch)
-                        .values_list("job_id", "skill_id", "skill__skill_name")):
-                    existing_by_job.setdefault(job_id, {})[skill_id] = name
+                for relation in (JobSkill.objects.filter(job_id__in=batch)
+                                 .select_related("skill")):
+                    existing_by_job.setdefault(
+                        relation.job_id, {})[relation.skill_id] = relation
 
                 for listing in JobListing.objects.filter(id__in=batch):
-                    matched = extract_skills_from_text(
-                        f"{listing.job_title} {listing.description or ''}",
-                        terms_by_skill=terms)
-                    matched_by_id = {skill.id: skill for skill in matched}
+                    skill_text = (
+                        f"{listing.job_title} {listing.description or ''}")
+                    matches = extract_skill_matches(
+                        skill_text, terms_by_skill=terms)
+                    matched_by_id = {
+                        skill.id: {
+                            "skill": skill,
+                            "matched_text": matched_text,
+                            "match_method": match_method,
+                            "required_level": infer_required_level(
+                                skill_text, terms.get(skill, [])),
+                        }
+                        for skill, matched_text, match_method in matches
+                    }
 
                     existing = existing_by_job.get(listing.id, {})
 
                     stale = set(existing) - set(matched_by_id)
                     fresh = set(matched_by_id) - set(existing)
-                    if not stale and not fresh:
-                        continue
-
-                    touched += 1
+                    changed = bool(stale or fresh)
                     for skill_id in stale:
-                        removed[existing[skill_id]] += 1
+                        removed[existing[skill_id].skill.skill_name] += 1
                     for skill_id in fresh:
-                        added[matched_by_id[skill_id].skill_name] += 1
+                        added[matched_by_id[skill_id]["skill"].skill_name] += 1
 
                     JobSkill.objects.filter(
                         job=listing, skill_id__in=stale).delete()
                     JobSkill.objects.bulk_create(
-                        [JobSkill(job=listing, skill_id=skill_id,
-                                  importance_level="MEDIUM")
-                         for skill_id in fresh],
+                        [JobSkill(
+                            job=listing,
+                            skill=evidence["skill"],
+                            importance_level="MEDIUM",
+                            matched_text=evidence["matched_text"][:120],
+                            match_method=evidence["match_method"],
+                            required_level=evidence["required_level"],
+                            required_level_source=(
+                                JobSkill.RequiredLevelSource.EXPLICIT_TEXT
+                                if evidence["required_level"] else
+                                JobSkill.RequiredLevelSource.NOT_STATED),
+                        ) for skill_id, evidence in matched_by_id.items()
+                         if skill_id in fresh],
                         ignore_conflicts=True)
 
-        return touched, removed, added
+                    for skill_id in set(existing) & set(matched_by_id):
+                        relation = existing[skill_id]
+                        evidence = matched_by_id[skill_id]
+                        update_fields = []
+                        matched_text = evidence["matched_text"][:120]
+                        if relation.matched_text != matched_text:
+                            relation.matched_text = matched_text
+                            update_fields.append("matched_text")
+                        if relation.match_method != evidence["match_method"]:
+                            relation.match_method = evidence["match_method"]
+                            update_fields.append("match_method")
+
+                        if (relation.required_level_source !=
+                                JobSkill.RequiredLevelSource.MANUAL):
+                            level = evidence["required_level"]
+                            source = (
+                                JobSkill.RequiredLevelSource.EXPLICIT_TEXT
+                                if level else
+                                JobSkill.RequiredLevelSource.NOT_STATED)
+                            if relation.required_level != level:
+                                relation.required_level = level
+                                update_fields.append("required_level")
+                                level_changes += 1
+                            if relation.required_level_source != source:
+                                relation.required_level_source = source
+                                update_fields.append("required_level_source")
+
+                        if update_fields:
+                            relation.save(update_fields=update_fields)
+                            changed = True
+
+                    if changed:
+                        touched += 1
+
+        return touched, removed, added, level_changes

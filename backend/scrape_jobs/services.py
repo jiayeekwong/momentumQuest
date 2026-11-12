@@ -13,7 +13,9 @@ from .title_normalizer import (
     extract_career_level, normalize_title, strip_recruiter_noise,
 )
 from job_listings.models import ScrapeLog
-from .skill_extractor import extract_skills_from_text
+from .skill_extractor import (
+    build_skill_terms, extract_skill_matches, infer_required_level,
+)
 
 
 # Every title that matches no rule lands here rather than being folded into a
@@ -260,13 +262,23 @@ def save_scraped_job(job_data, index=None, terms=None):
     # skills only ever accumulated -- corrupting match scores, skill-demand
     # percentages, the skill gap and the resources recommended from it.
     #
-    # required_level is preserved for skills that survive the refresh: it is a
-    # reviewed judgement on company listings, and re-extraction is not a
-    # reason to reset it to the default.
-    matched_skills = extract_skills_from_text(
-        f"{job_title} {job_data.get('description', '')}", terms_by_skill=terms
-    )
-    matched_ids = {skill.id for skill in matched_skills}
+    # Explicit text levels are recalculated when an advert changes. A level a
+    # reviewer set manually is preserved: re-scraping is not a reason to
+    # overwrite a human decision.
+    terms = terms or build_skill_terms()
+    skill_text = f"{job_title} {job_data.get('description', '')}"
+    matches = extract_skill_matches(skill_text, terms_by_skill=terms)
+    matched = {
+        skill.id: {
+            "skill": skill,
+            "matched_text": matched_text,
+            "match_method": match_method,
+            "required_level": infer_required_level(
+                skill_text, terms.get(skill, [])),
+        }
+        for skill, matched_text, match_method in matches
+    }
+    matched_ids = set(matched)
 
     existing = {
         relation.skill_id: relation
@@ -276,10 +288,33 @@ def save_scraped_job(job_data, index=None, terms=None):
     if stale_ids:
         JobSkill.objects.filter(job=listing, skill_id__in=stale_ids).delete()
 
-    for skill in matched_skills:
-        if skill.id not in existing:
+    for skill_id, evidence in matched.items():
+        level = evidence["required_level"]
+        source = (JobSkill.RequiredLevelSource.EXPLICIT_TEXT
+                  if level else JobSkill.RequiredLevelSource.NOT_STATED)
+        relation = existing.get(skill_id)
+        if relation is None:
             JobSkill.objects.create(
-                job=listing, skill=skill, importance_level="MEDIUM")
+                job=listing,
+                skill=evidence["skill"],
+                importance_level="MEDIUM",
+                matched_text=evidence["matched_text"][:120],
+                match_method=evidence["match_method"],
+                required_level=level,
+                required_level_source=source,
+            )
+            continue
+
+        relation.matched_text = evidence["matched_text"][:120]
+        relation.match_method = evidence["match_method"]
+        update_fields = ["matched_text", "match_method"]
+        # A reviewer can override scraped text. Re-scraping refreshes inferred
+        # values but never overwrites a human decision.
+        if relation.required_level_source != JobSkill.RequiredLevelSource.MANUAL:
+            relation.required_level = level
+            relation.required_level_source = source
+            update_fields.extend(["required_level", "required_level_source"])
+        relation.save(update_fields=update_fields)
 
     return listing, created
 

@@ -158,6 +158,11 @@ class JobSkill(models.Model):
         CONTEXTUAL_ALIAS = 'CONTEXTUAL_ALIAS', 'Alias matched, context checked'
         MANUAL = 'MANUAL', 'Entered by hand'
 
+    class RequiredLevelSource(models.TextChoices):
+        NOT_STATED = 'NOT_STATED', 'Not stated in advert'
+        EXPLICIT_TEXT = 'EXPLICIT_TEXT', 'Explicit advert wording'
+        MANUAL = 'MANUAL', 'Set by employer or reviewer'
+
     job              = models.ForeignKey(JobListing, on_delete=models.CASCADE,
                                          related_name='job_skills')
     skill            = models.ForeignKey(Skill, on_delete=models.CASCADE,
@@ -180,12 +185,16 @@ class JobSkill(models.Model):
     # something critical.
     #
     # Choices come from StudentSkill so the two sides of the comparison cannot
-    # drift apart. INTERMEDIATE is the default because a scraped advert states
-    # no level -- assuming ADVANCED would understate every student's match and
-    # assuming BEGINNER would make the score meaningless.
+    # drift apart. Null means the advert asks for the skill but states no
+    # proficiency. It stays null so the system does not turn an assumption
+    # into employer evidence; matching evaluates null as Intermediate and the
+    # UI labels that level as assumed.
     required_level   = models.CharField(max_length=20,
                                         choices=StudentSkill.SkillLevel.choices,
-                                        default=StudentSkill.SkillLevel.INTERMEDIATE)
+                                        null=True, blank=True, default=None)
+    required_level_source = models.CharField(
+        max_length=20, choices=RequiredLevelSource.choices,
+        default=RequiredLevelSource.NOT_STATED)
 
     class Meta:
         unique_together = ('job', 'skill')

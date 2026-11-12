@@ -750,6 +750,89 @@ class ScrapeClassifiesOnIngestTests(TestCase):
             JobTitle.objects.get(title_name="Data Engineer").market_role,
             self.role)
 
+    def test_ingest_records_only_an_explicit_skill_level(self):
+        python = Skill.objects.create(skill_name="Python")
+
+        listing, _created = save_scraped_job({
+            "job_title": "Data Engineer",
+            "source_url": "https://example.test/explicit-level",
+            "description": "Strong proficiency in Python is required.",
+        })
+        relation = listing.job_skills.get(skill=python)
+
+        self.assertEqual(relation.required_level, "ADVANCED")
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.EXPLICIT_TEXT)
+
+    def test_ingest_leaves_an_unstated_skill_level_empty(self):
+        python = Skill.objects.create(skill_name="Python")
+
+        listing, _created = save_scraped_job({
+            "job_title": "Data Engineer",
+            "source_url": "https://example.test/unstated-level",
+            "description": "Build reliable services with Python.",
+        })
+        relation = listing.job_skills.get(skill=python)
+
+        self.assertIsNone(relation.required_level)
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.NOT_STATED)
+
+    def test_ingest_does_not_overwrite_a_reviewed_level(self):
+        python = Skill.objects.create(skill_name="Python")
+        payload = {
+            "job_title": "Data Engineer",
+            "source_url": "https://example.test/reviewed-level",
+            "description": "Strong proficiency in Python is required.",
+        }
+        listing, _created = save_scraped_job(payload)
+        listing.job_skills.filter(skill=python).update(
+            required_level="BEGINNER",
+            required_level_source=JobSkill.RequiredLevelSource.MANUAL,
+        )
+
+        save_scraped_job(payload)
+
+        relation = listing.job_skills.get(skill=python)
+        self.assertEqual(relation.required_level, "BEGINNER")
+        self.assertEqual(
+            relation.required_level_source,
+            JobSkill.RequiredLevelSource.MANUAL)
+
+
+class ReextractRequiredLevelTests(TestCase):
+    def setUp(self):
+        self.python = Skill.objects.create(skill_name="Python")
+        self.listing = JobListing.objects.create(
+            job_title="Data Engineer",
+            description="Strong proficiency in Python is required.",
+            source_type=JobListing.SourceType.SCRAPED,
+            source_url="https://example.test/reextract-level",
+        )
+        self.relation = JobSkill.objects.create(
+            job=self.listing, skill=self.python)
+
+    def test_reextract_backfills_an_explicit_level(self):
+        call_command("reextract_job_skills", stdout=StringIO())
+
+        self.relation.refresh_from_db()
+        self.assertEqual(self.relation.required_level, "ADVANCED")
+        self.assertEqual(
+            self.relation.required_level_source,
+            JobSkill.RequiredLevelSource.EXPLICIT_TEXT)
+
+    def test_dry_run_rolls_the_level_change_back(self):
+        call_command(
+            "reextract_job_skills", "--dry-run", stdout=StringIO())
+
+        self.relation.refresh_from_db()
+        self.assertIsNone(self.relation.required_level)
+        self.assertEqual(
+            self.relation.required_level_source,
+            JobSkill.RequiredLevelSource.NOT_STATED)
+
 
 class UnmatchedTitleReportTests(TestCase):
     """Coverage grows by review, so the review list has to be readable."""
@@ -1025,6 +1108,60 @@ class ExtractionProvenanceTests(TestCase):
                                   is_active=False)
 
         self.assertEqual(extract_skill_matches("Deep k8s experience."), [])
+
+
+class RequiredLevelInferenceTests(TestCase):
+    """Only explicit wording beside a skill may become a proficiency."""
+
+    terms = [("Python", "DIRECT_CANONICAL")]
+
+    def infer(self, text, terms=None):
+        from .skill_extractor import infer_required_level
+        return infer_required_level(text, terms or self.terms)
+
+    def test_basic_wording_is_beginner(self):
+        self.assertEqual(
+            self.infer("Basic knowledge of Python is required."),
+            "BEGINNER")
+
+    def test_proficient_wording_is_intermediate(self):
+        self.assertEqual(
+            self.infer("Candidates must be proficient in Python."),
+            "INTERMEDIATE")
+
+    def test_strong_proficiency_is_advanced(self):
+        self.assertEqual(
+            self.infer("Strong proficiency in Python is essential."),
+            "ADVANCED")
+
+    def test_skill_specific_years_are_mapped_conservatively(self):
+        self.assertEqual(
+            self.infer("At least 5 years of experience in Python."),
+            "ADVANCED")
+        self.assertEqual(
+            self.infer("Python: 3 years hands-on experience."),
+            "INTERMEDIATE")
+
+    def test_job_seniority_does_not_set_the_skill_level(self):
+        self.assertIsNone(self.infer(
+            "Senior Data Analyst. Work with Python and reporting tools."))
+
+    def test_a_neighbouring_skills_cue_does_not_leak(self):
+        self.assertIsNone(self.infer(
+            "Advanced Python, SQL and Power BI are used by the team.",
+            [("SQL", "DIRECT_CANONICAL")]))
+
+    def test_html_list_items_do_not_merge(self):
+        self.assertIsNone(self.infer(
+            "<li>Advanced Python</li><li>SQL</li>",
+            [("SQL", "DIRECT_CANONICAL")]))
+
+    def test_alias_wording_can_supply_the_level(self):
+        self.assertEqual(
+            self.infer("Advanced k8s experience is required.",
+                       [("Kubernetes", "DIRECT_CANONICAL"),
+                        ("k8s", "ALIAS")]),
+            "ADVANCED")
 
 
 class SeniorityNormalisationTests(TestCase):
@@ -4205,5 +4342,3 @@ class CompanyJobsAreSearchedTooTests(APITestCase):
 
     def test_no_search_returns_them_all(self):
         self.assertEqual(len(self._search("")), 2)
-
-
