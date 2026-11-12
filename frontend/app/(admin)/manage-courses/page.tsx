@@ -78,6 +78,7 @@ export default function ManageCoursesPage() {
       departments: course.departments ?? [],
       skill_names: course.skill_names ?? [],
     });
+    setSkillDraft('');
     setFormError('');
     setModalOpen(true);
   };
@@ -89,7 +90,13 @@ export default function ManageCoursesPage() {
     try {
       const url     = editId ? `/api/resources/courses/${editId}/` : '/api/resources/courses/';
       const method  = editId ? 'PATCH' : 'POST';
-      const payload = { ...form, course_url: '' };
+      // Saving should not discard a skill merely because the administrator
+      // clicked the button instead of pressing Enter in the skill input.
+      const pendingSkill = skillDraft.trim();
+      const skillNames = pendingSkill && !form.skill_names.includes(pendingSkill)
+        ? [...form.skill_names, pendingSkill]
+        : form.skill_names;
+      const payload = { ...form, skill_names: skillNames, course_url: '' };
       const res     = await apiFetch(url, { method, body: JSON.stringify(payload) });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -102,6 +109,7 @@ export default function ManageCoursesPage() {
       } else {
         setCourses(prev => [...prev, saved]);
       }
+      setSkillDraft('');
       setModalOpen(false);
     } catch {
       setFormError('Something went wrong.');

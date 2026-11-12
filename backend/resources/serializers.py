@@ -103,6 +103,16 @@ class CourseWriteSerializer(serializers.ModelSerializer):
                   "skill_names", "updated_at"]
         read_only_fields = ["id", "updated_at"]
 
+    def to_representation(self, instance):
+        """Return the complete course after a create or update.
+
+        ``skill_names`` is write-only here because it is not a model field.
+        Without an explicit read representation, successful mutations omitted
+        the saved skills and the admin page kept rendering its stale local
+        copy until the next full page load.
+        """
+        return CourseSerializer(instance, context=self.context).data
+
     def validate_course_code(self, value):
         """Normalise, then check it is free -- in that order.
 

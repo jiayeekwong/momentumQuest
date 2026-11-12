@@ -3333,6 +3333,21 @@ class CoursesBelongToMoreThanOneThingTests(APITestCase):
 
         self.assertEqual(course.skill.skill_name, "CSS")
 
+    def test_edit_response_contains_the_skills_that_were_saved(self):
+        """The client can update its card directly from the mutation result."""
+        self._add(skill_names=["HTML", "CSS"])
+        course = Course.objects.get()
+
+        response = self.client.patch(
+            f"/api/resources/courses/{course.pk}/",
+            {"skill_names": ["Python", "HTML"]}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["skill"], "Python")
+        self.assertEqual(response.data["skill_names"], ["Python", "HTML"])
+        course.refresh_from_db()
+        self.assertEqual(course.skill.skill_name, "Python")
+
 
 class TheAdminsCourseMappingReachesTheTranscriptTests(TestCase):
     """Skills attached to a course in the admin did nothing to a transcript.
