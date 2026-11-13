@@ -317,7 +317,7 @@ export default function ReviewApplicationsPage() {
                     <div className="flex flex-wrap gap-3 pt-4 items-center">
 
                       <Button size="sm" variant="outline"
-                        className="h-9 text-xs flex items-center gap-1.5"
+                        className="h-9 text-xs flex items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50"
                         onClick={() => emailCandidate(app)}>
                         <Mail size={14} /> Email Candidate
                       </Button>
