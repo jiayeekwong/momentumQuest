@@ -240,8 +240,12 @@ export default function CompanyAnnouncementsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-bold text-neutral-900">{item.title}</h3>
-                        <Badge variant={config.variant} className="text-[9px] font-black tracking-widest">
-                          <Icon size={11} className="mr-1" /> {config.label}
+                        <Badge
+                          variant={config.variant}
+                          className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-black tracking-widest"
+                        >
+                          <Icon size={11} className="shrink-0" />
+                          {config.label}
                         </Badge>
                       </div>
                       <p className="text-[11px] text-neutral-400 mt-1">
