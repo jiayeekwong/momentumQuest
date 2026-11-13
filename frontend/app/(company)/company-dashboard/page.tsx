@@ -234,24 +234,24 @@ export default function CompanyDashboardPage() {
             <h3 className="text-lg font-bold text-neutral-900">Platform Announcements</h3>
           </div>
           {announcements.length > 0 ? (
-            <div className="space-y-4">
+            <div className="divide-y divide-neutral-100">
               {announcements.map((a) => (
-                <div key={a.id} className="pb-4 border-b border-neutral-100 last:border-none last:pb-0">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <button type="button" onClick={() => setSelectedAnnouncement(a)}
-                      className="text-left text-sm font-bold text-neutral-900 hover:text-primary hover:underline underline-offset-2 transition-colors">
-                      {a.title}
-                    </button>
-                    {a.categories?.length > 0 && (
-                      <Badge variant="primary" className="text-[9px] shrink-0">{a.categories[0]}</Badge>
-                    )}
-                  </div>
-                  <RichText
-                    className="text-xs text-neutral-500 leading-relaxed announcement-body"
-                    html={a.message}
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelectedAnnouncement(a)}
+                  className="group flex w-full items-center justify-between gap-4 py-4 text-left first:pt-0 last:pb-0"
+                  aria-label={`View announcement: ${a.title}`}
+                >
+                  <span className="text-sm font-bold text-neutral-900 transition-colors group-hover:text-primary">
+                    {a.title}
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="shrink-0 text-neutral-300 transition-colors group-hover:text-primary"
+                    aria-hidden="true"
                   />
-                  <p className="text-[10px] text-neutral-400 font-medium mt-1.5">{timeAgo(a.publish_time)}</p>
-                </div>
+                </button>
               ))}
             </div>
           ) : (

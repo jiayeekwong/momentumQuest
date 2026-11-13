@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  CheckCircle2, Clock, Edit3, Megaphone, Paperclip, Plus, Send,
-  Trash2, Upload, X, XCircle,
+  CheckCircle2, Clock, Edit3, Link2, Megaphone, Plus,
+  Send, Trash2, Upload, X, XCircle,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 
+import { isImageUrl } from '@/src/components/AnnouncementDetailModal';
 import { DashboardLayout } from '@/src/components/Layout';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { Badge, Button, Card, Input } from '@/src/components/ui';
@@ -95,6 +97,11 @@ export default function CompanyAnnouncementsPage() {
   const openCreate = () => {
     resetForm();
     setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    resetForm();
   };
 
   const openEdit = (item: CompanyAnnouncement) => {
@@ -201,9 +208,8 @@ export default function CompanyAnnouncementsPage() {
               Submit an announcement for administrator review before students can see it.
             </p>
           </div>
-          <Button onClick={formOpen ? () => { setFormOpen(false); resetForm(); } : openCreate}>
-            {formOpen ? <X size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
-            {formOpen ? 'Cancel' : 'New Announcement'}
+          <Button onClick={openCreate}>
+            <Plus size={16} className="mr-2" /> New Announcement
           </Button>
         </div>
 
@@ -211,87 +217,6 @@ export default function CompanyAnnouncementsPage() {
           <div role="alert" className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm font-medium text-red-700">
             {error}
           </div>
-        )}
-
-        {formOpen && (
-          <Card className="p-6">
-            <form onSubmit={submit} className="space-y-5">
-              <div>
-                <h3 className="font-bold text-neutral-900">
-                  {editId ? 'Revise Announcement' : 'Submit Announcement'}
-                </h3>
-                <p className="text-xs text-neutral-500 mt-1">
-                  The audience is always student accounts. Approval is required before publication.
-                </p>
-              </div>
-              <Input label="Title" value={title} onChange={e => setTitle(e.target.value)}
-                maxLength={200} required />
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Category</label>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map(category => (
-                    <button key={category} type="button"
-                      onClick={() => setCategories(current => current.includes(category)
-                        ? current.filter(value => value !== category)
-                        : [...current, category])}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
-                        categories.includes(category)
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary/40',
-                      )}>
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Announcement body</label>
-                <RichTextEditor value={message} onChange={setMessage} minHeight={160} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Supporting document (optional)</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input type="url" value={supportingDoc}
-                    onChange={e => {
-                      setSupportingDoc(e.target.value);
-                      setAttachmentReceipt('');
-                      setUploadedName('');
-                    }}
-                    placeholder="Paste a URL or upload a PDF, PNG or JPG"
-                    className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  <Button type="button" variant="outline" disabled={isUploading}
-                    onClick={() => fileInput.current?.click()}>
-                    <Upload size={14} className="mr-2" />
-                    {isUploading ? 'Uploading...' : 'Upload'}
-                  </Button>
-                  <input ref={fileInput} type="file" className="hidden"
-                    accept=".pdf,.png,.jpg,.jpeg" onChange={uploadAttachment} />
-                </div>
-                {uploadedName && (
-                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-success">
-                    <Paperclip size={12} /> {uploadedName}
-                  </p>
-                )}
-              </div>
-
-              {error && (
-                <p role="alert" className="text-sm text-danger font-semibold bg-danger/5 border border-danger/20 rounded-lg px-3 py-2">
-                  {error}
-                </p>
-              )}
-
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSaving || isUploading}>
-                  <Send size={14} className="mr-2" />
-                  {isSaving ? 'Submitting...' : 'Submit for Review'}
-                </Button>
-              </div>
-            </form>
-          </Card>
         )}
 
         {isLoading ? (
@@ -348,6 +273,184 @@ export default function CompanyAnnouncementsPage() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {formOpen && (
+          <motion.div
+            key="company-announcement-form"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8 backdrop-blur-sm"
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="company-announcement-form-title"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="my-auto w-full max-w-xl rounded-2xl bg-white p-8 shadow-2xl"
+            >
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <h3 id="company-announcement-form-title" className="text-xl font-black text-neutral-900">
+                    {editId ? 'Revise Announcement' : 'New Announcement'}
+                  </h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Student accounts only. Administrator approval is required before publication.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  aria-label="Close announcement form"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={submit} className="space-y-5">
+                <Input
+                  label="Announcement Title"
+                  placeholder="e.g. Career Fair 2026 — June Edition"
+                  value={title}
+                  onChange={event => setTitle(event.target.value)}
+                  maxLength={200}
+                  required
+                />
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                    Category <span className="font-normal normal-case text-neutral-400">(select all that apply)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map(category => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => setCategories(current => current.includes(category)
+                          ? current.filter(value => value !== category)
+                          : [...current, category])}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-xs font-bold transition-all',
+                          categories.includes(category)
+                            ? 'border-primary bg-primary text-white'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-primary/40',
+                        )}
+                      >
+                        {category}
+                        {categories.includes(category) && <X size={10} className="ml-1.5 -mt-0.5 inline" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                    Announcement Body
+                  </label>
+                  <RichTextEditor value={message} onChange={setMessage} minHeight={140} />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                    Supporting Document <span className="font-normal normal-case text-neutral-400">(optional)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Link2
+                        size={15}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                        aria-hidden="true"
+                      />
+                      <input
+                        type="url"
+                        value={supportingDoc}
+                        onChange={event => {
+                          setSupportingDoc(event.target.value);
+                          setAttachmentReceipt('');
+                          setUploadedName('');
+                        }}
+                        placeholder="Paste a URL or upload from computer"
+                        className="h-10 w-full rounded-lg border border-neutral-300 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInput.current?.click()}
+                      disabled={isUploading}
+                      className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-4 text-xs font-bold text-neutral-600 transition-all hover:border-primary/40 hover:bg-indigo-50/50 hover:text-primary disabled:opacity-50"
+                    >
+                      {isUploading
+                        ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                        : <Upload size={14} />}
+                      {isUploading ? 'Uploading…' : 'Upload'}
+                    </button>
+                    <input
+                      ref={fileInput}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      onChange={uploadAttachment}
+                    />
+                  </div>
+
+                  {uploadedName && (
+                    <div className="flex w-fit items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5">
+                      <CheckCircle2 size={13} className="shrink-0 text-success" />
+                      <span className="max-w-xs truncate text-xs font-semibold text-success">
+                        {uploadedName}{uploadedName === 'Existing attachment' ? '' : ' uploaded'}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Remove supporting document"
+                        onClick={() => {
+                          setSupportingDoc('');
+                          setAttachmentReceipt('');
+                          setUploadedName('');
+                        }}
+                        className="ml-1 text-success/60 hover:text-success"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  {supportingDoc && isImageUrl(supportingDoc) && (
+                    <div className="overflow-hidden rounded-xl border border-neutral-200">
+                      <img
+                        src={supportingDoc}
+                        alt="Supporting document preview"
+                        className="max-h-48 w-full bg-neutral-50 object-contain"
+                        onError={event => { event.currentTarget.style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {error && (
+                  <p role="alert" className="rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-sm font-semibold text-danger">
+                    {error}
+                  </p>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <Button type="button" variant="outline" fullWidth onClick={closeForm}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" fullWidth disabled={isSaving || isUploading}>
+                    <Send size={14} className="mr-2" />
+                    {isSaving ? 'Submitting…' : 'Submit for Review'}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }
