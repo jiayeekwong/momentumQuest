@@ -21,7 +21,10 @@ from rest_framework.views import APIView
 from accounts.models import (
     User, Student, Company, StudentSkill, StudentSkillEvent,
 )
-from accounts.permissions import admin_profile_for, IsStudent, IsCompany, IsAdminUserRole
+from accounts.permissions import (
+    admin_profile_for, is_platform_admin, IsStudent, IsCompany,
+    IsAdminUserRole,
+)
 from scrape_jobs.models import JobCategory, MarketRole, Skill
 from job_listings.matching import (
     effective_required_level, proficiency_value, requirement_weight,
@@ -29,7 +32,10 @@ from job_listings.matching import (
 )
 from job_listings.models import JobListing, ScrapeLog
 from scrape_jobs.serializers import ScrapeLogSerializer
-from resources.models import Certificate, LearningResource  # Certificate: admin dashboard only
+from resources import private_storage
+from resources.models import (
+    Certificate, LearningResource, TrainingProgramme,
+)  # Certificate: admin dashboard only
 from resources.providers import authority_index, get_provider, provider_names
 from resources.relevance import DEFAULT_PER_SKILL, free_status, related_resources
 from resources.attachments import (
@@ -43,7 +49,7 @@ from resources.file_validation import InvalidUpload, validate_document
 from .models import Announcement
 from .announcement_email import send_announcement_email_notifications
 from .notifications import build_feed
-from .serializers import AnnouncementSerializer
+from .serializers import AnnouncementReviewSerializer, AnnouncementSerializer
 
 
 DEMAND_TREND_MONTHS = 12
@@ -1192,15 +1198,25 @@ class AnnouncementListView(generics.ListAPIView):
 
     def get_queryset(self):
         role = self.request.user.role
+        published = Announcement.objects.filter(
+            approval_status=Announcement.ApprovalStatus.APPROVED,
+            publish_time__isnull=False,
+        )
         if role == 'STUDENT':
-            return Announcement.objects.filter(
+            return published.filter(
                 audience__in=['EVERYONE', 'STUDENTS']
-            ).select_related('admin')
+            ).select_related(
+                'admin', 'submitted_by__company_profile',
+                'submitted_by__admin_profile', 'reviewed_by')
         if role == 'COMPANY':
-            return Announcement.objects.filter(
+            return published.filter(
                 audience__in=['EVERYONE', 'COMPANIES']
-            ).select_related('admin')
-        return Announcement.objects.select_related('admin').all()
+            ).select_related(
+                'admin', 'submitted_by__company_profile',
+                'submitted_by__admin_profile', 'reviewed_by')
+        return published.select_related(
+            'admin', 'submitted_by__company_profile',
+            'submitted_by__admin_profile', 'reviewed_by')
 
 
 class AnnouncementCreateView(generics.CreateAPIView):
@@ -1212,7 +1228,16 @@ class AnnouncementCreateView(generics.CreateAPIView):
     permission_classes = [IsAdminUserRole]
 
     def perform_create(self, serializer):
-        announcement = serializer.save(admin=admin_profile_for(self.request.user))
+        now = timezone.now()
+        profile = admin_profile_for(self.request.user)
+        announcement = serializer.save(
+            admin=profile,
+            submitted_by=self.request.user,
+            reviewed_by=profile,
+            approval_status=Announcement.ApprovalStatus.APPROVED,
+            reviewed_at=now,
+            publish_time=now,
+        )
         transaction.on_commit(
             lambda announcement_id=announcement.pk:
             send_announcement_email_notifications(announcement_id)
@@ -1235,9 +1260,13 @@ class AnnouncementFileUploadView(APIView):
     filename; the type is read from the file's own bytes and the stored name
     is generated.
     """
-    permission_classes = [IsAdminUserRole]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if request.user.role != 'COMPANY' and not is_platform_admin(request.user):
+            return Response(
+                {'detail': 'Only companies and administrators may upload announcements.'},
+                status=status.HTTP_403_FORBIDDEN)
         file = request.FILES.get('file')
         if not file:
             return Response({'detail': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1286,6 +1315,155 @@ class AnnouncementDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAdminUserRole]
 
 
+class CompanyAnnouncementListCreateView(APIView):
+    """A company lists its submissions or sends a new one for review."""
+
+    permission_classes = [IsCompany]
+
+    def get(self, request):
+        rows = (
+            Announcement.objects
+            .filter(submitted_by=request.user)
+            .select_related(
+                'admin', 'submitted_by__company_profile', 'reviewed_by')
+            .order_by('-submitted_at')
+        )
+        return Response(AnnouncementSerializer(
+            rows, many=True, context={'request': request}).data)
+
+    def post(self, request):
+        serializer = AnnouncementSerializer(
+            data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        announcement = serializer.save(
+            submitted_by=request.user,
+            admin=None,
+            reviewed_by=None,
+            audience=Announcement.AudienceChoice.STUDENTS,
+            approval_status=Announcement.ApprovalStatus.PENDING,
+            rejection_reason='',
+            reviewed_at=None,
+            publish_time=None,
+        )
+        return Response(
+            AnnouncementSerializer(
+                announcement, context={'request': request}).data,
+            status=status.HTTP_201_CREATED)
+
+
+class CompanyAnnouncementDetailView(APIView):
+    """A company corrects or withdraws one of its own submissions."""
+
+    permission_classes = [IsCompany]
+
+    @staticmethod
+    def _own(request, pk):
+        return Announcement.objects.filter(
+            pk=pk, submitted_by=request.user).first()
+
+    def patch(self, request, pk):
+        announcement = self._own(request, pk)
+        if announcement is None:
+            return Response(
+                {'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if announcement.approval_status not in {
+            Announcement.ApprovalStatus.PENDING,
+            Announcement.ApprovalStatus.REJECTED,
+        }:
+            return Response(
+                {'detail': 'Published or withdrawn announcements cannot be edited.'},
+                status=status.HTTP_409_CONFLICT)
+
+        serializer = AnnouncementSerializer(
+            announcement, data=request.data, partial=True,
+            context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            audience=Announcement.AudienceChoice.STUDENTS,
+            approval_status=Announcement.ApprovalStatus.PENDING,
+            reviewed_by=None,
+            reviewed_at=None,
+            rejection_reason='',
+            publish_time=None,
+        )
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        announcement = self._own(request, pk)
+        if announcement is None:
+            return Response(
+                {'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if announcement.approval_status == Announcement.ApprovalStatus.APPROVED:
+            return Response(
+                {'detail': 'A published announcement must be removed by an administrator.'},
+                status=status.HTTP_409_CONFLICT)
+
+        old_path = announcement.attachment_path
+        announcement.approval_status = Announcement.ApprovalStatus.WITHDRAWN
+        announcement.supporting_doc = None
+        announcement.attachment_path = None
+        announcement.save(update_fields=[
+            'approval_status', 'supporting_doc', 'attachment_path'])
+        if old_path:
+            transaction.on_commit(
+                lambda path=old_path: private_storage.delete(path))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminAnnouncementSubmissionListView(generics.ListAPIView):
+    serializer_class = AnnouncementSerializer
+    permission_classes = [IsAdminUserRole]
+
+    def get_queryset(self):
+        rows = (
+            Announcement.objects
+            .filter(submitted_by__role='COMPANY')
+            .select_related(
+                'submitted_by__company_profile', 'admin', 'reviewed_by')
+            .order_by('-submitted_at')
+        )
+        requested = self.request.query_params.get('status')
+        if requested:
+            rows = rows.filter(approval_status=requested.upper())
+        return rows
+
+
+class AdminAnnouncementReviewView(APIView):
+    permission_classes = [IsAdminUserRole]
+
+    def patch(self, request, pk):
+        with transaction.atomic():
+            try:
+                announcement = (
+                    Announcement.objects.select_for_update()
+                    .get(pk=pk, submitted_by__role='COMPANY')
+                )
+            except Announcement.DoesNotExist:
+                return Response(
+                    {'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = AnnouncementReviewSerializer(
+                announcement, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            decision = serializer.validated_data['approval_status']
+            now = timezone.now()
+            serializer.save(
+                reviewed_by=admin_profile_for(request.user),
+                reviewed_at=now,
+                publish_time=(
+                    now if decision == Announcement.ApprovalStatus.APPROVED
+                    else None),
+            )
+            if decision == Announcement.ApprovalStatus.APPROVED:
+                transaction.on_commit(
+                    lambda announcement_id=announcement.pk:
+                    send_announcement_email_notifications(announcement_id)
+                )
+
+        return Response(AnnouncementSerializer(
+            announcement, context={'request': request}).data)
+
+
 class StudentNotificationsView(APIView):
     """
     GET /api/dashboard/notifications/
@@ -1329,8 +1507,15 @@ class StudentDashboardView(APIView):
         # was calling here.
         announcements = (
             Announcement.objects
-            .filter(audience__in=['EVERYONE', 'STUDENTS'])
-            .select_related('admin')[:3]
+            .filter(
+                approval_status=Announcement.ApprovalStatus.APPROVED,
+                publish_time__isnull=False,
+                audience__in=['EVERYONE', 'STUDENTS'],
+            )
+            .select_related(
+                'admin', 'submitted_by__company_profile',
+                'submitted_by__admin_profile', 'reviewed_by')
+            .order_by('-publish_time')[:3]
         )
 
         top_skills = (
@@ -1405,17 +1590,37 @@ class AdminDashboardView(APIView):
     permission_classes = [IsAdminUserRole]
 
     def get(self, request):
+        pending_certificates = Certificate.objects.filter(
+            verified_status='PENDING').count()
+        pending_training = TrainingProgramme.objects.filter(
+            approval_status=TrainingProgramme.ApprovalStatus.PENDING).count()
+        pending_announcements = Announcement.objects.filter(
+            approval_status=Announcement.ApprovalStatus.PENDING,
+            submitted_by__role='COMPANY').count()
         stats = {
             'total_users': User.objects.count(),
             'total_students': Student.objects.count(),
             'total_companies': Company.objects.count(),
-            'pending_certificates': Certificate.objects.filter(verified_status='PENDING').count(),
+            'pending_certificates': pending_certificates,
+            'pending_training_programmes': pending_training,
+            'pending_announcements': pending_announcements,
+            'pending_reviews': (
+                pending_certificates + pending_training + pending_announcements),
             'total_scraped_jobs': JobListing.objects.filter(source_type='SCRAPED').count(),
             'total_skills': Skill.objects.count(),
         }
 
         recent_logs = ScrapeLog.objects.all()[:5]
-        recent_announcements = Announcement.objects.select_related('admin').all()[:5]
+        recent_announcements = (
+            Announcement.objects
+            .filter(
+                approval_status=Announcement.ApprovalStatus.APPROVED,
+                publish_time__isnull=False)
+            .select_related(
+                'admin', 'submitted_by__company_profile',
+                'submitted_by__admin_profile', 'reviewed_by')
+            .order_by('-publish_time')[:5]
+        )
 
         return Response({
             'stats': stats,

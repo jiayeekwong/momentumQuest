@@ -29,17 +29,45 @@ def _iso(value):
 
 
 def application_events(student):
-    from job_listings.models import JobApplication
+    from job_listings.models import JobApplication, JobApplicationStatusEvent
 
     decided = (
-        JobApplication.objects
-        .filter(student=student, status_changed_at__isnull=False)
-        .exclude(status=JobApplication.Status.PENDING)
-        .select_related("job", "job__company")
-        .order_by("-status_changed_at")[:FEED_LIMIT]
+        JobApplicationStatusEvent.objects
+        .filter(application__student=student)
+        .exclude(to_status="PENDING")
+        .select_related("application__job", "application__job__company")
+        .order_by("-changed_at")[:FEED_LIMIT]
     )
 
-    for application in decided:
+    for event in decided:
+        application = event.application
+        employer = (application.job.company.company_name
+                    if application.job.company_id else application.job.company_name)
+        yield {
+            "kind": "APPLICATION",
+            "at": _iso(event.changed_at),
+            "title": f"Application {event.get_to_status_display().lower()}",
+            "detail": f"{application.job.job_title}"
+                      + (f" at {employer}" if employer else ""),
+            "status": event.to_status,
+            "href": "/applications",
+        }
+
+    # Compatibility for records inserted by an older import or trusted code
+    # without the event writer. The migration backfills production rows; this
+    # branch also keeps fixtures and one-off operational imports truthful.
+    legacy = (
+        JobApplication.objects
+        .filter(
+            student=student,
+            status_changed_at__isnull=False,
+            status_events__isnull=True,
+        )
+        .exclude(status=JobApplication.Status.PENDING)
+        .select_related('job', 'job__company')
+        .order_by('-status_changed_at')[:FEED_LIMIT]
+    )
+    for application in legacy:
         employer = (application.job.company.company_name
                     if application.job.company_id else application.job.company_name)
         yield {
@@ -116,7 +144,18 @@ def transcript_events(student):
 def announcement_events():
     from .models import Announcement
 
-    for announcement in Announcement.objects.order_by("-publish_time")[:FEED_LIMIT]:
+    for announcement in (
+        Announcement.objects
+        .filter(
+            approval_status=Announcement.ApprovalStatus.APPROVED,
+            publish_time__isnull=False,
+            audience__in=[
+                Announcement.AudienceChoice.EVERYONE,
+                Announcement.AudienceChoice.STUDENTS,
+            ],
+        )
+        .order_by("-publish_time")[:FEED_LIMIT]
+    ):
         yield {
             "kind": "ANNOUNCEMENT",
             "at": _iso(announcement.publish_time),

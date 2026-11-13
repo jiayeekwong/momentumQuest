@@ -29,7 +29,9 @@ from .expiry import (
     expiry_report,
     stale_scraped_listings,
 )
-from .models import JobApplication, JobListing, JobSkill, SavedJob
+from .models import (
+    JobApplication, JobApplicationStatusEvent, JobListing, JobSkill, SavedJob,
+)
 
 
 class ListingExpiryTests(TestCase):
@@ -791,6 +793,17 @@ class ApplicationSnapshotTests(TestCase):
 
         application.refresh_from_db()
         self.assertEqual(application.applicant_snapshot, before)
+
+    def test_the_contact_email_is_frozen_with_the_application(self):
+        self._apply()
+        self.user.email = 'new-address@university.test'
+        self.user.save(update_fields=['email'])
+
+        client = APIClient()
+        client.force_authenticate(self.company_user)
+        row = client.get('/api/job-listings/company/applications/').json()[0]
+
+        self.assertEqual(row['student_email'], 'snap@university.test')
 
     def test_the_match_score_is_frozen_with_the_snapshot(self):
         self._apply()

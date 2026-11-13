@@ -229,7 +229,7 @@ const ROUTE_OWNER: Record<string, 'student' | 'company' | 'admin'> = {
   '/resources': 'student', '/applications': 'student',
   '/company-dashboard': 'company', '/manage-listings': 'company',
   '/review-applications': 'company', '/post-training': 'company',
-  '/post-job': 'company',
+  '/post-job': 'company', '/company-announcements': 'company',
   '/admin-dashboard': 'admin', '/approvals': 'admin',
   '/manage-courses': 'admin', '/endorse': 'admin',
   '/post-announcement': 'admin',
@@ -286,6 +286,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
     { icon: LayoutDashboard, label: 'Dashboard', path: '/company-dashboard' },
     { icon: Briefcase, label: 'Manage Listings', path: '/manage-listings' },
     { icon: Users, label: 'Review Applicants', path: '/review-applications' },
+    { icon: Megaphone, label: 'Announcements', path: '/company-announcements' },
     { icon: GraduationCap, label: 'Training Programme', path: '/post-training' },
     { icon: UserCircle, label: 'Profile', path: '/profile' },
   ];

@@ -38,6 +38,10 @@ def send_announcement_email_notifications(announcement_id):
         announcement = Announcement.objects.get(pk=announcement_id)
     except Announcement.DoesNotExist:
         return 0
+    if (announcement.approval_status
+            != Announcement.ApprovalStatus.APPROVED
+            or announcement.publish_time is None):
+        return 0
 
     audience_roles = {
         Announcement.AudienceChoice.STUDENTS: [User.Role.STUDENT],

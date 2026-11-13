@@ -27,7 +27,7 @@ from . import cv_receipt
 from .cv_parser import parse_cv
 from accounts.models import Student, UserConsent
 from accounts.privacy_notice import CURRENT_VERSION
-from .models import JobApplication, JobListing
+from .models import JobApplication, JobApplicationStatusEvent, JobListing
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,11 @@ class CompanyApplicationListView(APIView):
             JobApplication.objects
             .filter(job__company=company)
             .select_related('student__user', 'job')
-            .prefetch_related('student__student_skills__skill', 'job__job_skills__skill')
+            .prefetch_related(
+                'student__student_skills__skill',
+                'job__job_skills__skill',
+                'status_events',
+            )
         )
         serializer = JobApplicationSerializer(apps, many=True)
         return Response(serializer.data)
@@ -116,19 +120,33 @@ class CompanyApplicationStatusView(APIView):
 
     def patch(self, request, pk):
         company = request.user.company_profile
-        try:
-            application = JobApplication.objects.get(pk=pk, job__company=company)
-        except JobApplication.DoesNotExist:
-            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-        previous_status = application.status
-        serializer = JobApplicationStatusSerializer(application, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        # Stamped only on a real change, so re-saving the same status does not
-        # resurface an old decision at the top of the student's notifications.
-        if serializer.validated_data.get('status', previous_status) != previous_status:
-            serializer.save(status_changed_at=timezone.now())
-        else:
-            serializer.save()
+        with transaction.atomic():
+            try:
+                application = (
+                    JobApplication.objects.select_for_update()
+                    .get(pk=pk, job__company=company)
+                )
+            except JobApplication.DoesNotExist:
+                return Response(
+                    {'detail': 'Not found.'},
+                    status=status.HTTP_404_NOT_FOUND)
+
+            previous_status = application.status
+            serializer = JobApplicationStatusSerializer(
+                application, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            next_status = serializer.validated_data.get(
+                'status', previous_status)
+            if next_status != previous_status:
+                serializer.save(status_changed_at=timezone.now())
+                JobApplicationStatusEvent.objects.create(
+                    application=application,
+                    from_status=previous_status,
+                    to_status=next_status,
+                    changed_by=request.user,
+                )
+            else:
+                serializer.save()
         return Response(serializer.data)
 
 
@@ -224,6 +242,7 @@ class StudentJobApplicationView(APIView):
                     needs_work_permit=data['needs_work_permit'],
                     available_from=data.get('available_from'),
                     phone=data.get('phone', ''),
+                    contact_email=request.user.email,
                     cover_note=data.get('cover_note', ''),
                     # Which consented parse this application was assembled
                     # from, taken from the signed receipt rather than from a

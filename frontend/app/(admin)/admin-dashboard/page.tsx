@@ -14,13 +14,17 @@ interface AdminStats {
   total_students: number;
   total_companies: number;
   pending_certificates: number;
+  pending_training_programmes: number;
+  pending_announcements: number;
+  pending_reviews: number;
   total_scraped_jobs: number;
   total_skills: number;
 }
 
 
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return 'recently';
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}m ago`;
@@ -52,7 +56,7 @@ export default function AdminDashboardPage() {
     { label: 'Total Students',   value: stats?.total_students   ?? '—', icon: Users,       color: 'bg-indigo-50 text-primary',  trend: 'Registered students' },
     { label: 'Companies',        value: stats?.total_companies  ?? '—', icon: Briefcase,    color: 'bg-sky-50 text-secondary',   trend: 'Registered companies' },
     { label: 'Scraped Jobs',     value: stats?.total_scraped_jobs ?? '—', icon: TrendingUp, color: 'bg-emerald-50 text-success', trend: 'Jobs in market data' },
-    { label: 'Pending Reviews',  value: stats?.pending_certificates ?? '—', icon: AlertCircle, color: 'bg-amber-50 text-warning', trend: 'Certificates pending' },
+    { label: 'Pending Reviews',  value: stats?.pending_reviews ?? '—', icon: AlertCircle, color: 'bg-amber-50 text-warning', trend: 'All approval queues' },
   ];
 
   return (

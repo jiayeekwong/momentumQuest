@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, CheckCircle2, XCircle, Clock, ChevronDown, Star, BadgeCheck, FileText } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Clock, ChevronDown, Star, BadgeCheck, FileText, Mail } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
@@ -51,6 +51,11 @@ interface Application {
   available_from: string | null;
   phone: string;
   cover_note: string;
+  status_history: {
+    from_status: AppStatus;
+    to_status: AppStatus;
+    changed_at: string;
+  }[];
 }
 
 const statusVariants: Record<AppStatus, 'neutral' | 'primary' | 'danger' | 'success' | 'warning'> = {
@@ -74,6 +79,8 @@ export default function ReviewApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
 
   /** Open an applicant's CV in a new tab.
    *
@@ -102,13 +109,46 @@ export default function ReviewApplicationsPage() {
   }, []);
 
   const updateStatus = async (id: number, status: AppStatus) => {
-    const res = await apiFetch(`/api/job-listings/applications/${id}/status/`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-    if (res.ok) {
-      setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    const application = applications.find(a => a.id === id);
+    if (!application || application.status === status) return;
+    if (status === 'REJECTED' && !window.confirm(
+      `Reject ${application.student_name}'s application? The student will be notified in MomentumQuest.`
+    )) return;
+
+    setActionError('');
+    setActionLoading(id);
+    try {
+      const res = await apiFetch(`/api/job-listings/applications/${id}/status/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = Array.isArray(data.status) ? data.status[0] : data.detail;
+        setActionError(message || 'Could not update the application.');
+        return;
+      }
+      const changedAt = new Date().toISOString();
+      setApplications(prev => prev.map(a => a.id === id ? {
+        ...a,
+        status,
+        status_history: [{
+          from_status: a.status, to_status: status, changed_at: changedAt,
+        }, ...(a.status_history ?? [])],
+      } : a));
+    } catch {
+      setActionError('Network error. Please try again.');
+    } finally {
+      setActionLoading(null);
     }
+  };
+
+  const emailCandidate = (app: Application) => {
+    const subject = encodeURIComponent(`Regarding your application for ${app.job_title}`);
+    const body = encodeURIComponent(
+      `Hello ${app.student_name},\n\nWe are contacting you regarding your application for ${app.job_title}.\n\n`
+    );
+    window.location.href = `mailto:${encodeURIComponent(app.student_email)}?subject=${subject}&body=${body}`;
   };
 
   const filtered = applications.filter(a => {
@@ -124,6 +164,11 @@ export default function ReviewApplicationsPage() {
   return (
     <DashboardLayout title="Review Applications">
       <div className="max-w-5xl mx-auto space-y-6">
+        {actionError && (
+          <div role="alert" className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm font-medium text-red-700">
+            {actionError}
+          </div>
+        )}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex p-1 bg-neutral-100 rounded-xl">
             {filterTabs.map(({ label, value }) => (
@@ -271,22 +316,37 @@ export default function ReviewApplicationsPage() {
 
                     <div className="flex flex-wrap gap-3 pt-4 items-center">
 
+                      <Button size="sm" variant="outline"
+                        className="h-9 text-xs flex items-center gap-1.5"
+                        onClick={() => emailCandidate(app)}>
+                        <Mail size={14} /> Email Candidate
+                      </Button>
+
+                      {app.status_history?.length > 0 && (
+                        <p className="text-[10px] text-neutral-400 font-medium">
+                          Last decision {formatDate(app.status_history[0].changed_at)}
+                        </p>
+                      )}
+
                       <div className="flex gap-2 ml-auto">
-                        <Button size="sm"
+                        {(app.status === 'PENDING' || app.status === 'REVIEWED') && <Button size="sm"
                           className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"
+                          disabled={actionLoading === app.id}
                           onClick={() => updateStatus(app.id, 'SHORTLISTED')}>
                           <CheckCircle2 size={14} /> Shortlist
-                        </Button>
-                        <Button size="sm"
+                        </Button>}
+                        {app.status === 'SHORTLISTED' && <Button size="sm"
                           className="h-9 text-xs bg-primary hover:bg-primary/90 text-white flex items-center gap-1.5"
+                          disabled={actionLoading === app.id}
                           onClick={() => updateStatus(app.id, 'ACCEPTED')}>
                           <Star size={14} /> Accept
-                        </Button>
-                        <Button size="sm" variant="outline"
+                        </Button>}
+                        {!['ACCEPTED', 'REJECTED'].includes(app.status) && <Button size="sm" variant="outline"
                           className="h-9 text-xs text-danger border-danger/30 hover:bg-danger/5 flex items-center gap-1.5"
+                          disabled={actionLoading === app.id}
                           onClick={() => updateStatus(app.id, 'REJECTED')}>
                           <XCircle size={14} /> Reject
-                        </Button>
+                        </Button>}
                       </div>
                     </div>
                   </div>

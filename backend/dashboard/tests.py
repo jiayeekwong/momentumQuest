@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 
@@ -10,7 +11,9 @@ from accounts.models import (
     AdminProfile, Company, SkillGap, Student, StudentSkill, StudentSkillEvent,
     StudentTargetRole, User,
 )
-from job_listings.models import JobApplication, JobListing, JobSkill
+from job_listings.models import (
+    JobApplication, JobApplicationStatusEvent, JobListing, JobSkill,
+)
 from resources.models import LearningResource
 from resources.skill_recognition import apply_skills
 from scrape_jobs.models import (
@@ -20,6 +23,152 @@ from scrape_jobs.models import (
 from .models import Announcement
 from .skill_gap_snapshots import refresh_skill_gaps
 from .views import MAX_RESOURCES_PER_SKILL, pick_resources_for_gap, shift_month
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="MomentumQuest <system@example.edu>",
+    FRONTEND_URL="https://momentumquest.example.edu",
+)
+class CompanyAnnouncementModerationTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.company_user = User.objects.create_user(
+            email="announcements@company.test", password="Strong1!",
+            role=User.Role.COMPANY, email_verified=True)
+        cls.company = Company.objects.create(
+            user=cls.company_user, company_name="Announcement Co")
+        cls.other_company_user = User.objects.create_user(
+            email="other-announcements@company.test", password="Strong1!",
+            role=User.Role.COMPANY, email_verified=True)
+        Company.objects.create(
+            user=cls.other_company_user, company_name="Other Co")
+        cls.admin_user = User.objects.create_user(
+            email="announcement-reviewer@admin.test", password="Strong1!",
+            role=User.Role.ADMIN, is_staff=True, email_verified=True)
+        AdminProfile.objects.create(
+            user=cls.admin_user, admin_name="Reviewer")
+        cls.student_user = User.objects.create_user(
+            email="announcement-reader@student.test", password="Strong1!",
+            role=User.Role.STUDENT, email_verified=True)
+        Student.objects.create(
+            user=cls.student_user, student_name="Reader")
+
+    def setUp(self):
+        self.client = APIClient()
+        mail.outbox = []
+
+    def _submit(self, **overrides):
+        self.client.force_authenticate(self.company_user)
+        payload = {
+            "title": "Graduate recruitment day",
+            "message": "<p>Meet our engineering team.</p>",
+            "audience": "COMPANIES",
+            "categories": ["Career Event"],
+        }
+        payload.update(overrides)
+        return self.client.post(
+            "/api/dashboard/company/announcements/", payload, format="json")
+
+    def _review(self, announcement, payload):
+        self.client.force_authenticate(self.admin_user)
+        return self.client.patch(
+            f"/api/dashboard/admin/announcement-submissions/"
+            f"{announcement.pk}/review/",
+            payload, format="json")
+
+    def test_company_submission_is_pending_and_for_students(self):
+        response = self._submit()
+
+        self.assertEqual(response.status_code, 201, response.data)
+        announcement = Announcement.objects.get(pk=response.data["id"])
+        self.assertEqual(announcement.approval_status, "PENDING")
+        self.assertEqual(announcement.audience, "STUDENTS")
+        self.assertIsNone(announcement.publish_time)
+        self.assertEqual(announcement.submitted_by, self.company_user)
+
+    def test_pending_submission_is_not_visible_or_notified(self):
+        self._submit()
+        self.client.force_authenticate(self.student_user)
+
+        listed = self.client.get("/api/dashboard/announcements/").json()
+        feed = self.client.get("/api/dashboard/notifications/").json()["results"]
+
+        self.assertEqual(listed, [])
+        self.assertFalse(any(row["kind"] == "ANNOUNCEMENT" for row in feed))
+        self.assertEqual(mail.outbox, [])
+
+    def test_company_cannot_review_its_own_submission(self):
+        announcement = Announcement.objects.get(pk=self._submit().data["id"])
+        self.client.force_authenticate(self.company_user)
+
+        response = self.client.patch(
+            f"/api/dashboard/admin/announcement-submissions/"
+            f"{announcement.pk}/review/",
+            {"approval_status": "APPROVED"}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_rejection_requires_a_reason(self):
+        announcement = Announcement.objects.get(pk=self._submit().data["id"])
+
+        response = self._review(announcement, {"approval_status": "REJECTED"})
+
+        self.assertEqual(response.status_code, 400)
+        announcement.refresh_from_db()
+        self.assertEqual(announcement.approval_status, "PENDING")
+
+    def test_approval_publishes_and_emails_students_once(self):
+        announcement = Announcement.objects.get(pk=self._submit().data["id"])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._review(
+                announcement, {"approval_status": "APPROVED"})
+
+        self.assertEqual(response.status_code, 200, response.data)
+        announcement.refresh_from_db()
+        self.assertIsNotNone(announcement.publish_time)
+        self.assertEqual(announcement.reviewed_by, self.admin_user.admin_profile)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.student_user.email])
+
+        second = self._review(
+            announcement, {"approval_status": "APPROVED"})
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(len(mail.outbox), 1)
+
+        self.client.force_authenticate(self.student_user)
+        listed = self.client.get("/api/dashboard/announcements/").json()
+        self.assertEqual([row["id"] for row in listed], [announcement.pk])
+
+    def test_rejected_submission_can_be_revised_and_returns_to_pending(self):
+        announcement = Announcement.objects.get(pk=self._submit().data["id"])
+        self._review(announcement, {
+            "approval_status": "REJECTED",
+            "rejection_reason": "State the event date.",
+        })
+        self.client.force_authenticate(self.company_user)
+
+        response = self.client.patch(
+            f"/api/dashboard/company/announcements/{announcement.pk}/",
+            {"title": "Graduate recruitment day - 12 December"},
+            format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        announcement.refresh_from_db()
+        self.assertEqual(announcement.approval_status, "PENDING")
+        self.assertEqual(announcement.rejection_reason, "")
+        self.assertIsNone(announcement.reviewed_by)
+
+    def test_another_company_cannot_edit_the_submission(self):
+        announcement = Announcement.objects.get(pk=self._submit().data["id"])
+        self.client.force_authenticate(self.other_company_user)
+
+        response = self.client.patch(
+            f"/api/dashboard/company/announcements/{announcement.pk}/",
+            {"title": "Hijacked"}, format="json")
+
+        self.assertEqual(response.status_code, 404)
 
 
 class StudentDashboardDemandTests(TestCase):
@@ -1356,6 +1505,41 @@ class ApplicationStatusStampTests(TestCase):
 
         self.application.refresh_from_db()
         self.assertEqual(self.application.status_changed_at, first)
+
+    def test_a_real_change_creates_one_company_record(self):
+        self._set("SHORTLISTED")
+
+        event = JobApplicationStatusEvent.objects.get(
+            application=self.application)
+        self.assertEqual(event.from_status, "PENDING")
+        self.assertEqual(event.to_status, "SHORTLISTED")
+        self.assertEqual(event.changed_by, self.company_user)
+
+    def test_re_saving_the_same_status_does_not_duplicate_the_record(self):
+        self._set("SHORTLISTED")
+        self._set("SHORTLISTED")
+
+        self.assertEqual(JobApplicationStatusEvent.objects.filter(
+            application=self.application).count(), 1)
+
+    def test_accepting_before_shortlisting_is_refused(self):
+        response = self._set("ACCEPTED")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(JobApplicationStatusEvent.objects.filter(
+            application=self.application).exists())
+
+    def test_each_transition_is_kept_for_the_student_feed(self):
+        self._set("SHORTLISTED")
+        self._set("REJECTED")
+        self.client.force_authenticate(self.student_user)
+
+        feed = self.client.get("/api/dashboard/notifications/").json()["results"]
+
+        application_events = [row for row in feed if row["kind"] == "APPLICATION"]
+        self.assertEqual(
+            [row["status"] for row in application_events],
+            ["REJECTED", "SHORTLISTED"])
 
 
 class ProficiencyAwareSkillGapTests(TestCase):

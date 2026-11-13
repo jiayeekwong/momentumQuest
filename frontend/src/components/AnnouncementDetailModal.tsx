@@ -21,15 +21,22 @@ export interface Announcement {
   categories: string[];
   audience: string;
   admin_name: string | null;
+  author_name?: string | null;
+  author_type?: string | null;
   supporting_doc: string | null;
-  publish_time: string;
+  approval_status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  rejection_reason?: string;
+  submitted_at?: string;
+  reviewed_at?: string | null;
+  publish_time: string | null;
 }
 
 export const AUDIENCE_LABELS: Record<string, string> = {
   EVERYONE: 'Everyone', STUDENTS: 'Students Only', COMPANIES: 'Companies Only',
 };
 
-export function timeAgo(iso: string): string {
+export function timeAgo(iso: string | null): string {
+  if (!iso) return 'recently';
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 60) return `${m}m ago`;
@@ -69,7 +76,7 @@ export default function AnnouncementDetailModal({ announcement: a, onClose }: { 
             </div>
             <h2 className="text-xl font-black text-neutral-900 leading-tight">{a.title}</h2>
             <p className="text-[11px] text-neutral-400 font-medium mt-2 flex items-center gap-1">
-              <Clock size={11} /> Published {timeAgo(a.publish_time)} · by {a.admin_name ?? 'Admin'}
+              <Clock size={11} /> Published {a.publish_time ? timeAgo(a.publish_time) : 'recently'} · by {a.author_name ?? a.admin_name ?? 'Admin'}
             </p>
           </div>
           <button onClick={onClose}

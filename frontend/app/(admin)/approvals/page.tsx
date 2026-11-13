@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Clock, GraduationCap, X, FileText, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, GraduationCap, X, FileText, ExternalLink, Megaphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
@@ -9,7 +9,8 @@ import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
 import { RichText } from '@/src/lib/richText';
 
-type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
+type ApprovalKind = 'training' | 'announcement';
 
 interface ApprovalItem {
   id: number;
@@ -21,10 +22,12 @@ interface ApprovalItem {
   skill: string | null;
   duration: string;
   supportingDoc: string | null;
+  kind: ApprovalKind;
+  rejectionReason: string;
 }
 
 const statusVariants: Record<ApprovalStatus, 'neutral' | 'success' | 'danger'> = {
-  pending: 'neutral', approved: 'success', rejected: 'danger',
+  pending: 'neutral', approved: 'success', rejected: 'danger', withdrawn: 'neutral',
 };
 
 function formatDate(iso: string): string {
@@ -43,6 +46,7 @@ function stripHtml(html: string): string {
 // ─── Detail Modal ──────────────────────────────────────────────────────────────
 
 function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => void }) {
+  const typeLabel = item.kind === 'training' ? 'Training Programme' : 'Company Announcement';
   return (
     <motion.div key="detail-backdrop"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -57,7 +61,7 @@ function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => voi
         <div className="flex items-start justify-between gap-4 p-7 border-b border-neutral-100">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-3">
-              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Training Programme</p>
+              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{typeLabel}</p>
               {item.skill && <Badge variant="primary" className="text-[9px] font-black tracking-widest">{item.skill}</Badge>}
               <Badge variant={statusVariants[item.status]} className="capitalize text-[9px] font-black tracking-widest">{item.status}</Badge>
             </div>
@@ -76,6 +80,12 @@ function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => voi
         <div className="p-7 space-y-5">
           <RichText className="text-sm text-neutral-700 leading-relaxed rich-text"
             html={item.details} />
+
+          {item.rejectionReason && (
+            <p className="p-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-700">
+              <strong>Review note:</strong> {item.rejectionReason}
+            </p>
+          )}
 
           {item.supportingDoc && (
             <div className="border border-neutral-200 rounded-xl overflow-hidden">
@@ -110,20 +120,32 @@ function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => voi
 
 export default function ApprovalsPage() {
   const [items, setItems] = useState<ApprovalItem[]>([]);
+  const [kind, setKind] = useState<ApprovalKind>('training');
   const [filter, setFilter] = useState<'All' | ApprovalStatus>('All');
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [detailItem, setDetailItem] = useState<ApprovalItem | null>(null);
 
   useEffect(() => {
-    apiFetch('/api/resources/training/admin/')
-      .then(r => r.json())
-      .then((data: Array<{
+    Promise.all([
+      apiFetch('/api/resources/training/admin/').then(r => r.json()),
+      apiFetch('/api/dashboard/admin/announcement-submissions/').then(r => r.json()),
+    ])
+      .then(([trainingResponse, announcementResponse]) => {
+        const trainingData = (Array.isArray(trainingResponse)
+          ? trainingResponse : trainingResponse.results ?? []) as Array<{
         id: number; title: string; company_name: string | null;
         submission_time: string; approval_status: string; description: string;
         skill: string | null; programme_duration: string; supporting_doc: string | null;
-      }>) => {
-        setItems(data.map(t => ({
+        }>;
+        const announcementData = (Array.isArray(announcementResponse)
+          ? announcementResponse : announcementResponse.results ?? []) as Array<{
+          id: number; title: string; author_name: string | null;
+          submitted_at: string; approval_status: string; message: string;
+          supporting_doc: string | null; rejection_reason: string;
+        }>;
+        setItems([
+          ...trainingData.map(t => ({
           id:            t.id,
           title:         t.title,
           submittedBy:   t.company_name ?? 'Unknown Company',
@@ -133,23 +155,56 @@ export default function ApprovalsPage() {
           skill:         t.skill,
           duration:      t.programme_duration || '',
           supportingDoc: t.supporting_doc,
-        })));
+          kind:           'training' as const,
+          rejectionReason: '',
+          })),
+          ...announcementData.map(a => ({
+            id: a.id,
+            title: a.title,
+            submittedBy: a.author_name ?? 'Unknown Company',
+            submittedDate: formatDate(a.submitted_at),
+            status: a.approval_status.toLowerCase() as ApprovalStatus,
+            details: a.message || 'No announcement body provided.',
+            skill: null,
+            duration: '',
+            supportingDoc: a.supporting_doc,
+            kind: 'announcement' as const,
+            rejectionReason: a.rejection_reason || '',
+          })),
+        ]);
       })
       .catch(() => {})
       .finally(() => setIsLoading(false));
   }, []);
 
-  const updateStatus = async (id: number, newStatus: 'APPROVED' | 'REJECTED') => {
-    setActionLoading(id);
+  const updateStatus = async (item: ApprovalItem, newStatus: 'APPROVED' | 'REJECTED') => {
+    let rejectionReason = '';
+    if (item.kind === 'announcement' && newStatus === 'REJECTED') {
+      const answer = window.prompt('Give the company a reason for rejection:');
+      if (answer === null) return;
+      rejectionReason = answer.trim();
+      if (!rejectionReason) return;
+    }
+    setActionLoading(item.id);
     try {
-      const res = await apiFetch(`/api/resources/training/admin/${id}/review/`, {
+      const endpoint = item.kind === 'training'
+        ? `/api/resources/training/admin/${item.id}/review/`
+        : `/api/dashboard/admin/announcement-submissions/${item.id}/review/`;
+      const res = await apiFetch(endpoint, {
         method: 'PATCH',
-        body: JSON.stringify({ approval_status: newStatus }),
+        body: JSON.stringify({
+          approval_status: newStatus,
+          ...(rejectionReason ? { rejection_reason: rejectionReason } : {}),
+        }),
       });
       if (res.ok) {
         const ui = newStatus.toLowerCase() as ApprovalStatus;
-        setItems(prev => prev.map(item => item.id === id ? { ...item, status: ui } : item));
-        setDetailItem(prev => prev && prev.id === id ? { ...prev, status: ui } : prev);
+        setItems(prev => prev.map(row => row.id === item.id && row.kind === item.kind
+          ? { ...row, status: ui, rejectionReason }
+          : row));
+        setDetailItem(prev => prev && prev.id === item.id && prev.kind === item.kind
+          ? { ...prev, status: ui, rejectionReason }
+          : prev);
       }
     } catch {
       // silent
@@ -158,8 +213,9 @@ export default function ApprovalsPage() {
     }
   };
 
-  const filtered = items.filter((i) => filter === 'All' || i.status === filter);
-  const pendingCount = items.filter((i) => i.status === 'pending').length;
+  const kindItems = items.filter(item => item.kind === kind);
+  const filtered = kindItems.filter((i) => filter === 'All' || i.status === filter);
+  const pendingCount = kindItems.filter((i) => i.status === 'pending').length;
 
   return (
     <DashboardLayout title="Approvals">
@@ -170,7 +226,7 @@ export default function ApprovalsPage() {
               Pending Approvals
               {pendingCount > 0 && <Badge variant="warning" className="text-xs font-black">{pendingCount} pending</Badge>}
             </h2>
-            <p className="text-neutral-500 mt-1 text-sm">Review and approve training programme submissions from companies.</p>
+            <p className="text-neutral-500 mt-1 text-sm">Review company submissions before they become visible to students.</p>
           </div>
           <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl">
             {(['All', 'pending', 'approved', 'rejected'] as const).map((f) => (
@@ -182,6 +238,19 @@ export default function ApprovalsPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-100 rounded-xl">
+          <button onClick={() => { setKind('training'); setFilter('All'); }}
+            className={cn('px-4 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2',
+              kind === 'training' ? 'bg-white shadow-sm text-primary' : 'text-neutral-500')}>
+            <GraduationCap size={16} /> Training Programmes
+          </button>
+          <button onClick={() => { setKind('announcement'); setFilter('All'); }}
+            className={cn('px-4 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2',
+              kind === 'announcement' ? 'bg-white shadow-sm text-primary' : 'text-neutral-500')}>
+            <Megaphone size={16} /> Announcements
+          </button>
+        </div>
+
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
@@ -191,15 +260,17 @@ export default function ApprovalsPage() {
         ) : (
           <div className="space-y-4">
             {filtered.map((item) => (
-              <Card key={item.id} className="p-6 hover:border-primary/20 transition-all">
+              <Card key={`${item.kind}-${item.id}`} className="p-6 hover:border-primary/20 transition-all">
                 <div className="flex flex-col md:flex-row md:items-start gap-5">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-indigo-50 text-primary">
-                    <GraduationCap size={22} />
+                    {item.kind === 'training' ? <GraduationCap size={22} /> : <Megaphone size={22} />}
                   </div>
                   <div className="flex-1">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-2 mb-1">
                       <div>
-                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Training Programme</p>
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">
+                          {item.kind === 'training' ? 'Training Programme' : 'Company Announcement'}
+                        </p>
                         <button type="button" onClick={() => setDetailItem(item)}
                           className="text-left text-base font-bold text-neutral-900 hover:text-primary hover:underline underline-offset-2 transition-colors">
                           {item.title}
@@ -219,14 +290,14 @@ export default function ApprovalsPage() {
                         <Button size="sm"
                           className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"
                           disabled={actionLoading === item.id}
-                          onClick={() => updateStatus(item.id, 'APPROVED')}>
+                          onClick={() => updateStatus(item, 'APPROVED')}>
                           <CheckCircle2 size={14} />
                           {actionLoading === item.id ? 'Saving…' : 'Approve'}
                         </Button>
                         <Button size="sm" variant="outline"
                           className="h-9 text-xs text-danger border-danger/30 hover:bg-danger/5 flex items-center gap-1.5"
                           disabled={actionLoading === item.id}
-                          onClick={() => updateStatus(item.id, 'REJECTED')}>
+                          onClick={() => updateStatus(item, 'REJECTED')}>
                           <XCircle size={14} /> Reject
                         </Button>
                       </div>

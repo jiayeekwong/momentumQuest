@@ -496,10 +496,11 @@ class JobApplicationCreateSerializer(serializers.Serializer):
 class JobApplicationSerializer(serializers.ModelSerializer):
     has_cv         = serializers.SerializerMethodField()
     student_name   = serializers.CharField(source='student.student_name', read_only=True)
-    student_email  = serializers.CharField(source='student.user.email', read_only=True)
+    student_email  = serializers.SerializerMethodField()
     student_skills = serializers.SerializerMethodField()
     match_score    = serializers.SerializerMethodField()
     job_title      = serializers.CharField(source='job.job_title', read_only=True)
+    status_history = serializers.SerializerMethodField()
 
     class Meta:
         model = JobApplication
@@ -508,7 +509,20 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             'match_score', 'job_title', 'job',
             'applicant_snapshot', 'status', 'applied_time', 'is_read',
             'needs_work_permit', 'available_from', 'phone', 'cover_note',
-            'has_cv', 'cv_original_name',
+            'has_cv', 'cv_original_name', 'status_history',
+        ]
+
+    def get_student_email(self, obj):
+        return obj.contact_email or obj.student.user.email
+
+    def get_status_history(self, obj):
+        return [
+            {
+                'from_status': event.from_status,
+                'to_status': event.to_status,
+                'changed_at': event.changed_at,
+            }
+            for event in obj.status_events.all()
         ]
 
     def get_has_cv(self, obj):
@@ -578,9 +592,38 @@ class JobApplicationSerializer(serializers.ModelSerializer):
 
 
 class JobApplicationStatusSerializer(serializers.ModelSerializer):
+    ALLOWED_TRANSITIONS = {
+        JobApplication.Status.PENDING: {
+            JobApplication.Status.REVIEWED,
+            JobApplication.Status.SHORTLISTED,
+            JobApplication.Status.REJECTED,
+        },
+        JobApplication.Status.REVIEWED: {
+            JobApplication.Status.SHORTLISTED,
+            JobApplication.Status.REJECTED,
+        },
+        JobApplication.Status.SHORTLISTED: {
+            JobApplication.Status.ACCEPTED,
+            JobApplication.Status.REJECTED,
+        },
+        JobApplication.Status.ACCEPTED: set(),
+        JobApplication.Status.REJECTED: set(),
+    }
+
     class Meta:
         model = JobApplication
         fields = ['status']
+
+    def validate_status(self, value):
+        if self.instance is None or value == self.instance.status:
+            return value
+        allowed = self.ALLOWED_TRANSITIONS.get(self.instance.status, set())
+        if value not in allowed:
+            current = self.instance.get_status_display().lower()
+            raise serializers.ValidationError(
+                f"An application that is {current} cannot be changed to "
+                f"{value.lower()}.")
+        return value
 
 
 class StudentApplicationSerializer(serializers.ModelSerializer):

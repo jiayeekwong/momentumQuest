@@ -337,6 +337,9 @@ class JobApplication(models.Model):
     needs_work_permit = models.BooleanField(null=True, blank=True)
     available_from    = models.DateField(null=True, blank=True)
     phone             = models.CharField(max_length=30, blank=True)
+    # Frozen with the application: the employer should contact the address the
+    # student submitted, not a different address the account changes to later.
+    contact_email     = models.EmailField(blank=True)
     cover_note        = models.TextField(blank=True)
 
     # The two consent records behind this application.
@@ -374,6 +377,33 @@ class JobApplication(models.Model):
 
     def __str__(self):
         return f"{self.student.student_name} → {self.job.job_title} ({self.status})"
+
+
+class JobApplicationStatusEvent(models.Model):
+    """Append-only history of an employer's application decisions."""
+
+    application = models.ForeignKey(
+        JobApplication, on_delete=models.CASCADE, related_name="status_events")
+    from_status = models.CharField(
+        max_length=15, choices=JobApplication.Status.choices)
+    to_status = models.CharField(
+        max_length=15, choices=JobApplication.Status.choices)
+    changed_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="application_status_changes")
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-changed_at", "-id"]
+        indexes = [
+            models.Index(
+                fields=["application", "-changed_at"],
+                name="application_status_recent"),
+        ]
+
+    def __str__(self):
+        return (f"{self.application_id}: {self.from_status} -> "
+                f"{self.to_status}")
 
 
 class ScrapeLog(models.Model):
