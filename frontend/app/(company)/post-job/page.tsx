@@ -1,337 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Briefcase, MapPin, Calendar, Plus, X, CheckCircle2, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Briefcase } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
-import { Card, Button, Input } from '@/src/components/ui';
-import { RichTextEditor } from '@/src/components/RichTextEditor';
-import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
-
-// Mirrors accounts.StudentSkill.SkillLevel — the same scale the match score
-// weighs a candidate's proficiency on.
-type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
-
-interface RequiredSkill {
-  name: string;
-  level: SkillLevel;
-}
-
-const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
-  { value: 'BEGINNER',     label: 'Beginner' },
-  { value: 'INTERMEDIATE', label: 'Intermediate' },
-  { value: 'ADVANCED',     label: 'Advanced' },
-];
-
-const workModes = ['On-site', 'Hybrid', 'Remote'];
-const experienceLevels = ['Entry Level', 'Mid Level', 'Senior Level', 'Internship'];
-
-interface JobCategory { id: number; category_name: string; }
+import { Card } from '@/src/components/ui';
+import { PostJobModal } from '@/src/components/company/PostJobModal';
 
 /**
- * DRF errors arrive as {field: [message]} or {detail: message}. Dumping the
- * raw JSON onto the page showed the student a brace-and-quote blob instead of
- * the sentence inside it.
+ * Backward-compatible entry point for bookmarks and old links.
+ *
+ * All visible company entry points use PostJobModal directly. Keeping this
+ * route on the same component prevents the old full-page form from drifting
+ * away from the dashboard and Manage Listings experience.
  */
-function formatApiError(data: unknown): string {
-  if (!data || typeof data !== 'object') return 'Could not post this job. Please try again.';
-  const record = data as Record<string, unknown>;
-  if (typeof record.detail === 'string') return record.detail;
-
-  const parts: string[] = [];
-  for (const [field, value] of Object.entries(record)) {
-    const text = Array.isArray(value) ? value.join(' ') : String(value);
-    const label = field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
-    parts.push(field === 'non_field_errors' ? text : `${label}: ${text}`);
-  }
-  return parts.join('  •  ') || 'Could not post this job. Please try again.';
-}
-
 export default function PostJobPage() {
   const router = useRouter();
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [title, setTitle] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [salaryMin, setSalaryMin] = useState('');
-  const [salaryMax, setSalaryMax] = useState('');
-  const [workMode, setWorkMode] = useState('');
-  const [experience, setExperience] = useState('');
-  const [closing, setClosing] = useState('');
-  const [description, setDescription] = useState('');
-  const [skillInput, setSkillInput] = useState('');
-  // Each required skill carries the proficiency the role needs. The match
-  // score weighs a candidate's own level against this, so "Advanced Python"
-  // and "Beginner Python" are different requirements.
-  const [skills, setSkills] = useState<RequiredSkill[]>([]);
-  const [skillLevel, setSkillLevel] = useState<SkillLevel>('INTERMEDIATE');
-  const [reading, setReading] = useState(false);
-  const [readNote, setReadNote] = useState<string | null>(null);
-  const [categories, setCategories] = useState<JobCategory[]>([]);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/scrape-jobs/categories/`)
-      .then(r => r.json())
-      .then(data => setCategories(Array.isArray(data) ? data : (data.results ?? [])))
-      .catch(() => {});
-  }, []);
-
-  const addSkill = () => {
-    const trimmed = skillInput.trim();
-    if (!trimmed || skills.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) return;
-    setSkills(prev => [...prev, { name: trimmed, level: skillLevel }]);
-    setSkillInput('');
-  };
-
-  const removeSkill = (name: string) =>
-    setSkills(prev => prev.filter(s => s.name !== name));
-
-  /**
-   * Fill the list from the description the company has already written.
-   *
-   * A suggestion, not a replacement for the field. The extractor recognises
-   * that a skill is wanted but never at what level, and the level is what
-   * candidates are scored against -- so the results land in the same editable
-   * chips, at the default level, for the company to correct.
-   *
-   * Existing entries are kept and their levels preserved: pressing this twice,
-   * or after hand-adding a skill, must not discard work.
-   */
-  const readSkillsFromDescription = async () => {
-    setReading(true);
-    setReadNote(null);
-    try {
-      const res = await apiFetch('/api/job-listings/skills/extract/', {
-        method: 'POST',
-        body: JSON.stringify({ text: description }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setReadNote(data?.detail ?? 'Could not read skills from the description.');
-        return;
-      }
-      const found: { skill_name: string }[] = data?.skills ?? [];
-      const known = new Set(skills.map(entry => entry.name.toLowerCase()));
-      const fresh = found
-        .filter(entry => !known.has(entry.skill_name.toLowerCase()))
-        .map(entry => ({ name: entry.skill_name, level: skillLevel }));
-
-      if (fresh.length === 0) {
-        setReadNote(found.length
-          ? 'Every skill in the description is already listed.'
-          : 'No known skills were recognised in the description.');
-        return;
-      }
-      setSkills(prev => [...prev, ...fresh]);
-      setReadNote(
-        `Added ${fresh.length} skill${fresh.length === 1 ? '' : 's'} at ${
-          SKILL_LEVELS.find(l => l.value === skillLevel)?.label ?? skillLevel
-        }. Check the levels — the description does not state them.`);
-    } catch {
-      setReadNote('Could not read skills from the description.');
-    } finally {
-      setReading(false);
-    }
-  };
-
-  const setLevelFor = (name: string, level: SkillLevel) =>
-    setSkills(prev => prev.map(s => (s.name === name ? { ...s, level } : s)));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!description || description === '<p></p>') {
-      setError('Job description cannot be empty.');
-      return;
-    }
-    setIsSubmitting(true);
-
-    const payload: Record<string, unknown> = {
-      job_title:        title,
-      description,
-      work_mode:        workMode,
-      experience_level: experience,
-      closing_date:     closing || null,
-      required_skills:  skills.map(s => ({ name: s.name, level: s.level })),
-    };
-    if (categoryId) payload.category = Number(categoryId);
-    if (salaryMin)  payload.salary_min = Number(salaryMin);
-    if (salaryMax)  payload.salary_max = Number(salaryMax);
-
-    try {
-      const res = await apiFetch('/api/job-listings/jobs/', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-
-      if (res.status === 201) {
-        setSubmitted(true);
-        setTimeout(() => router.push('/manage-listings'), 2500);
-      } else if (res.status === 403) {
-        // Reached only if the role guard is bypassed. The API's own wording
-        // ("You do not have permission to perform this action") reads like a
-        // broken account rather than the wrong one signed in.
-        setError('Only a company account can post a job. You are signed in with a different account type.');
-      } else {
-        const data = await res.json().catch(() => null);
-        setError(formatApiError(data));
-      }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <DashboardLayout title="Post a Job">
-      <div className="max-w-3xl mx-auto">
-        <AnimatePresence mode="wait">
-          {!submitted ? (
-            <motion.div key="form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-neutral-900">Create a Job Listing</h2>
-                <p className="text-neutral-500 mt-1">Fill in the details below to post a new job opening.</p>
-              </div>
+      <Card className="mx-auto max-w-xl p-10 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-primary">
+          <Briefcase size={26} />
+        </div>
+        <h1 className="text-xl font-bold text-neutral-900">Create a Job Listing</h1>
+        <p className="mt-2 text-sm text-neutral-500">
+          Complete the job details in the posting form.
+        </p>
+      </Card>
 
-              <Card className="p-8">
-                {error && (
-                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">
-                    {error}
-                  </div>
-                )}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <Input label="Job Title" placeholder="e.g. Junior Data Scientist" value={title} onChange={e => setTitle(e.target.value)} required />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Category</label>
-                      <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
-                        className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="">Select category</option>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.category_name}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Experience Level</label>
-                      <select value={experience} onChange={e => setExperience(e.target.value)} required
-                        className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="">Select level</option>
-                        {experienceLevels.map(l => <option key={l}>{l}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Salary Min (RM)" type="number" placeholder="e.g. 3000" value={salaryMin} onChange={e => setSalaryMin(e.target.value)} />
-                    <Input label="Salary Max (RM)" type="number" placeholder="e.g. 6000" value={salaryMax} onChange={e => setSalaryMax(e.target.value)} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Work Mode</label>
-                    <div className="flex gap-2">
-                      {workModes.map(mode => (
-                        <button key={mode} type="button" onClick={() => setWorkMode(mode)}
-                          className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${workMode === mode ? 'bg-primary text-white border-primary' : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary/40'}`}>
-                          <MapPin size={12} className="inline mr-1" />{mode}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Input label="Application Closing Date" type="date" value={closing} onChange={e => setClosing(e.target.value)} required icon={<Calendar size={16} />} />
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Job Description</label>
-                    <RichTextEditor value={description} onChange={setDescription} />
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Required Skills</label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 shrink-0 whitespace-nowrap"
-                        onClick={readSkillsFromDescription}
-                        isLoading={reading}
-                        disabled={description.trim().length < 40}
-                        title={description.trim().length < 40
-                          ? 'Write the job description first'
-                          : 'Read the skills mentioned in your description'}
-                      >
-                        <Sparkles size={14} /> Read from description
-                      </Button>
-                    </div>
-                    <p className="text-xs text-neutral-500 -mt-1">
-                      The level you set here is what candidates are scored against.
-                      Reading from the description fills in the names; it cannot
-                      tell what level you need, so check those yourself.
-                    </p>
-                    {readNote && (
-                      <p className="text-xs font-semibold text-primary">{readNote}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                        placeholder="Type a skill and press Enter"
-                        className="flex-1 h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                      <select value={skillLevel} onChange={e => setSkillLevel(e.target.value as SkillLevel)}
-                        aria-label="Required proficiency for the next skill"
-                        className="h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        {SKILL_LEVELS.map(level => (
-                          <option key={level.value} value={level.value}>{level.label}</option>
-                        ))}
-                      </select>
-                      <Button type="button" variant="outline" size="sm" className="h-10" onClick={addSkill}>
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {skills.map(skill => (
-                        <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
-                          {skill.name}
-                          <select
-                            value={skill.level}
-                            onChange={e => setLevelFor(skill.name, e.target.value as SkillLevel)}
-                            aria-label={`Required proficiency for ${skill.name}`}
-                            className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
-                          >
-                            {SKILL_LEVELS.map(level => (
-                              <option key={level.value} value={level.value}>{level.label}</option>
-                            ))}
-                          </select>
-                          <button type="button" onClick={() => removeSkill(skill.name)} className="hover:text-danger"><X size={12} /></button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 pt-2">
-                    <Button type="button" variant="outline" fullWidth onClick={() => router.back()}>Cancel</Button>
-                    <Button type="submit" fullWidth disabled={isSubmitting}>
-                      <Briefcase size={16} className="mr-2" /> {isSubmitting ? 'Posting...' : 'Post Job'}
-                    </Button>
-                  </div>
-                </form>
-              </Card>
-            </motion.div>
-          ) : (
-            <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="py-20 text-center">
-              <div className="w-24 h-24 bg-emerald-50 text-success rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 size={48} />
-              </div>
-              <h3 className="text-2xl font-black text-neutral-900">Job Posted Successfully!</h3>
-              <p className="text-neutral-500 mt-2">Your listing is now live. Redirecting to manage listings...</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <PostJobModal
+        open
+        onClose={() => router.replace('/manage-listings')}
+      />
     </DashboardLayout>
   );
 }

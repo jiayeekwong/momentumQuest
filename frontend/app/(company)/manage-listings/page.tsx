@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Users, Clock, Trash2, ToggleLeft, ToggleRight, Pencil, X, Calendar, MapPin, Save, Briefcase, CheckCircle2 } from 'lucide-react';
+import { Plus, Users, Clock, Trash2, ToggleLeft, ToggleRight, Pencil, X, Calendar, MapPin, Save } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button, Input } from '@/src/components/ui';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
-import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import { apiFetch, API_BASE } from '@/src/lib/apiFetch';
 import { cn } from '@/src/lib/utils';
+import { PostJobModal, type PostedJob } from '@/src/components/company/PostJobModal';
 
 interface Listing {
   id: number;
@@ -67,20 +67,6 @@ export default function ManageListingsPage() {
 
   // Post Job Modal state
   const [postModalOpen, setPostModalOpen] = useState(false);
-  const [postSubmitted, setPostSubmitted] = useState(false);
-  const [postError, setPostError] = useState('');
-  const [postSubmitting, setPostSubmitting] = useState(false);
-  const [postTitle, setPostTitle] = useState('');
-  const [postCategoryId, setPostCategoryId] = useState('');
-  const [postSalaryMin, setPostSalaryMin] = useState('');
-  const [postSalaryMax, setPostSalaryMax] = useState('');
-  const [postWorkMode, setPostWorkMode] = useState('');
-  const [postExperience, setPostExperience] = useState('');
-  const [postClosing, setPostClosing] = useState('');
-  const [postDescription, setPostDescription] = useState('');
-  const [postSkillInput, setPostSkillInput] = useState('');
-  const [postSkills, setPostSkills] = useState<RequiredSkill[]>([]);
-  const [postSkillLevel, setPostSkillLevel] = useState<SkillLevel>('INTERMEDIATE');
 
   // Edit panel state
   const [editOpen, setEditOpen] = useState(false);
@@ -168,72 +154,6 @@ export default function ManageListingsPage() {
     setESkills(prev => [...prev, { name: trimmed, level: eSkillLevel }]);
     setESkillInput('');
     skillInputRef.current?.focus();
-  };
-
-  const addPostSkill = () => {
-    const trimmed = postSkillInput.trim();
-    if (!trimmed || postSkills.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) return;
-    setPostSkills(prev => [...prev, { name: trimmed, level: postSkillLevel }]);
-    setPostSkillInput('');
-  };
-
-  const removePostSkill = (name: string) => setPostSkills(prev => prev.filter(s => s.name !== name));
-
-  const handlePostJob = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPostError('');
-
-    if (!postDescription || postDescription === '<p></p>') {
-      setPostError('Job description cannot be empty.');
-      return;
-    }
-    setPostSubmitting(true);
-
-    const payload: Record<string, unknown> = {
-      job_title:        postTitle,
-      description:      postDescription,
-      work_mode:        postWorkMode,
-      experience_level: postExperience,
-      closing_date:     postClosing || null,
-      required_skills:  postSkills.map(s => ({ name: s.name, level: s.level })),
-    };
-    if (postCategoryId) payload.category = Number(postCategoryId);
-    if (postSalaryMin)  payload.salary_min = Number(postSalaryMin);
-    if (postSalaryMax)  payload.salary_max = Number(postSalaryMax);
-
-    try {
-      const res = await apiFetch('/api/job-listings/jobs/', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-
-      if (res.status === 201) {
-        const newJob = await res.json();
-        setListings(prev => [newJob, ...prev]);
-        setPostSubmitted(true);
-        setTimeout(() => {
-          setPostSubmitted(false);
-          setPostModalOpen(false);
-          setPostTitle('');
-          setPostCategoryId('');
-          setPostSalaryMin('');
-          setPostSalaryMax('');
-          setPostWorkMode('');
-          setPostExperience('');
-          setPostClosing('');
-          setPostDescription('');
-          setPostSkills([]);
-          setPostSkillInput('');
-        }, 2500);
-      } else {
-        const data = await res.json();
-        setPostError(JSON.stringify(data));
-      }
-    } catch {
-      setPostError('Network error. Please try again.');
-    } finally {
-      setPostSubmitting(false);
-    }
   };
 
   const saveEdit = async () => {
@@ -535,150 +455,11 @@ export default function ManageListingsPage() {
         </div>
       )}
 
-      {/* ── Post Job Modal ── */}
-      <AnimatePresence>
-        {postModalOpen && (
-          <motion.div key="post-backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8 overflow-y-auto"
-            onClick={() => setPostModalOpen(false)}>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-auto"
-              onClick={e => e.stopPropagation()}>
-
-              <div className="flex items-center justify-between gap-4 p-7 border-b border-neutral-100">
-                <h2 className="text-2xl font-bold text-neutral-900">Post a Job Listing</h2>
-                <button onClick={() => setPostModalOpen(false)} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-400">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="p-7 overflow-y-auto max-h-[calc(100vh-200px)] space-y-6">
-                {postError && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">
-                    {postError}
-                  </div>
-                )}
-                <form onSubmit={handlePostJob} className="space-y-6">
-                  <Input label="Job Title" placeholder="e.g. Junior Data Scientist" value={postTitle} onChange={e => setPostTitle(e.target.value)} required />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Category</label>
-                      <select value={postCategoryId} onChange={e => setPostCategoryId(e.target.value)}
-                        className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="">Select category</option>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.category_name}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Experience Level</label>
-                      <select value={postExperience} onChange={e => setPostExperience(e.target.value)} required
-                        className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="">Select level</option>
-                        {experienceLevels.map(l => <option key={l}>{l}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Salary Min (RM)" type="number" placeholder="e.g. 3000" value={postSalaryMin} onChange={e => setPostSalaryMin(e.target.value)} />
-                    <Input label="Salary Max (RM)" type="number" placeholder="e.g. 6000" value={postSalaryMax} onChange={e => setPostSalaryMax(e.target.value)} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Work Mode</label>
-                    <div className="flex gap-2">
-                      {workModes.map(mode => (
-                        <button key={mode} type="button" onClick={() => setPostWorkMode(mode)}
-                          className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${postWorkMode === mode ? 'bg-primary text-white border-primary' : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary/40'}`}>
-                          <MapPin size={12} className="inline mr-1" />{mode}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Input label="Application Closing Date" type="date" value={postClosing} onChange={e => setPostClosing(e.target.value)} required icon={<Calendar size={16} />} />
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Job Description</label>
-                    <RichTextEditor value={postDescription} onChange={setPostDescription} />
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Required Skills</label>
-                    <div className="flex gap-2">
-                      <input value={postSkillInput} onChange={e => setPostSkillInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addPostSkill())}
-                        placeholder="Type a skill and press Enter"
-                        className="flex-1 h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                      <select value={postSkillLevel} onChange={e => setPostSkillLevel(e.target.value as SkillLevel)}
-                        aria-label="Required proficiency for the next skill"
-                        className="h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        {SKILL_LEVELS.map(level => (
-                          <option key={level.value} value={level.value}>{level.label}</option>
-                        ))}
-                      </select>
-                      <Button type="button" variant="outline" size="sm" className="h-10" onClick={addPostSkill}>
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {postSkills.map(skill => (
-                        <span key={skill.name} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold">
-                          {skill.name}
-                          <select
-                            value={skill.level ?? ''}
-                            onChange={e => setPostSkills(prev => prev.map(s =>
-                              s.name === skill.name
-                                ? { ...s, level: e.target.value
-                                  ? e.target.value as SkillLevel : null }
-                                : s))}
-                            aria-label={`Required proficiency for ${skill.name}`}
-                            className="bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer"
-                          >
-                            <option value="">Not stated</option>
-                            {SKILL_LEVELS.map(level => (
-                              <option key={level.value} value={level.value}>{level.label}</option>
-                            ))}
-                          </select>
-                          <button type="button" onClick={() => removePostSkill(skill.name)} className="hover:text-danger"><X size={12} /></button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 pt-4">
-                    <Button type="button" variant="outline" fullWidth onClick={() => setPostModalOpen(false)}>Cancel</Button>
-                    <Button type="submit" fullWidth disabled={postSubmitting}>
-                      <Briefcase size={16} className="mr-2" /> {postSubmitting ? 'Posting...' : 'Post Job'}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Success Message */}
-      <AnimatePresence>
-        {postSubmitted && (
-          <motion.div key="post-success"
-            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <motion.div className="bg-white rounded-2xl shadow-2xl p-16 text-center max-w-md w-full mx-4">
-              <div className="w-24 h-24 bg-emerald-50 text-success rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 size={48} />
-              </div>
-              <h3 className="text-2xl font-black text-neutral-900">Job Posted Successfully!</h3>
-              <p className="text-neutral-500 mt-2">Your listing is now live and visible to students.</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <PostJobModal
+        open={postModalOpen}
+        onClose={() => setPostModalOpen(false)}
+        onCreated={(job: PostedJob) => setListings(current => [job, ...current])}
+      />
     </DashboardLayout>
   );
 }

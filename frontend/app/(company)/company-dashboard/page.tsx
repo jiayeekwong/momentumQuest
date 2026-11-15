@@ -8,6 +8,7 @@ import { Card, Badge, Button } from '@/src/components/ui';
 import { Briefcase, Users, CheckCircle2, ChevronRight, Plus, Clock, Bell, X, FileText, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { RichText } from '@/src/lib/richText';
+import { PostJobModal } from '@/src/components/company/PostJobModal';
 
 const statusVariants: Record<string, 'neutral' | 'primary' | 'warning' | 'danger' | 'success'> = {
   PENDING: 'neutral', SHORTLISTED: 'primary', REJECTED: 'danger', ACCEPTED: 'success',
@@ -117,6 +118,7 @@ export default function CompanyDashboardPage() {
   const [recentApps,         setRecentApps]         = useState<RecentApp[]>([]);
   const [announcements,      setAnnouncements]      = useState<Announcement[]>([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [postJobOpen, setPostJobOpen] = useState(false);
 
   useEffect(() => {
     apiFetch('/api/dashboard/company/')
@@ -145,9 +147,9 @@ export default function CompanyDashboardPage() {
             <h2 className="text-2xl font-bold text-neutral-900">Welcome back, {companyName}</h2>
             <p className="text-neutral-500 mt-1">Here&apos;s an overview of your recruitment activity.</p>
           </div>
-          <Link href="/post-job">
-            <Button className="h-11 px-6"><Plus size={16} className="mr-2" /> Post a Job</Button>
-          </Link>
+          <Button className="h-11 px-6" onClick={() => setPostJobOpen(true)}>
+            <Plus size={16} className="mr-2" /> Post a Job
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -180,11 +182,14 @@ export default function CompanyDashboardPage() {
           <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
             <p className="text-5xl font-black text-primary">{stats?.active_listings ?? '—'}</p>
             <p className="text-sm font-medium text-neutral-500 mt-2">active job listings</p>
-            <Link href="/post-job" className="mt-4">
-              <Button variant="outline" size="sm" className="h-9 text-xs">
-                <Plus size={14} className="mr-1.5" /> Post New Job
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 h-9 text-xs"
+              onClick={() => setPostJobOpen(true)}
+            >
+              <Plus size={14} className="mr-1.5" /> Post New Job
+            </Button>
           </div>
         </Card>
 
@@ -269,6 +274,14 @@ export default function CompanyDashboardPage() {
           <AnnouncementModal a={selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} />
         )}
       </AnimatePresence>
+
+      <PostJobModal
+        open={postJobOpen}
+        onClose={() => setPostJobOpen(false)}
+        onCreated={() => setStats(current => current
+          ? { ...current, active_listings: current.active_listings + 1 }
+          : current)}
+      />
     </DashboardLayout>
   );
 }
