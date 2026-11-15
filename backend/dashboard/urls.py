@@ -19,11 +19,11 @@ from .views import (
     MarketDemandView,
     AdminDashboardView,
     CompanyDashboardView,
-    StudentNotificationsView,
+    NotificationsView,
 )
 
 urlpatterns = [
-    path('notifications/',          StudentNotificationsView.as_view()),
+    path('notifications/',          NotificationsView.as_view()),
     path('announcements/',          AnnouncementListView.as_view()),
     path('announcements/create/',   AnnouncementCreateView.as_view()),
     path('announcements/upload/',   AnnouncementFileUploadView.as_view()),

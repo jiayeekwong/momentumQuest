@@ -15,7 +15,8 @@ type SignupRole = 'STUDENT' | 'COMPANY';
 // Mirrors the backend rule (accounts.serializers.validate_strong_password):
 // 8+ chars, at least one letter, one digit, and one special character.
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]).{8,}$/;
-const PASSWORD_RULE_MESSAGE = 'Password must be 8+ chars with a letter, digit, and special character.';
+const PASSWORD_SPECIAL_REGEX = /[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]/;
+const PASSWORD_RULE_MESSAGE = 'Password must contain at least 8 characters, one letter, one number, and one special character.';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 
@@ -45,6 +46,13 @@ export default function SignupPage() {
     { title: 'Account Details', icon: Mail },
     { title: 'Role Details', icon: User },
     { title: 'Verify Email', icon: CheckCircle2 },
+  ];
+
+  const passwordRequirements = [
+    { label: 'At least 8 characters', met: password.length >= 8 },
+    { label: 'One letter', met: /[A-Za-z]/.test(password) },
+    { label: 'One number', met: /\d/.test(password) },
+    { label: 'One special character', met: PASSWORD_SPECIAL_REGEX.test(password) },
   ];
 
   function handleNext() {
@@ -175,8 +183,41 @@ export default function SignupPage() {
                   <Input label="Full Name" placeholder="Jane Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                   <Input label="Email Address" type="email" placeholder="jane@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="signup-password-requirements" required />
                     <Input label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                  </div>
+
+                  <div
+                    id="signup-password-requirements"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                  >
+                    <p className="text-xs font-bold text-neutral-700">
+                      Your password must contain:
+                    </p>
+                    <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                      {passwordRequirements.map(requirement => (
+                        <li
+                          key={requirement.label}
+                          className={cn(
+                            'flex items-center gap-2 text-xs font-medium transition-colors',
+                            requirement.met ? 'text-success' : 'text-neutral-500',
+                          )}
+                        >
+                          <CheckCircle2 size={14} aria-hidden="true" />
+                          {requirement.label}
+                        </li>
+                      ))}
+                    </ul>
+                    {confirmPassword && (
+                      <p className={cn(
+                        'mt-2 border-t border-neutral-200 pt-2 text-xs font-medium',
+                        password === confirmPassword ? 'text-success' : 'text-danger',
+                      )}>
+                        {password === confirmPassword
+                          ? 'Passwords match.'
+                          : 'Passwords do not match yet.'}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

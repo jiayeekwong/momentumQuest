@@ -48,7 +48,7 @@ from resources.file_validation import InvalidUpload, validate_document
 
 from .models import Announcement
 from .announcement_email import send_announcement_email_notifications
-from .notifications import build_feed
+from .notifications import build_announcement_feed, build_feed
 from .serializers import AnnouncementReviewSerializer, AnnouncementSerializer
 
 
@@ -1464,24 +1464,43 @@ class AdminAnnouncementReviewView(APIView):
             announcement, context={'request': request}).data)
 
 
-class StudentNotificationsView(APIView):
+class NotificationsView(APIView):
     """
     GET /api/dashboard/notifications/
 
-    What has happened to this student, newest first: application decisions,
-    certificate and transcript outcomes, and announcements.
-
-    Scoped to request.user's own student profile with no lookup parameter, so
-    there is no way to read anybody else's. Derived from existing records
-    rather than a Notification table -- see dashboard/notifications.py.
+    The signed-in user's newest notifications. Students receive their own
+    application/document outcomes and student announcements. Companies and
+    administrators receive the published announcements visible to their role.
+    Derived from existing records rather than a Notification table -- see
+    dashboard/notifications.py.
     """
-    permission_classes = [IsStudent]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        student = getattr(request.user, "student_profile", None)
-        if student is None:
-            return Response({"results": []})
-        return Response({"results": build_feed(student)})
+        if request.user.role == User.Role.STUDENT:
+            student = getattr(request.user, "student_profile", None)
+            return Response({
+                "results": build_feed(student) if student is not None else [],
+            })
+
+        if request.user.role == User.Role.COMPANY:
+            return Response({"results": build_announcement_feed(
+                audiences=[
+                    Announcement.AudienceChoice.EVERYONE,
+                    Announcement.AudienceChoice.COMPANIES,
+                ],
+                href="/company-dashboard",
+            )})
+
+        if is_platform_admin(request.user):
+            return Response({"results": build_announcement_feed(
+                href="/admin-dashboard",
+            )})
+
+        return Response(
+            {"detail": "You do not have permission to view notifications."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class StudentDashboardView(APIView):

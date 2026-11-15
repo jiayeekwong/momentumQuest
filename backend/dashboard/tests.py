@@ -1306,8 +1306,8 @@ class ClassificationCoverageTests(TestCase):
         self.assertNotIn('verified_postings_in_period', quality)
 
 
-class StudentNotificationFeedTests(TestCase):
-    """The bell had no handler and a permanently-lit dot. This is the feed."""
+class NotificationFeedTests(TestCase):
+    """Role-scoped data behind each dashboard notification bell."""
 
     @classmethod
     def setUpTestData(cls):
@@ -1324,6 +1324,11 @@ class StudentNotificationFeedTests(TestCase):
             email="notif@business.test", password="Strong1!", role=User.Role.COMPANY)
         cls.company = Company.objects.create(
             user=cls.company_user, company_name="Notify Ltd")
+        cls.admin_user = User.objects.create_user(
+            email="notif@admin.test", password="Strong1!",
+            role=User.Role.ADMIN, is_staff=True)
+        cls.admin = AdminProfile.objects.create(
+            user=cls.admin_user, admin_name="Notification Admin")
         cls.job = JobListing.objects.create(
             job_title="Backend Engineer", company=cls.company,
             status=JobListing.Status.ACTIVE)
@@ -1414,11 +1419,8 @@ class StudentNotificationFeedTests(TestCase):
         self.assertIn("3", feed[0]["detail"])
 
     def test_announcements_appear(self):
-        admin_user = User.objects.create_user(
-            email="notif@admin.test", password="Strong1!", role=User.Role.ADMIN, is_staff=True)
-        admin = AdminProfile.objects.create(user=admin_user, admin_name="Poster")
         Announcement.objects.create(
-            admin=admin, title="Career fair on Friday", message="Come along")
+            admin=self.admin, title="Career fair on Friday", message="Come along")
 
         feed = self._feed()
 
@@ -1447,12 +1449,73 @@ class StudentNotificationFeedTests(TestCase):
         self.assertEqual([event["kind"] for event in feed],
                          ["APPLICATION", "CERTIFICATE"])
 
-    def test_a_company_cannot_read_the_student_feed(self):
+    def test_company_receives_only_announcements_for_companies(self):
+        Announcement.objects.create(
+            admin=self.admin, title="For students", message="Students",
+            audience=Announcement.AudienceChoice.STUDENTS)
+        Announcement.objects.create(
+            admin=self.admin, title="For companies", message="Companies",
+            audience=Announcement.AudienceChoice.COMPANIES)
+        Announcement.objects.create(
+            admin=self.admin, title="For everyone", message="Everyone",
+            audience=Announcement.AudienceChoice.EVERYONE)
         self.client.force_authenticate(self.company_user)
 
         response = self.client.get("/api/dashboard/notifications/")
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200, response.data)
+        feed = response.json()["results"]
+        self.assertEqual(
+            {row["title"] for row in feed}, {"For companies", "For everyone"})
+        self.assertTrue(all(row["href"] == "/company-dashboard" for row in feed))
+
+    def test_company_receives_the_latest_announcement_first(self):
+        now = timezone.now()
+        Announcement.objects.create(
+            admin=self.admin, title="Earlier company notice", message="Earlier",
+            audience=Announcement.AudienceChoice.COMPANIES,
+            publish_time=now - timedelta(days=1))
+        Announcement.objects.create(
+            admin=self.admin, title="Latest company notice", message="Latest",
+            audience=Announcement.AudienceChoice.COMPANIES,
+            publish_time=now)
+        self.client.force_authenticate(self.company_user)
+
+        feed = self.client.get(
+            "/api/dashboard/notifications/").json()["results"]
+
+        self.assertEqual(
+            [row["title"] for row in feed],
+            ["Latest company notice", "Earlier company notice"],
+        )
+
+    def test_admin_receives_all_published_announcements(self):
+        for audience in Announcement.AudienceChoice.values:
+            Announcement.objects.create(
+                admin=self.admin, title=f"Notice for {audience}",
+                message="Published", audience=audience)
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.get("/api/dashboard/notifications/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        feed = response.json()["results"]
+        self.assertEqual(len(feed), 3)
+        self.assertTrue(all(row["href"] == "/admin-dashboard" for row in feed))
+
+    def test_pending_announcements_do_not_notify_company_or_admin(self):
+        Announcement.objects.create(
+            title="Still awaiting review", message="Pending",
+            submitted_by=self.company_user,
+            audience=Announcement.AudienceChoice.COMPANIES,
+            approval_status=Announcement.ApprovalStatus.PENDING,
+            publish_time=None)
+
+        for user in (self.company_user, self.admin_user):
+            self.client.force_authenticate(user)
+            response = self.client.get("/api/dashboard/notifications/")
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.json()["results"], [])
 
     def test_an_unauthenticated_visitor_cannot_read_it(self):
         self.client.force_authenticate(None)

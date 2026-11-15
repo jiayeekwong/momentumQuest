@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { cn } from '@/src/lib/utils';
 import { Slot } from '@radix-ui/react-slot';
+import { Eye, EyeOff } from 'lucide-react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
@@ -119,6 +120,7 @@ export function Input({
   label,
   error,
   icon,
+  type,
   className,
   ...props
 }: {
@@ -126,6 +128,10 @@ export function Input({
   error?: string;
   icon?: React.ReactNode;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const [passwordVisible, setPasswordVisible] = React.useState(false);
+  const isPassword = type === 'password';
+  const resolvedType = isPassword && passwordVisible ? 'text' : type;
+
   return (
     <div className="space-y-1.5 flex-1">
       {label && (
@@ -140,14 +146,33 @@ export function Input({
           </span>
         )}
         <input
+          type={resolvedType}
           className={cn(
             'w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             icon && 'pl-9',
+            isPassword && 'pr-10',
             error && 'border-danger focus:ring-danger/20',
             className
           )}
           {...props}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setPasswordVisible(visible => !visible)}
+            disabled={props.disabled}
+            aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+            aria-pressed={passwordVisible}
+            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg
+                       text-neutral-400 transition-colors hover:text-primary focus:outline-none
+                       focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30
+                       disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {passwordVisible
+              ? <EyeOff size={17} aria-hidden="true" />
+              : <Eye size={17} aria-hidden="true" />}
+          </button>
+        )}
       </div>
       {error && <p className="text-xs text-danger">{error}</p>}
     </div>

@@ -126,6 +126,12 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+function greetingForHour(hour: number): 'Good morning' | 'Good afternoon' | 'Good night' {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 18) return 'Good afternoon';
+  return 'Good night';
+}
+
 function AnnouncementDetailModal({ a, onClose }: { a: Announcement; onClose: () => void }) {
   const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
 
@@ -199,6 +205,8 @@ function AnnouncementDetailModal({ a, onClose }: { a: Announcement; onClose: () 
 export default function DashboardPage() {
   const { user } = useAuth();
   const firstName = user?.name?.split(' ')[0] ?? 'there';
+  // Start with a hydration-safe value, then use the browser's local time zone.
+  const [greeting, setGreeting] = useState<'Good morning' | 'Good afternoon' | 'Good night'>('Good morning');
   const [skillsCount,          setSkillsCount]          = useState<number | null>(null);
   const [applicationsCount,    setApplicationsCount]    = useState<number | null>(null);
   const [announcements,        setAnnouncements]        = useState<Announcement[]>([]);
@@ -237,6 +245,13 @@ export default function DashboardPage() {
     queueMicrotask(() => void loadDashboard());
   }, [loadDashboard]);
 
+  useEffect(() => {
+    const updateGreeting = () => setGreeting(greetingForHour(new Date().getHours()));
+    updateGreeting();
+    const interval = window.setInterval(updateGreeting, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Only Market Roles with classified adverts behind them — anything else
   // renders an empty chart.
   useEffect(() => {
@@ -274,7 +289,7 @@ export default function DashboardPage() {
         {/* Hero greeting */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900">Good morning, {firstName} 👋</h2>
+            <h2 className="text-2xl font-bold text-neutral-900">{greeting}, {firstName} 👋</h2>
             <p className="text-neutral-500 mt-1">Here&apos;s what&apos;s happening with your career today.</p>
           </div>
           <Link href="/jobs">
@@ -318,7 +333,8 @@ export default function DashboardPage() {
                   {marketDemand?.title ?? 'Job Demand Trend'}
                 </h3>
                 <p className="text-xs text-neutral-400 font-medium mt-0.5">
-                  Unique scraped job postings by month — missing collection periods are left blank
+                  Unique scraped job postings by month. Monthly totals include listings that have since closed;
+                  missing collection periods are left blank.
                 </p>
               </div>
               <Badge
@@ -386,7 +402,7 @@ export default function DashboardPage() {
                       point among solid points would read as a finished month,
                       and one day of October beside a full September is a
                       collapse that never happened. */}
-                  <Line name="Job postings" type="monotone" dataKey="job_count" connectNulls={false} stroke="#4f46e5" strokeWidth={3} activeDot={{ r: 6 }}
+                  <Line name="Postings published" type="monotone" dataKey="job_count" connectNulls={false} stroke="#4f46e5" strokeWidth={3} activeDot={{ r: 6 }}
                     dot={(props: { cx?: number; cy?: number; index?: number; key?: string }) => {
                       const point = (marketDemand?.series ?? [])[props.index ?? -1];
                       // A month nobody collected has no value and so no
@@ -420,7 +436,7 @@ export default function DashboardPage() {
             {marketDemand && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
                 <div className="rounded-xl bg-neutral-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Open postings</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Currently open</p>
                   <p className="text-xl font-black text-neutral-900 mt-1">{marketDemand.total_postings}</p>
                 </div>
               </div>

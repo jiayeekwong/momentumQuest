@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Clock, Briefcase, ChevronRight, ChevronDown, FileText } from 'lucide-react';
+import {
+  AlertTriangle, Briefcase, ChevronDown, ChevronRight, Clock, FileText,
+  Search, Trash2, X,
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
@@ -65,6 +69,9 @@ const formatDate = (value: string) =>
 
 export default function MyApplicationsPage() {
   const [applications, setApplications] = useState<Application[] | null>(null);
+  const [cvToRemove, setCvToRemove] = useState<Application | null>(null);
+  const [isRemovingCV, setIsRemovingCV] = useState(false);
+  const [removeCVError, setRemoveCVError] = useState('');
 
   /** Take the CV back without withdrawing the application.
    *
@@ -91,17 +98,42 @@ export default function MyApplicationsPage() {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  const removeCV = async (application: Application) => {
-    if (!window.confirm(
-      `Remove your CV from the application to ${application.job_title}? `
-      + 'The employer will no longer be able to open it, and this cannot be undone. '
-      + 'Your application itself stays.')) return;
+  const requestCVRemoval = (application: Application) => {
+    setRemoveCVError('');
+    setCvToRemove(application);
+  };
 
-    const res = await apiFetch(`/api/job-listings/applications/${application.id}/cv/`,
-                               { method: 'DELETE' });
-    if (res.ok) {
+  const closeCVRemoval = () => {
+    if (isRemovingCV) return;
+    setCvToRemove(null);
+    setRemoveCVError('');
+  };
+
+  const removeCV = async () => {
+    if (!cvToRemove || isRemovingCV) return;
+
+    const application = cvToRemove;
+    setIsRemovingCV(true);
+    setRemoveCVError('');
+    try {
+      const res = await apiFetch(`/api/job-listings/applications/${application.id}/cv/`,
+                                 { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setRemoveCVError(
+          typeof data?.detail === 'string'
+            ? data.detail
+            : 'The CV could not be removed. Please try again.',
+        );
+        return;
+      }
       setApplications(prev => (prev ?? []).map(
         a => (a.id === application.id ? { ...a, has_cv: false } : a)));
+      setCvToRemove(null);
+    } catch {
+      setRemoveCVError('The server could not be reached. Please try again.');
+    } finally {
+      setIsRemovingCV(false);
     }
   };
   const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +145,24 @@ export default function MyApplicationsPage() {
   const [filter, setFilter] = useState<'ALL' | ApplicationStatus>('ALL');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!cvToRemove) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isRemovingCV) {
+        setCvToRemove(null);
+        setRemoveCVError('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [cvToRemove, isRemovingCV]);
 
   useEffect(() => {
     let cancelled = false;
@@ -293,7 +343,7 @@ export default function MyApplicationsPage() {
                                   can be taken back without withdrawing the
                                   application. */}
                               <button type="button"
-                                onClick={() => removeCV(application)}
+                                onClick={() => requestCVRemoval(application)}
                                 className="text-xs font-bold text-danger hover:underline underline-offset-2 shrink-0">
                                 Remove
                               </button>
@@ -361,6 +411,101 @@ export default function MyApplicationsPage() {
           </>
         )}
       </div>
+
+      <AnimatePresence>
+        {cvToRemove && (
+          <motion.div
+            key="remove-cv-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-8 backdrop-blur-sm"
+            onClick={closeCVRemoval}
+          >
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="remove-cv-title"
+              aria-describedby="remove-cv-description"
+              initial={{ scale: 0.94, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 8 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+              className="w-full max-w-md rounded-2xl bg-white p-7 shadow-2xl"
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-50 text-danger">
+                    <AlertTriangle size={24} aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 id="remove-cv-title" className="text-lg font-black text-neutral-900">
+                      Remove your CV?
+                    </h3>
+                    <p id="remove-cv-description" className="mt-1 text-sm leading-relaxed text-neutral-500">
+                      This permanently removes the CV attached to this application.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCVRemoval}
+                  disabled={isRemovingCV}
+                  aria-label="Close remove CV confirmation"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                <p className="truncate text-sm font-bold text-neutral-900">{cvToRemove.job_title}</p>
+                <p className="mt-0.5 truncate text-xs font-medium text-neutral-500">{cvToRemove.company_name}</p>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-red-100 bg-red-50/70 px-4 py-3">
+                <p className="text-xs font-semibold leading-relaxed text-red-700">
+                  The employer will lose access immediately, and the CV cannot be restored.
+                </p>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-neutral-500">
+                Your application and its current status will remain unchanged.
+              </p>
+
+              {removeCVError && (
+                <p role="alert" className="mt-4 rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-sm font-semibold text-danger">
+                  {removeCVError}
+                </p>
+              )}
+
+              <div className="mt-6 flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  fullWidth
+                  autoFocus
+                  disabled={isRemovingCV}
+                  onClick={closeCVRemoval}
+                >
+                  Keep CV
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  fullWidth
+                  isLoading={isRemovingCV}
+                  disabled={isRemovingCV}
+                  onClick={() => void removeCV()}
+                >
+                  {!isRemovingCV && <Trash2 size={15} />}
+                  {isRemovingCV ? 'Removing…' : 'Remove CV'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }

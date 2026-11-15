@@ -32,6 +32,13 @@
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Password visibility is controlled by the shared Input component. Hiding
+   Edge's transient native control avoids two competing eye buttons. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 /* Rich-text body rendered from Tiptap HTML (announcements, job & training descriptions) */
 .announcement-body strong, .rich-text strong { font-weight: 700; }
 .announcement-body em,     .rich-text em     { font-style: italic; }

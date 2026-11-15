@@ -578,19 +578,14 @@ export default function ProfilePage() {
                         value={newEmail}
                         onChange={e => setNewEmail(e.target.value)}
                       />
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Current Password</label>
-                        <div className="relative">
-                          <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                          <input
-                            type="password"
-                            placeholder="Enter your current password"
-                            value={currentPassword}
-                            onChange={e => setCurrentPassword(e.target.value)}
-                            className="w-full h-10 pl-9 pr-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-                      </div>
+                      <Input
+                        label="Current Password"
+                        icon={<KeyRound size={14} />}
+                        type="password"
+                        placeholder="Enter your current password"
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                      />
                       <Button
                         variant="outline"
                         className="w-full h-10 text-sm"
@@ -680,15 +675,9 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Current Password</label>
-                    <div className="relative">
-                      <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                      <input type="password" placeholder="Enter your current password"
-                        value={currentPwd} onChange={e => setCurrentPwd(e.target.value)}
-                        className="w-full h-10 pl-9 pr-3 bg-white border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                    </div>
-                  </div>
+                  <Input label="Current Password" icon={<KeyRound size={14} />}
+                    type="password" placeholder="Enter your current password"
+                    value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} />
                   <Input label="New Password" type="password" placeholder="At least 8 characters, include a number and a symbol (e.g. !@#)"
                     value={newPwd} onChange={e => setNewPwd(e.target.value)} />
                   <Input label="Confirm New Password" type="password" placeholder="Repeat new password"

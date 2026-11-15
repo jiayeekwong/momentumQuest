@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -29,15 +29,15 @@ interface NotificationItem {
   href: string;
 }
 
-// When this browser last opened the panel. Read state is per-browser because
-// the feed is derived from existing records rather than stored rows, so there
-// is nothing server-side to mark. That is still strictly better than the
-// hardcoded dot it replaces, which was unread-forever.
-const SEEN_KEY = 'mq_notifications_seen_at';
+// When this browser/account last opened the panel. The feed is derived from
+// existing records rather than stored rows, so there is nothing server-side
+// to mark. Scoping the key prevents one role/account from clearing another's
+// badge on a shared browser.
+const SEEN_KEY_PREFIX = 'mq_notifications_seen_at';
 
-function readSeenAt(): string {
+function readSeenAt(key: string): string {
   try {
-    return localStorage.getItem(SEEN_KEY) ?? '';
+    return localStorage.getItem(key) ?? '';
   } catch {
     return '';
   }
@@ -60,9 +60,9 @@ function subscribeSeenAt(onChange: () => void) {
   };
 }
 
-function writeSeenAt(value: string) {
+function writeSeenAt(key: string, value: string) {
   try {
-    localStorage.setItem(SEEN_KEY, value);
+    localStorage.setItem(key, value);
   } catch {
     /* a browser blocking storage still gets a working panel */
   }
@@ -89,21 +89,34 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
 }
 
-function NotificationBell() {
+function NotificationBell({ accountKey, role }: {
+  accountKey: string;
+  role: 'student' | 'company' | 'admin';
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const seenAt = useSyncExternalStore(subscribeSeenAt, readSeenAt, () => '');
+  const seenKey = `${SEEN_KEY_PREFIX}:${role}:${accountKey}`;
+  const getSeenAt = useCallback(() => readSeenAt(seenKey), [seenKey]);
+  const seenAt = useSyncExternalStore(subscribeSeenAt, getSeenAt, () => '');
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    apiFetch('/api/dashboard/notifications/')
+  const loadNotifications = useCallback(() => {
+    return apiFetch('/api/dashboard/notifications/')
       .then(r => (r.ok ? r.json() : null))
       .then(data => setItems(Array.isArray(data?.results) ? data.results : []))
       .catch(() => {})
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadNotifications();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadNotifications]);
 
   // Close on an outside click or Escape, so the panel does not strand the page.
   useEffect(() => {
@@ -124,14 +137,18 @@ function NotificationBell() {
     };
   }, [open]);
 
-  const unreadCount = items.filter(item => !seenAt || item.at > seenAt).length;
+  const seenAtTime = Date.parse(seenAt);
+  const unreadCount = items.filter(item => (
+    !seenAt || Number.isNaN(seenAtTime) || Date.parse(item.at) > seenAtTime
+  )).length;
 
   const toggle = () => {
     const next = !open;
     setOpen(next);
     if (next) {
-      // Marked seen on open, not on close: the student has now looked at them.
-      writeSeenAt(new Date().toISOString());
+      // Marked seen on open, not on close: the user has now looked at them.
+      writeSeenAt(seenKey, new Date().toISOString());
+      void loadNotifications();
     }
   };
 
@@ -172,8 +189,9 @@ function NotificationBell() {
               </div>
             ) : items.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-neutral-400">
-                Nothing new yet. Decisions on your applications and documents
-                will show up here.
+                {role === 'student'
+                  ? 'Nothing new yet. Application, document and announcement updates will show up here.'
+                  : 'No announcements yet. New platform announcements will show up here.'}
               </p>
             ) : (
               items.map((item, index) => {
@@ -390,7 +408,9 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
             <span className="text-lg font-semibold text-neutral-900 truncate">{title}</span>
           </div>
           <div className="flex items-center gap-4">
-            {user?.role === 'student' && <NotificationBell />}
+            {user && (
+              <NotificationBell accountKey={user.id || user.email} role={user.role} />
+            )}
             <div className="flex items-center gap-3 pl-4 border-l border-neutral-200">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-neutral-900 leading-none">{user?.name}</p>

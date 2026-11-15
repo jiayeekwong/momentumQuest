@@ -1,4 +1,4 @@
-"""What has happened to a student that they would want to know about.
+"""Role-scoped events that dashboard users would want to know about.
 
 Derived, not stored. There is no Notification table and no per-row read flag,
 because every event here is already recorded somewhere with a timestamp:
@@ -13,10 +13,10 @@ second source of truth that can disagree with the first -- a notification
 saying "shortlisted" beside an application that has since been rejected.
 Reading the underlying records means the list cannot go stale.
 
-The cost is that "unread" cannot be a server-side flag. The client keeps the
-timestamp it last opened the panel and counts what is newer, which is accurate
-per browser and wrong for nobody: the alternative was the hardcoded red dot
-this replaces, which claimed unread items whether or not any existed.
+The cost is that "unread" cannot be a server-side flag. The client keeps a
+per-account timestamp for when it last opened the panel and counts what is
+newer. That read state is local to the browser; the event list itself remains
+authoritative and is filtered for the signed-in role by the API view.
 """
 
 from itertools import chain
@@ -141,38 +141,45 @@ def transcript_events(student):
         }
 
 
-def announcement_events():
+def announcement_events(*, audiences=None, href="/dashboard"):
     from .models import Announcement
 
-    for announcement in (
+    announcements = (
         Announcement.objects
         .filter(
             approval_status=Announcement.ApprovalStatus.APPROVED,
             publish_time__isnull=False,
-            audience__in=[
-                Announcement.AudienceChoice.EVERYONE,
-                Announcement.AudienceChoice.STUDENTS,
-            ],
         )
-        .order_by("-publish_time")[:FEED_LIMIT]
-    ):
+    )
+    if audiences is not None:
+        announcements = announcements.filter(audience__in=audiences)
+
+    for announcement in announcements.order_by("-publish_time")[:FEED_LIMIT]:
         yield {
             "kind": "ANNOUNCEMENT",
             "at": _iso(announcement.publish_time),
             "title": announcement.title,
             "detail": "",
             "status": None,
-            "href": "/dashboard",
+            "href": href,
         }
 
 
 def build_feed(student):
     """The student's most recent events, newest first."""
+    from .models import Announcement
+
     events = chain(
         application_events(student),
         certificate_events(student),
         transcript_events(student),
-        announcement_events(),
+        announcement_events(
+            audiences=[
+                Announcement.AudienceChoice.EVERYONE,
+                Announcement.AudienceChoice.STUDENTS,
+            ],
+            href="/dashboard",
+        ),
     )
     # Sorted on the ISO strings, which order correctly because they are all
     # produced by the same isoformat call with a timezone.
@@ -181,3 +188,8 @@ def build_feed(student):
         key=lambda event: event["at"],
         reverse=True,
     )[:FEED_LIMIT]
+
+
+def build_announcement_feed(*, audiences=None, href):
+    """Published announcements for a non-student role, newest first."""
+    return list(announcement_events(audiences=audiences, href=href))
