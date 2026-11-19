@@ -219,8 +219,7 @@ class CertificateSkillEvidenceSerializer(serializers.ModelSerializer):
 
     skill      = serializers.CharField(source="skill.skill_name", read_only=True)
     skill_id   = serializers.IntegerField(read_only=True)
-    # What the student actually has for this skill after review -- the level
-    # the administrator certified, or nothing while it is still pending.
+    # What this claim currently contributes to the student's skill profile.
     granted_level = serializers.SerializerMethodField()
 
     class Meta:
@@ -229,7 +228,7 @@ class CertificateSkillEvidenceSerializer(serializers.ModelSerializer):
                   "granted_level", "review_status", "review_note", "reviewed_at"]
 
     def get_granted_level(self, obj):
-        return obj.approved_level if obj.is_live else None
+        return obj.effective_level
 
 
 class ClaimedSkillSerializer(serializers.Serializer):
@@ -243,17 +242,6 @@ class ClaimedSkillSerializer(serializers.Serializer):
     claimed_level = serializers.ChoiceField(
         choices=StudentSkill.SkillLevel.choices,
         default=StudentSkill.SkillLevel.INTERMEDIATE)
-
-
-class ApprovedSkillSerializer(serializers.Serializer):
-    """One entry in the ``skills`` list an administrator returns."""
-
-    skill_id       = serializers.PrimaryKeyRelatedField(
-        queryset=Skill.objects.selectable(), source="skill")
-    approved_level = serializers.ChoiceField(
-        choices=StudentSkill.SkillLevel.choices)
-    review_note    = serializers.CharField(required=False, allow_blank=True,
-                                           max_length=255)
 
 
 class CertificateSerializer(serializers.ModelSerializer):
@@ -283,35 +271,6 @@ class CertificateSerializer(serializers.ModelSerializer):
         return obj.student.student_name if obj.student else None
 
 
-class CertificateAdminSerializer(CertificateSerializer):
-    """The verification view, for authorised administrators only.
-
-    Adds the context an admin needs to decide -- who submitted it, and their
-    matric number so the right student's record is being reviewed -- plus the
-    internal notes. Never reachable from a student or company route.
-
-    There is deliberately no identity-number field to show: MomentumQuest
-    stores none, so the name on the document is compared against the
-    registered name and nothing else.
-    """
-    student_email  = serializers.EmailField(source="student.user.email", read_only=True)
-    matric_number  = serializers.CharField(source="student.matric_number", read_only=True)
-    department     = serializers.CharField(source="student.department", read_only=True)
-    reviewed_by    = serializers.SerializerMethodField()
-    consent_recorded_at = serializers.DateTimeField(
-        source="upload_consent.accepted_at", read_only=True, default=None,
-    )
-
-    class Meta(CertificateSerializer.Meta):
-        fields = CertificateSerializer.Meta.fields + [
-            "student_email", "matric_number", "department", "mime_type",
-            "verification_notes", "reviewed_by", "consent_recorded_at",
-        ]
-
-    def get_reviewed_by(self, obj):
-        return obj.admin.admin_name if obj.admin else None
-
-
 class CertificateUploadSerializer(serializers.ModelSerializer):
     """Validates the metadata a student submits with a certificate.
 
@@ -320,16 +279,13 @@ class CertificateUploadSerializer(serializers.ModelSerializer):
     TranscriptUpload stores its PDF.
     """
 
-    # Spec D: the student acknowledges, per upload, that the document may
-    # contain identity information which an administrator will read. Required
-    # on every submission rather than inherited from the signup consent,
-    # because consent to *this* document being processed is the point.
+    # The student acknowledges, per upload, that the private document may
+    # contain identity information. It is owner-only and is not reviewed by an
+    # administrator, but consent to store this specific file is still needed.
     document_consent_ack = serializers.BooleanField(write_only=True)
 
-    # The skills this document is offered as proof of. A list, because one
-    # certificate routinely evidences several -- a data analytics programme is
-    # proof of Python, SQL and data visualisation at once -- and requiring one
-    # upload per skill made students store the same file repeatedly.
+    # The skills the student declares from this document. One certificate may
+    # cover several, and requiring one upload per skill would store duplicates.
     skills = ClaimedSkillSerializer(many=True, write_only=True)
 
     class Meta:
@@ -389,137 +345,19 @@ class CertificateUploadSerializer(serializers.ModelSerializer):
     def validate_document_consent_ack(self, value):
         if not value:
             raise serializers.ValidationError(
-                "You must acknowledge the Certificate Verification Notice before "
+                "You must acknowledge the certificate upload notice before "
                 "uploading a document."
             )
         return value
 
     def validate(self, attrs):
-        # Proof is the whole point of the record, so a certificate with
-        # neither a link nor a file is rejected rather than stored as an
-        # unendorsable placeholder.
+        # Keep a source behind each declaration: either the private document or
+        # a credential URL supplied by the student.
         has_file = bool(self.context.get("uploaded_file"))
         if not attrs.get("cert_url") and not has_file:
             raise serializers.ValidationError(
                 "Attach the certificate file or paste its credential URL."
             )
-        return attrs
-
-
-class CertificateEndorseSerializer(serializers.ModelSerializer):
-    """An administrator's verification decision.
-
-    Only the decision fields are writable. verified_at and the reviewing admin
-    are stamped by the view, not accepted from the request, so the record of
-    who decided and when cannot be forged by the client.
-    """
-
-    # The per-skill decisions. Omitting a claimed skill rejects it: an
-    # administrator approving two of three claims should not have to spell out
-    # the refusal, and defaulting the other way would approve claims nobody
-    # looked at.
-    skills = ApprovedSkillSerializer(many=True, write_only=True, required=False)
-
-    class Meta:
-        model  = Certificate
-        fields = ["id", "verified_status", "rejection_reason",
-                  "verification_notes", "skills"]
-
-    def validate_skills(self, value):
-        seen = set()
-        for entry in value:
-            skill = entry["skill"]
-            if skill.id in seen:
-                raise serializers.ValidationError(
-                    f"'{skill.skill_name}' is listed more than once."
-                )
-            seen.add(skill.id)
-        return value
-
-    def validate_verified_status(self, value):
-        allowed = {
-            Certificate.VerifiedStatus.APPROVED,
-            Certificate.VerifiedStatus.REJECTED,
-        }
-        if value not in allowed:
-            raise serializers.ValidationError(
-                "verified_status must be either 'APPROVED' or 'REJECTED'."
-            )
-        return value
-
-    def validate(self, attrs):
-        # PATCH makes every field optional, so a request could otherwise arrive
-        # with only notes -- which used to be accepted, stamping verified_at on
-        # a still-PENDING certificate and writing a CERTIFICATE_REJECTED audit
-        # row for a rejection that never happened. This endpoint records a
-        # decision; a request that states no decision is not one.
-        if "verified_status" not in attrs:
-            raise serializers.ValidationError({
-                "verified_status": ["State the decision: 'APPROVED' or 'REJECTED'."]
-            })
-
-        status_value = attrs["verified_status"]
-        reason = attrs.get("rejection_reason", "")
-
-        # A rejection the student cannot act on is worse than no rejection, and
-        # the reason is what generates their explanation.
-        if status_value == Certificate.VerifiedStatus.REJECTED and not reason:
-            raise serializers.ValidationError({
-                "rejection_reason": ["Select a reason when rejecting a submission."]
-            })
-
-        if status_value == Certificate.VerifiedStatus.APPROVED and reason:
-            raise serializers.ValidationError({
-                "rejection_reason": ["An approved submission cannot carry a rejection reason."]
-            })
-
-        # Only a pending submission can be decided.
-        #
-        # Approving grants a skill; rejecting an already-approved certificate
-        # did not take it back, so the certificate read REJECTED while the
-        # skill it produced stayed on the student's profile and kept being
-        # reported to employers. Revoking a granted skill needs a defined
-        # policy -- what happens to applications already sent citing it, in
-        # particular -- and there is none, so the reversal is refused rather
-        # than half-performed.
-        instance = self.instance
-        if instance is not None and instance.verified_status != Certificate.VerifiedStatus.PENDING:
-            raise serializers.ValidationError({
-                "verified_status": [
-                    f"This submission was already {instance.get_verified_status_display().lower()}. "
-                    "A decision cannot be changed here."
-                ]
-            })
-
-        # Every approved skill must be one the student actually claimed. An
-        # administrator granting a skill the document was never submitted for
-        # would be creating evidence rather than reviewing it.
-        approved = attrs.get("skills") or []
-        if approved and instance is not None:
-            claimed = set(
-                instance.skill_evidence.values_list("skill_id", flat=True))
-            unexpected = [entry["skill"].skill_name for entry in approved
-                          if entry["skill"].id not in claimed]
-            if unexpected:
-                raise serializers.ValidationError({
-                    "skills": [
-                        "This certificate was not submitted as proof of: "
-                        + ", ".join(sorted(unexpected))
-                    ]
-                })
-
-        # Approving the document while approving none of its claims records a
-        # verified certificate that grants nothing, which is a rejection
-        # written in the wrong field.
-        if (status_value == Certificate.VerifiedStatus.APPROVED
-                and instance is not None and not approved):
-            raise serializers.ValidationError({
-                "skills": [
-                    "Approve at least one claimed skill, or reject the "
-                    "submission."
-                ]
-            })
-
         return attrs
 
 

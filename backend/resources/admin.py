@@ -94,13 +94,7 @@ class CourseAdmin(admin.ModelAdmin):
 
 
 class CertificateSkillEvidenceInline(admin.TabularInline):
-    """The claims on one certificate. Shown, never edited.
-
-    Approving a claim here would set review_status and approved_level and
-    stop there: no StudentSkill written, the highest-evidence rule not
-    applied, skill gaps not refreshed, and no audit row naming who decided.
-    The endorsement endpoint does all four, so it is the only way in.
-    """
+    """Self-declared and legacy claims on one certificate, shown read-only."""
     model = CertificateSkillEvidence
     extra = 0
     fields = ("skill", "claimed_level", "approved_level", "review_status",
@@ -126,18 +120,9 @@ class CertificateAdmin(admin.ModelAdmin):
     list_filter   = ("verified_status", "certificate_type", "rejection_reason",
                      "skill_evidence__review_status")
     inlines       = (CertificateSkillEvidenceInline,)
-    # Read-only throughout, not merely for the pipeline-written fields.
-    #
-    # verified_status was editable here, so an administrator could set a
-    # certificate to APPROVED from this form. That writes the status and
-    # nothing else: no StudentSkill, no highest-evidence recalculation, no
-    # skill-gap refresh, no PrivacyAuditLog row. The certificate would read
-    # "approved" on the student's profile while granting them nothing, and
-    # there would be no record of who approved it.
-    #
-    # POST /api/resources/certificates/<pk>/endorse/ does all of that as one
-    # transaction, so it is the only path to a decision. This page stays for
-    # looking things up.
+    # Read-only metadata for support and retention work. Administrators cannot
+    # endorse a declaration here and cannot retrieve its private file through
+    # the certificate API.
     readonly_fields = ("student", "certificate_name", "certificate_type",
                        "source", "cert_url", "uploaded_time", "file_path",
                        "original_name", "mime_type", "verified_status",

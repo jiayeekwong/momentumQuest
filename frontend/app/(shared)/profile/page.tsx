@@ -33,7 +33,7 @@ interface VerifiedCertificate {
   id: number;
   certificate_name: string;
   source: string;
-  verified_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  verified_status: 'SELF_DECLARED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   skill_evidence: {
     id: number;
     skill: string;
@@ -64,16 +64,15 @@ export default function ProfilePage() {
       .catch(() => {})
       .finally(() => setSkillsLoading(false));
 
-    // Verified credentials, shown as one card per document with a badge per
-    // approved skill. Pending and rejected submissions stay on the Skill
-    // Validation page: the profile is what the student has, not what they
-    // have asked for.
+    // Live certificate declarations, shown as one card per document. Legacy
+    // approved records remain visible alongside new self-declarations.
     apiFetch('/api/resources/certificates/')
       .then(r => (r.ok ? r.json() : []))
       .then((data: VerifiedCertificate[]) =>
         setCertificates(
           (Array.isArray(data) ? data : [])
-            .filter(cert => cert.verified_status === 'APPROVED'
+            .filter(cert => (cert.verified_status === 'SELF_DECLARED'
+                || cert.verified_status === 'APPROVED')
               && cert.skill_evidence.some(e => e.granted_level))))
       .catch(() => {});
   }, []);
@@ -401,15 +400,14 @@ export default function ProfilePage() {
                 </div>
               </Card>
 
-              {/* One certificate, one card, with every approved skill on it.
+              {/* One certificate, one card, with every live skill on it.
                   The document itself is never linked here: it stays reachable
-                  only to its owner and an administrator, through the Skill
-                  Validation page. */}
+                  only to its owner through the Skill Validation page. */}
               {certificates.length > 0 && (
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
-                      <Award size={20} className="text-primary" /> Verified Credentials
+                      <Award size={20} className="text-primary" /> Certificates
                       <span className="text-sm font-semibold text-neutral-400">
                         ({certificates.length})
                       </span>
@@ -432,8 +430,11 @@ export default function ProfilePage() {
                               </p>
                             )}
                           </div>
-                          <Badge variant="success" className="text-[9px] shrink-0">
-                            VERIFIED
+                          <Badge
+                            variant={cert.verified_status === 'APPROVED' ? 'success' : 'primary'}
+                            className="text-[9px] shrink-0"
+                          >
+                            {cert.verified_status === 'APPROVED' ? 'LEGACY VERIFIED' : 'SELF-DECLARED'}
                           </Badge>
                         </div>
                         <ul className="mt-3 space-y-1">

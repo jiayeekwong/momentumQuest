@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 import tempfile
-from unittest import mock
+from unittest import mock, skip
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -25,6 +25,8 @@ from accounts.models import (
     User,
     UserConsent,
 )
+from job_listings.matching import match_score, student_skill_levels
+from job_listings.models import JobListing, JobSkill
 from scrape_jobs.models import Skill, SkillAlias
 from .file_validation import InvalidUpload, validate_document
 from .models import (
@@ -285,8 +287,7 @@ class CertificateUploadTests(TestCase):
             "skills": json.dumps([{"skill_id": self.skill.id,
                                    "claimed_level": "INTERMEDIATE"}]),
             "source": "Coursera",
-            # The upload-time consent the Certificate Verification Notice
-            # collects. Tests that exercise its absence pass ack=False.
+            # The upload-time certificate notice acknowledgement.
             "document_consent_ack": True,
         }
         payload.update(extra)
@@ -305,7 +306,19 @@ class CertificateUploadTests(TestCase):
         self.assertTrue(certificate.file_path.startswith("certificates/"))
         self.assertNotIn("\\", certificate.file_path)
         self.assertEqual(certificate.original_name, "cert.pdf")
-        self.assertEqual(certificate.verified_status, Certificate.VerifiedStatus.PENDING)
+        self.assertEqual(
+            certificate.verified_status,
+            Certificate.VerifiedStatus.SELF_DECLARED,
+        )
+        evidence = certificate.skill_evidence.get(skill=self.skill)
+        self.assertEqual(
+            evidence.review_status,
+            CertificateSkillEvidence.ReviewStatus.SELF_DECLARED,
+        )
+        self.assertEqual(
+            StudentSkill.objects.get(student=self.student, skill=self.skill).skill_level,
+            "INTERMEDIATE",
+        )
         self.assertTrue(os.path.exists(
             os.path.join(self.private_root, certificate.file_path)))
 
@@ -362,7 +375,28 @@ class CertificateUploadTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_self_declared_skill_immediately_changes_job_matching_score(self):
+        job = JobListing.objects.create(job_title="Python Engineer")
+        JobSkill.objects.create(
+            job=job,
+            skill=self.skill,
+            required_level="ADVANCED",
+        )
+        self.assertEqual(
+            match_score(job, student_skill_levels(self.student)),
+            0,
+        )
 
+        response = self._upload(cert_url="https://coursera.org/verify/ABC123")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            match_score(job, student_skill_levels(self.student)),
+            67,
+        )
+
+
+@skip("Legacy administrator endorsement was replaced by self-declaration.")
 class CertificateEndorsementTests(TestCase):
     """Endorsing is what grants the skill — the loop must actually close."""
 
@@ -571,7 +605,7 @@ class CertificateUploadConsentTests(PrivacyTestBase):
 
 
 class CertificateAccessControlTests(PrivacyTestBase):
-    """Private documents reach their owner and an authorised admin. Nobody else."""
+    """Private certificate documents are reachable only by their owner."""
 
     def test_student_cannot_open_another_students_document(self):
         certificate = self._make_certificate()
@@ -631,30 +665,28 @@ class CertificateAccessControlTests(PrivacyTestBase):
 
         self.client.force_authenticate(user=self.company_user)
         response = self.client.patch(
-            reverse("certificate-endorse", args=[certificate.id]),
+            f"/api/resources/certificates/{certificate.id}/endorse/",
             {"verified_status": "APPROVED"}, format="json")
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
     def test_student_cannot_verify_their_own_certificate(self):
         certificate = self._make_certificate()
 
         response = self.client.patch(
-            reverse("certificate-endorse", args=[certificate.id]),
+            f"/api/resources/certificates/{certificate.id}/endorse/",
             {"verified_status": "APPROVED"}, format="json")
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
-    def test_admin_can_open_a_students_document(self):
+    def test_admin_cannot_open_a_students_document(self):
         certificate = self._make_certificate()
 
         self.client.force_authenticate(user=self.admin_user)
         with override_settings(PRIVATE_MEDIA_ROOT=self.private_root):
             response = self.client.get(
                 reverse("certificate-file", args=[certificate.id]))
-            self.addCleanup(self._release, response)
-
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
 
     def test_internal_notes_never_reach_the_student(self):
         certificate = self._make_certificate()
@@ -677,21 +709,18 @@ class CertificateAccessControlTests(PrivacyTestBase):
             certificate=legacy, skill=self.skill, claimed_level="INTERMEDIATE")
         self.assertIsNone(legacy.upload_consent)
 
-        self.client.force_authenticate(user=self.admin_user)
+        self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse("certificate-detail", args=[legacy.id]))
 
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertIsNone(response.data["consent_recorded_at"])
 
-    def test_admin_sees_the_verification_context_the_student_does_not(self):
+    def test_admin_cannot_read_certificate_metadata(self):
         certificate = self._make_certificate()
 
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(reverse("certificate-detail", args=[certificate.id]))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("verification_notes", response.data)
-        self.assertEqual(response.data["matric_number"], "S100001")
+        self.assertEqual(response.status_code, 403)
 
     def test_document_response_is_not_cacheable_or_indexable(self):
         certificate = self._make_certificate()
@@ -728,6 +757,7 @@ class CertificateAccessControlTests(PrivacyTestBase):
         self.assertNotIn("040910101234", certificate.file_path)
 
 
+@skip("Legacy administrator verification was replaced by self-declaration.")
 class CertificateVerificationTests(PrivacyTestBase):
     """The decision, who made it, and when, are all recorded."""
 
@@ -873,12 +903,14 @@ class CertificateVerificationTests(PrivacyTestBase):
 
 
 class CertificateDeletionTests(PrivacyTestBase):
-    """A student may withdraw a submission, but only before it is decided."""
+    """A student may remove a self-declaration and its private document."""
 
-    def test_owner_can_delete_a_pending_submission(self):
+    def test_owner_can_delete_a_self_declared_certificate(self):
         certificate = self._make_certificate()
         stored = os.path.join(self.private_root, certificate.file_path)
         self.assertTrue(os.path.exists(stored))
+        self.assertTrue(StudentSkill.objects.filter(
+            student=self.student, skill=self.skill).exists())
 
         with override_settings(PRIVATE_MEDIA_ROOT=self.private_root):
             response = self.client.delete(
@@ -887,6 +919,8 @@ class CertificateDeletionTests(PrivacyTestBase):
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Certificate.objects.exists())
         self.assertFalse(os.path.exists(stored))
+        self.assertFalse(StudentSkill.objects.filter(
+            student=self.student, skill=self.skill).exists())
 
     def test_a_decided_submission_cannot_be_deleted(self):
         certificate = self._make_certificate()
@@ -923,19 +957,16 @@ class PrivacyAuditLogTests(PrivacyTestBase):
         self.assertEqual(entry.actor_user, self.user)
         self.assertEqual(entry.target_user, self.user)
 
-    def test_admin_opening_a_document_is_recorded(self):
+    def test_admin_cannot_open_a_document_or_create_an_access_event(self):
         certificate = self._make_certificate()
 
         self.client.force_authenticate(user=self.admin_user)
         with override_settings(PRIVATE_MEDIA_ROOT=self.private_root):
             response = self.client.get(
                 reverse("certificate-file", args=[certificate.id]))
-            self.addCleanup(self._release, response)
-
-        entry = PrivacyAuditLog.objects.get(
-            action=PrivacyAuditLog.Action.CERTIFICATE_VIEWED_BY_ADMIN)
-        self.assertEqual(entry.actor_user, self.admin_user)
-        self.assertEqual(entry.target_user, self.user)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(PrivacyAuditLog.objects.filter(
+            action=PrivacyAuditLog.Action.CERTIFICATE_VIEWED_BY_ADMIN).exists())
 
     def test_a_student_opening_their_own_document_is_not_an_access_event(self):
         certificate = self._make_certificate()
@@ -948,30 +979,23 @@ class PrivacyAuditLogTests(PrivacyTestBase):
         self.assertFalse(PrivacyAuditLog.objects.filter(
             action=PrivacyAuditLog.Action.CERTIFICATE_VIEWED_BY_ADMIN).exists())
 
-    def test_approval_and_rejection_are_recorded(self):
-        # Two submissions, because a decision is final: the same certificate
-        # cannot be approved and then rejected any more.
-        approved = self._make_certificate()
-        rejected = self._make_certificate()
+    def test_the_retired_endorsement_route_records_no_decision(self):
+        certificate = self._make_certificate()
         self.client.force_authenticate(user=self.admin_user)
 
-        self.client.patch(
-            reverse("certificate-endorse", args=[approved.id]),
+        response = self.client.patch(
+            f"/api/resources/certificates/{certificate.id}/endorse/",
             {"verified_status": "APPROVED",
              "skills": [{"skill_id": self.skill.id,
                          "approved_level": "INTERMEDIATE"}]},
             format="json")
-        self.assertTrue(PrivacyAuditLog.objects.filter(
-            action=PrivacyAuditLog.Action.CERTIFICATE_VERIFIED,
-            resource_id=approved.id).exists())
 
-        self.client.patch(
-            reverse("certificate-endorse", args=[rejected.id]),
-            {"verified_status": "REJECTED", "rejection_reason": "NAME_MISMATCH"},
-            format="json")
-        self.assertTrue(PrivacyAuditLog.objects.filter(
-            action=PrivacyAuditLog.Action.CERTIFICATE_REJECTED,
-            resource_id=rejected.id).exists())
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(PrivacyAuditLog.objects.filter(
+            action__in=[
+                PrivacyAuditLog.Action.CERTIFICATE_VERIFIED,
+                PrivacyAuditLog.Action.CERTIFICATE_REJECTED,
+            ]).exists())
 
     def test_deletion_is_recorded(self):
         certificate = self._make_certificate()
@@ -994,23 +1018,17 @@ class PrivacyAuditLogTests(PrivacyTestBase):
         self.assertEqual(text_fields, {"action", "resource_type"})
 
     def test_an_audit_failure_does_not_break_the_operation(self):
-        certificate = self._make_certificate()
-        self.client.force_authenticate(user=self.admin_user)
-
         with mock.patch.object(
             PrivacyAuditLog.objects, "create", side_effect=RuntimeError("log is down")
         ):
-            response = self.client.patch(
-                reverse("certificate-endorse", args=[certificate.id]),
-                {"verified_status": "APPROVED",
-                 "skills": [{"skill_id": self.skill.id,
-                             "approved_level": "INTERMEDIATE"}]},
-                format="json")
+            response = self._upload(file=_pdf())
 
-        self.assertEqual(response.status_code, 200, response.data)
-        certificate.refresh_from_db()
+        self.assertEqual(response.status_code, 201, response.data)
+        certificate = Certificate.objects.get()
         self.assertEqual(
-            certificate.verified_status, Certificate.VerifiedStatus.APPROVED)
+            certificate.verified_status,
+            Certificate.VerifiedStatus.SELF_DECLARED,
+        )
 
 
 class FileTypeValidationTests(PrivacyTestBase):
@@ -1628,6 +1646,7 @@ class PublicUploadSafetyTests(TestCase):
             self.assertIn(response.status_code, (401, 403), url)
 
 
+@skip("Legacy administrator endorsement was replaced by self-declaration.")
 class EndorsementIsFinalTests(TestCase):
     """A decision cannot be reversed while revocation is undefined."""
 
@@ -1786,15 +1805,44 @@ class MultiSkillCertificateUploadTests(PrivacyTestBase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Certificate.objects.exists())
 
-    def test_a_pending_certificate_grants_nothing(self):
+    def test_self_declared_certificate_grants_all_claimed_skills_immediately(self):
         self._upload_claiming([
             {"skill_id": self.skill.id, "claimed_level": "ADVANCED"},
             {"skill_id": self.sql.id, "claimed_level": "ADVANCED"},
         ])
 
-        self.assertFalse(StudentSkill.objects.filter(student=self.student).exists())
+        levels = dict(
+            StudentSkill.objects.filter(student=self.student)
+            .values_list("skill__skill_name", "skill_level")
+        )
+        self.assertEqual(levels, {
+            self.skill.skill_name: "ADVANCED",
+            "SQL": "ADVANCED",
+        })
+
+    def test_lower_declaration_does_not_downgrade_and_removal_falls_back(self):
+        self._upload_claiming([
+            {"skill_id": self.skill.id, "claimed_level": "ADVANCED"},
+        ])
+        advanced = Certificate.objects.latest("id")
+        self._upload_claiming([
+            {"skill_id": self.skill.id, "claimed_level": "BEGINNER"},
+        ])
+
+        current = StudentSkill.objects.get(student=self.student, skill=self.skill)
+        self.assertEqual(current.skill_level, "ADVANCED")
+
+        with override_settings(PRIVATE_MEDIA_ROOT=self.private_root):
+            response = self.client.delete(
+                reverse("certificate-detail", args=[advanced.id])
+            )
+
+        self.assertEqual(response.status_code, 204)
+        current.refresh_from_db()
+        self.assertEqual(current.skill_level, "BEGINNER")
 
 
+@skip("Legacy per-skill administrator review was replaced by self-declaration.")
 class CertificateSkillReviewTests(PrivacyTestBase):
     """An administrator decides each claim, not only the document."""
 
@@ -2128,6 +2176,71 @@ class EvidenceBackfillTests(TransactionTestCase):
 
 
 
+
+
+class SelfDeclaredCertificateMigrationTests(TransactionTestCase):
+    """Pending certificate claims become live self-declarations on upgrade."""
+
+    BEFORE = ("resources", "0026_trainingprogramme_attachment_path")
+    AFTER = ("resources", "0027_self_declared_certificate_skills")
+
+    def migrate_to(self, target):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate([target])
+        executor.loader.build_graph()
+        return executor.loader.project_state([target]).apps
+
+    def tearDown(self):
+        call_command("migrate", "resources", verbosity=0)
+
+    def test_pending_claim_is_converted_and_materialized(self):
+        before = self.migrate_to(self.BEFORE)
+        UserModel = before.get_model("accounts", "User")
+        StudentModel = before.get_model("accounts", "Student")
+        StudentSkillModel = before.get_model("accounts", "StudentSkill")
+        SkillModel = before.get_model("scrape_jobs", "Skill")
+        CertificateModel = before.get_model("resources", "Certificate")
+        EvidenceModel = before.get_model(
+            "resources", "CertificateSkillEvidence"
+        )
+
+        user = UserModel.objects.create(
+            email="self-declared-migration@uni.test",
+            role="STUDENT",
+            password="x",
+        )
+        student = StudentModel.objects.create(user=user, student_name="Student")
+        skill = SkillModel.objects.create(skill_name="Migration Skill")
+        certificate = CertificateModel.objects.create(
+            student=student,
+            cert_url="https://example.test/pending",
+            verified_status="PENDING",
+        )
+        EvidenceModel.objects.create(
+            certificate=certificate,
+            skill=skill,
+            claimed_level="ADVANCED",
+            review_status="PENDING",
+        )
+        self.assertFalse(StudentSkillModel.objects.filter(
+            student_id=student.pk, skill_id=skill.id
+        ).exists())
+
+        after = self.migrate_to(self.AFTER)
+
+        certificate_after = after.get_model(
+            "resources", "Certificate"
+        ).objects.get(pk=certificate.id)
+        evidence_after = after.get_model(
+            "resources", "CertificateSkillEvidence"
+        ).objects.get(certificate_id=certificate.id, skill_id=skill.id)
+        student_skill = after.get_model(
+            "accounts", "StudentSkill"
+        ).objects.get(student_id=student.pk, skill_id=skill.id)
+        self.assertEqual(certificate_after.verified_status, "SELF_DECLARED")
+        self.assertEqual(evidence_after.review_status, "SELF_DECLARED")
+        self.assertEqual(student_skill.skill_level, "ADVANCED")
 
 
 class CourseCatalogueScrapeTests(TestCase):

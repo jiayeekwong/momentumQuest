@@ -4,21 +4,20 @@ StudentSkill is a *materialized result*, not a place things are written to.
 Its level must always equal the highest level supported by evidence that is
 live right now:
 
-    highest approved certificate level
+    highest live certificate declaration
     highest accepted transcript level          -> StudentSkill.skill_level
     (any future accepted evidence)
 
-``apply_skills`` remains as the upgrade-only path used while a transcript or
-an endorsement is being processed, because raising a level as evidence arrives
-is the right behaviour at that moment. It is not authoritative, and it cannot
-be: it has no way to lower a level, so removing a student's only Advanced
-certificate used to leave them showing Advanced forever, backed by nothing.
+``apply_skills`` remains as the upgrade-only path used while a transcript is
+processed. Certificate declarations use this authoritative recalculation
+directly. The upgrade-only helper cannot lower a level, so it is not suitable
+when a student's Advanced certificate is removed and only a lower source stays.
 
 This module is the authority. It reads every live source, takes the maximum,
 and writes -- or deletes -- accordingly. It must run after anything that can
 change what evidence exists:
 
-    certificate approval, rejection, withdrawal or deletion
+    certificate declaration, withdrawal or deletion
     transcript verification, rejection, withdrawal or deletion
     an evidence-level correction
 
@@ -43,28 +42,40 @@ def _rank(level):
 
 
 def certificate_levels(student, skills=None):
-    """{skill_id: level} from approved claims on approved certificates.
+    """{skill_id: level} from live certificate skill claims.
 
-    Both conditions matter and are checked here rather than trusted from the
-    caller: an approved certificate can carry rejected claims, and a rejected
-    certificate's approved-looking claims must not count.
+    Self-declarations contribute ``claimed_level`` immediately. Legacy
+    approved records continue to contribute ``approved_level``.
     """
     from .models import Certificate, CertificateSkillEvidence
 
     rows = (CertificateSkillEvidence.objects
-            .filter(certificate__student=student,
-                    review_status=CertificateSkillEvidence.ReviewStatus.APPROVED,
-                    certificate__verified_status=Certificate.VerifiedStatus.APPROVED)
+            .filter(certificate__student=student)
             # A document whose upload consent has been withdrawn is no longer
             # something this platform may act on, whatever it once proved.
             .exclude(certificate__upload_consent__withdrawn_at__isnull=False)
-            .exclude(approved_level="")
-            .values_list("skill_id", "approved_level"))
+            .values_list(
+                "skill_id", "claimed_level", "approved_level",
+                "review_status", "certificate__verified_status",
+            ))
     if skills is not None:
         rows = rows.filter(skill_id__in=[s.id for s in skills])
 
     best = {}
-    for skill_id, level in rows:
+    for skill_id, claimed_level, approved_level, review_status, cert_status in rows:
+        if (
+            review_status == CertificateSkillEvidence.ReviewStatus.SELF_DECLARED
+            and cert_status == Certificate.VerifiedStatus.SELF_DECLARED
+        ):
+            level = claimed_level
+        elif (
+            review_status == CertificateSkillEvidence.ReviewStatus.APPROVED
+            and cert_status == Certificate.VerifiedStatus.APPROVED
+            and approved_level
+        ):
+            level = approved_level
+        else:
+            continue
         if _rank(level) > _rank(best.get(skill_id)):
             best[skill_id] = level
     return best
@@ -198,9 +209,8 @@ def recalculate_student_skills(student, skills=None, refresh_gaps=True):
             )
             updated += 1
 
-    # A skill with no evidence left is not a skill this platform can claim the
-    # student has. Removing the row is the honest outcome; leaving it would
-    # show a company a verified skill whose proof has been withdrawn.
+    # A skill with no remaining declared or recognised source must leave the
+    # materialized profile; otherwise matching would keep using a stale level.
     orphaned = [skill_id for skill_id in existing
                 if skill_id not in levels and skill_id in removable]
     if orphaned:

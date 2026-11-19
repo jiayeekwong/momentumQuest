@@ -14,6 +14,28 @@ administration.
 The diagrams describe the intended design. Django models and applied migrations
 remain the executable source of truth for the deployed database.
 
+## Self-declared certificate skills (19 November 2026)
+
+Certificate skills no longer wait for administrator endorsement. A student
+uploads a certificate or supplies its credential URL, selects one or more
+skills and levels, and those claims are materialized into `StudentSkill` in the
+same database transaction. Existing job recommendation matching already reads
+`StudentSkill`, so the single match score reflects the declaration immediately.
+
+New records use `SELF_DECLARED` on both `Certificate` and
+`CertificateSkillEvidence`. They are deliberately not marked verified:
+MomentumQuest does not contact the issuer, maintain a trusted-provider registry,
+or ask an administrator to review the document. Legacy `APPROVED` evidence is
+still honored for existing users. Removing a self-declared certificate
+recalculates its skills from the student's remaining certificate and transcript
+records.
+
+Certificate list, detail and file endpoints are now student-owner-only, and the
+admin endorsement route and UI have been removed. Migration
+`resources/0027_self_declared_certificate_skills` converts existing pending
+claims and materializes their skill rows. Privacy notice 1.4 describes the new
+owner-only, self-declared flow.
+
 ## Database change record — occupation standardization
 
 Recorded on 18 August 2026.

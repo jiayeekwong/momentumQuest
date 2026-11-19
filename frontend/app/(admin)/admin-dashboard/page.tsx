@@ -128,11 +128,10 @@ export default function AdminDashboardPage() {
         {/* Quick actions */}
         <Card className="p-6">
           <h3 className="text-lg font-bold text-neutral-900 mb-5">Quick Actions</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[
               { label: 'Review Approvals',  href: '/approvals',         icon: CheckCircle2, color: 'bg-amber-50 text-warning' },
               { label: 'Manage Courses',    href: '/manage-courses',     icon: GraduationCap, color: 'bg-indigo-50 text-primary' },
-              { label: 'Endorse Skills',    href: '/endorse',            icon: CheckCircle2, color: 'bg-emerald-50 text-success' },
               { label: 'Post Announcement', href: '/post-announcement',  icon: Bell,         color: 'bg-sky-50 text-secondary' },
             ].map((action) => (
               <Link key={action.label} href={action.href}>

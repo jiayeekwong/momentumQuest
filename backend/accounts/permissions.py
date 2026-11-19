@@ -5,11 +5,9 @@ from rest_framework.exceptions import APIException
 def is_platform_admin(user):
     """Whether ``user`` is an administrator of this platform.
 
-    The single definition, used by permission classes and by the view code
-    that picks an admin serializer or an unscoped queryset. Those decisions
-    are access control too -- CertificateAdminSerializer exposes internal
-    verification notes, and the admin queryset is every student's documents --
-    so they must not test the role on their own.
+    The single definition used by permission classes and view code for
+    platform-administration functions. Requiring both role and staff status
+    keeps ordinary application data from granting administrative access.
     """
     return bool(
         getattr(user, "is_authenticated", False)
@@ -35,8 +33,7 @@ class IsAdminUserRole(permissions.BasePermission):
     registration payload used to be able to set; ``is_staff`` is only ever
     granted out of band, by `manage.py create_admin` or `createsuperuser`.
     Requiring both means a single writable field can never again be enough to
-    reach certificate review, student identity documents or the admin
-    dashboard.
+    reach administrative dashboards or management functions.
     """
 
     def has_permission(self, request, view):

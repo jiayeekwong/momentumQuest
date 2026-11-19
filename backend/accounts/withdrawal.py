@@ -18,9 +18,9 @@ processing that happened while the consent was live stays lawful.
 
 What it is not
 --------------
-Account deletion. A student who withdraws document-verification consent keeps
+Account deletion. A student who withdraws document-processing consent keeps
 their account, their applications and their history; what stops is MomentumQuest
-verifying anything new for them.
+processing new certificate or transcript uploads for them.
 """
 
 import logging
@@ -132,7 +132,7 @@ def restore_consent(user, consent_type, request=None):
 
     Withdrawal used to be a one-way door: the notice told the student to
     "restore it in Settings" and no such path existed, so a single click
-    locked them out of document verification permanently.
+    locked them out of document uploads permanently.
 
     Append-only, like every other consent event. The withdrawn row keeps its
     ``withdrawn_at`` -- that withdrawal is a fact about what the student
@@ -141,8 +141,8 @@ def restore_consent(user, consent_type, request=None):
     yes, and every check reads the latest one.
 
     Skills are **not** brought back. Their evidence was removed when the
-    consent went, and re-consenting does not re-verify a document nobody has
-    looked at since. The student uploads again, which is the honest path.
+    consent went, and re-consenting does not reactivate a document whose
+    original upload consent remains withdrawn. The student uploads again.
 
     Returns the new consent. Raises WithdrawalError if there is nothing to
     restore.

@@ -1,8 +1,17 @@
 # Privacy Consent and Certificate Verification — Design Record
 
 **Status:** implemented
-**Current privacy notice version:** 1.1 (effective 31 August 2026); 1.0 preserved
+**Current privacy notice version:** 1.4 (effective 19 November 2026); earlier versions preserved
 **Source of truth for the text:** `backend/accounts/privacy_notice.py`
+
+> **Current certificate policy (19 November 2026):** Certificate skills are
+> self-declared and are added to `StudentSkill` immediately. MomentumQuest does
+> not verify the certificate with its issuer and does not ask an administrator
+> to endorse it. Certificate files are owner-only. The administrator-review
+> analysis below is retained as the historical rationale for versions 1.0-1.3;
+> it no longer describes the active certificate workflow. Privacy notice 1.4,
+> migration `resources/0027_self_declared_certificate_skills`, and the
+> owner-only endpoints listed at the end of this record are authoritative.
 
 This document records the decisions behind MomentumQuest's handling of personal
 data in certificate and examination-result verification — in particular the ones
@@ -513,7 +522,7 @@ work against the goal.
 | Public notice page | `frontend/app/privacy-notice/page.tsx` |
 | Signup consent UI | `frontend/app/(auth)/signup/page.tsx` |
 | Upload consent UI | `frontend/src/components/SkillValidation.tsx` |
-| Admin verification panel | `frontend/app/(admin)/endorse/page.tsx` |
+| Student declaration UI | `frontend/src/components/SkillValidation.tsx` |
 
 **Endpoints**
 
@@ -524,14 +533,13 @@ GET    /api/auth/me/consents/                own consents only
 POST   /api/auth/me/consents/withdraw/       own consents only
 POST   /api/auth/register/                   requires both consents
 
-GET    /api/resources/certificates/          student: own; admin: all; company: 403
+GET    /api/resources/certificates/          student: own; others: 403
 POST   /api/resources/certificates/          student only, requires upload consent
 POST   /api/resources/skill-validation/transcripts/  student only, requires upload consent
 
 POST   /api/job-listings/cv/parse/           student only, requires cv_processing_ack
 POST   /api/job-listings/applications/       student only, requires cv_parse_receipt
-GET    /api/resources/certificates/<id>/     owner or admin
-DELETE /api/resources/certificates/<id>/     owner, PENDING only
-GET    /api/resources/certificates/<id>/file/    owner or admin
-PATCH  /api/resources/certificates/<id>/endorse/ admin only
+GET    /api/resources/certificates/<id>/     owner only
+DELETE /api/resources/certificates/<id>/     owner, SELF_DECLARED or legacy PENDING
+GET    /api/resources/certificates/<id>/file/    owner only
 ```

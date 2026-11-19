@@ -228,18 +228,17 @@ class Certificate(models.Model):
     """
     Proof of completion uploaded by a student after an external course.
 
-    The document only. The skills it is offered as proof of are
-    CertificateSkillEvidence rows, because one certificate routinely evidences
-    several -- and because an administrator reviewing it needs to be able to
-    accept some claims and refuse others, which a single skill column made
-    impossible.
+    The document only. The skills the student declares from it are
+    CertificateSkillEvidence rows, because one certificate routinely covers
+    several skills and each claim may have its own level.
 
     An uploaded document may show the student's NRIC/MyKad or passport number.
     That number is never read out of the file into a column here or anywhere
-    else; it stays inside the stored bytes, which only the owner and an
-    authorised admin can retrieve. See docs/reference/privacy-consent-design.md.
+    else; it stays inside the stored bytes, which only the owner can retrieve.
+    See docs/reference/privacy-consent-design.md.
     """
     class VerifiedStatus(models.TextChoices):
+        SELF_DECLARED = "SELF_DECLARED", "Self-declared"
         PENDING  = "PENDING",  "Pending"
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
@@ -316,7 +315,7 @@ class Certificate(models.Model):
     verified_status = models.CharField(
         max_length=20,
         choices=VerifiedStatus.choices,
-        default=VerifiedStatus.PENDING,
+        default=VerifiedStatus.SELF_DECLARED,
     )
     verified_at     = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.CharField(max_length=40, choices=RejectionReason.choices,
@@ -355,23 +354,19 @@ class Certificate(models.Model):
 
 
 class CertificateSkillEvidence(models.Model):
-    """One skill a certificate is offered as proof of, and its decision.
+    """One skill a student declares from a certificate.
 
     A certificate is a *document*; the claims it supports are separate facts
-    about it. Modelling them as rows rather than as a single FK is what lets
-    one upload evidence several skills without storing the file several times,
-    and what lets an administrator approve two of three claims -- the common
-    case, because a student naturally over-claims from a broad programme.
+    about it. Modelling them as rows rather than as a single FK lets one upload
+    cover several skills without storing the file several times.
 
-    ``claimed_level`` is what the student asserted. ``approved_level`` is what
-    the administrator was willing to certify, and may be lower: an exaggerated
-    claim is corrected rather than causing the whole document to be rejected.
-
-    Only APPROVED rows on an APPROVED certificate count as live evidence, and
-    only recalculate_student_skill() reads them into StudentSkill.
+    ``claimed_level`` is what the student asserted. ``approved_level`` remains
+    for legacy administrator-reviewed records created before self-declaration.
+    New SELF_DECLARED rows contribute their claimed level immediately.
     """
 
     class ReviewStatus(models.TextChoices):
+        SELF_DECLARED = "SELF_DECLARED", "Self-declared"
         PENDING  = "PENDING",  "Pending"
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
@@ -393,8 +388,8 @@ class CertificateSkillEvidence(models.Model):
     approved_level = models.CharField(max_length=20,
                                       choices=StudentSkill.SkillLevel.choices,
                                       blank=True)
-    review_status  = models.CharField(max_length=10, choices=ReviewStatus.choices,
-                                      default=ReviewStatus.PENDING)
+    review_status  = models.CharField(max_length=20, choices=ReviewStatus.choices,
+                                      default=ReviewStatus.SELF_DECLARED)
     # Why this particular claim was refused, when the document itself is fine.
     review_note    = models.CharField(max_length=255, blank=True)
     created_time   = models.DateTimeField(auto_now_add=True)
@@ -420,16 +415,32 @@ class CertificateSkillEvidence(models.Model):
     def is_live(self):
         """Whether this row currently supports a StudentSkill level.
 
-        Both facts are required: the document was accepted *and* this
-        particular claim was accepted. An approved certificate can carry
-        rejected claims, which is the whole point of reviewing them
-        separately.
+        Self-declared claims are live immediately. The approved branch keeps
+        previously reviewed certificates working without presenting new claims
+        as verified.
         """
-        return (
-            self.review_status == self.ReviewStatus.APPROVED
-            and bool(self.approved_level)
-            and self.certificate.verified_status == Certificate.VerifiedStatus.APPROVED
+        return bool(
+            (
+                self.review_status == self.ReviewStatus.SELF_DECLARED
+                and self.certificate.verified_status
+                    == Certificate.VerifiedStatus.SELF_DECLARED
+            )
+            or (
+                self.review_status == self.ReviewStatus.APPROVED
+                and bool(self.approved_level)
+                and self.certificate.verified_status
+                    == Certificate.VerifiedStatus.APPROVED
+            )
         )
+
+    @property
+    def effective_level(self):
+        """The live level contributed by this row, if any."""
+        if not self.is_live:
+            return None
+        if self.review_status == self.ReviewStatus.SELF_DECLARED:
+            return self.claimed_level
+        return self.approved_level
 
 
 class SubjectSkillMapping(models.Model):

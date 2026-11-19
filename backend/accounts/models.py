@@ -56,10 +56,10 @@ class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     student_name = models.CharField(max_length=100)
     department = models.CharField(max_length=100, blank=True)
-    # University enrolment number, shown to an admin verifying a document so
-    # they can tell which student a submission belongs to. Deliberately NOT an
-    # identity-document number: MomentumQuest stores no NRIC/MyKad or passport
-    # number in any field -- see docs/reference/privacy-consent-design.md.
+    # University enrolment number used by automatic transcript identity
+    # matching. Deliberately NOT an identity-document number: MomentumQuest
+    # stores no NRIC/MyKad or passport number in any field -- see
+    # docs/reference/privacy-consent-design.md.
     matric_number = models.CharField(max_length=30, blank=True)
 
     def __str__(self):
@@ -222,7 +222,7 @@ class StudentSkill(models.Model):
 
 
 class StudentSkillEvent(models.Model):
-    """Append-only history of a student's evidence-backed skill level.
+    """Append-only history of a student's materialized skill level.
 
     ``StudentSkill`` remains the materialized current answer used everywhere
     else. This row records only genuine transitions so the skill-gap page can
@@ -323,8 +323,8 @@ class UserConsent(models.Model):
         DOCUMENT_VERIFICATION_CONSENT = ('DOCUMENT_VERIFICATION_CONSENT',
                                          'Document verification consent')
         # Reading a CV to pre-fill an application. Separate from document
-        # verification because the purpose and the outcome differ: a
-        # certificate is stored and reviewed, a CV is read once and deleted.
+        # processing because the purpose and the outcome differ: a certificate
+        # adds profile skills, while a CV prepares a job application.
         CV_PROCESSING_CONSENT = ('CV_PROCESSING_CONSENT',
                                  'CV processing consent')
         # Recorded when an application is submitted. An acknowledgement rather

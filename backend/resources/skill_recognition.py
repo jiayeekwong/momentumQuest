@@ -108,11 +108,10 @@ def apply_skills(student, skill_levels):
     Returns (added, upgraded). Re-uploading the same transcript is a no-op,
     which keeps the endpoint safe to retry.
 
-    A change here also refreshes the student's recorded skill gaps, because
-    this function is the only write path into StudentSkill: an endorsed
-    certificate and a parsed transcript both land here. Validating a skill is
-    exactly the moment a gap closes, so recording it on a schedule instead
-    would leave the student's progress history stale until the next run.
+    A change here also refreshes the student's recorded skill gaps. This is the
+    upgrade-only path for parsed transcripts; certificate declarations use the
+    authoritative recalculation service, which can also lower or remove a
+    skill. Recording changes immediately keeps progress history current.
     """
     added = 0
     upgraded = 0
@@ -152,7 +151,7 @@ def apply_skills(student, skill_levels):
         from dashboard.skill_gap_snapshots import refresh_skill_gaps
 
         # A no-op for a student with no target job, and never a reason to fail
-        # the upload or the endorsement that triggered it -- the skills are
+        # the transcript processing that triggered it -- the skills are
         # already written and are what the live analysis reads.
         try:
             refresh_skill_gaps(student)

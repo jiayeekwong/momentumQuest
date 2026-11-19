@@ -28,6 +28,10 @@ from datetime import date
 
 from django.conf import settings
 
+# 1.4 makes certificate skills self-declared and removes administrator access
+# to certificate files. New declarations are added to the skill profile and
+# used for recommendations immediately; they are not issuer-verified.
+#
 # 1.3 keeps the CV and sends it to the employer, for six months. 1.2 promised
 # the opposite in as many words, so this is a version rather than an edit: the
 # students who applied under it agreed their file would be deleted, and it was.
@@ -37,7 +41,7 @@ from django.conf import settings
 # document function asks for its acknowledgement at the point of use and
 # records it against whatever version is current, so the next upload is itself
 # the re-acknowledgement.
-CURRENT_VERSION = "1.3"
+CURRENT_VERSION = "1.4"
 
 # Shown on the sign-up screen above the consent checkboxes. Kept short on
 # purpose: the full notice is one click away, and a wall of text at the point
@@ -882,6 +886,208 @@ def _the_cv_is_kept_for_the_employer(notice):
 
 
 NOTICES["1.3"] = _the_cv_is_kept_for_the_employer(NOTICES["1.2"])
+
+
+def _certificate_skills_are_self_declared(notice):
+    """1.4: certificate claims are live immediately without human review.
+
+    Earlier versions are preserved because their upload notices promised an
+    administrator review. This version accurately describes the replacement:
+    owner-only storage, immediate use in StudentSkill-based recommendations,
+    and no claim that MomentumQuest verified the certificate or its issuer.
+    """
+    import copy
+
+    updated = copy.deepcopy(notice)
+    updated["version"] = "1.4"
+    updated["effective_date"] = date(2026, 11, 19)
+    updated["summary"] = (
+        "MomentumQuest processes your personal and academic information to provide "
+        "skill profiles, learning recommendations and job-matching functions.\n\n"
+        "Skills you add from a certificate are self-declared. They are added to "
+        "your profile and used for recommendations immediately; MomentumQuest does "
+        "not ask an administrator or the issuer to verify them. Certificate files "
+        "are stored privately and can be opened only by you.\n\n"
+        "When you apply for a job, a CV you upload is read to prepare your "
+        "application, kept for that application, and shared only with that employer."
+    )
+    updated["consent_statements"]["DOCUMENT_VERIFICATION_CONSENT"] = (
+        "I agree to MomentumQuest processing and privately storing documents I "
+        "submit to add self-declared certificate skills or recognise transcript skills."
+    )
+    updated["upload_notice"] = {
+        "heading": "Self-declared certificate skills",
+        "body": (
+            "This certificate is stored privately and can be opened only by you. "
+            "MomentumQuest does not ask an administrator or the issuing organisation "
+            "to verify it.\n\n"
+            "The skills and levels you choose are self-declared. They are added to "
+            "your skill profile and used for skill gaps and job recommendations "
+            "immediately. MomentumQuest does not extract or store any identification "
+            "number shown in the certificate."
+        ),
+        "acknowledgement": (
+            "I agree to MomentumQuest privately storing this certificate and using "
+            "the skills and levels I declare from it in my profile and recommendations."
+        ),
+    }
+
+    for section in updated["sections"]:
+        heading = section.get("heading", "")
+
+        if heading.startswith("1. Purpose of This Notice"):
+            section["blocks"] = [
+                _p("MomentumQuest is a career and learning support platform that helps "
+                   "students manage skills, identify skill gaps, obtain learning and "
+                   "job recommendations, explore opportunities, submit applications and "
+                   "track their progress."),
+                _p("This version records the change from administrator-endorsed "
+                   "certificate skills to skills declared directly by the student. It "
+                   "also retains the transcript and CV processing terms introduced by "
+                   "earlier versions."),
+                _p("Please read this notice before creating an account or uploading a "
+                   "document."),
+            ]
+
+        elif heading.startswith("2. Personal Information"):
+            for index, block in enumerate(section.get("blocks", [])):
+                if block.get("text", "").startswith(
+                    "To protect uploaded documents, MomentumQuest keeps a record"
+                ):
+                    section["blocks"][index] = _p(
+                        "To protect private documents, MomentumQuest keeps a record "
+                        "of sensitive actions such as uploads, deletions and any "
+                        "exceptional authorised access supported by another feature. "
+                        "Each record identifies the acting account, date, time and "
+                        "network (IP) address, but never the document contents or an "
+                        "identification number."
+                    )
+
+        elif heading.startswith("3. Document Verification"):
+            section["heading"] = "3. Document Processing for Student Skills"
+            section["blocks"] = [
+                _p("Uploading a certificate or examination result is optional. If you "
+                   "choose to upload one, MomentumQuest processes it only as described "
+                   "in this notice."),
+                _p("Certificate skills are declarations you make yourself. They are "
+                   "added to your profile immediately and may affect skill gaps, "
+                   "learning recommendations and job recommendation matching."),
+                _p("You may withdraw document-processing consent later. This stops new "
+                   "document uploads but does not delete your account."),
+            ]
+
+        elif heading.startswith("4. Certificates and Examination Results"):
+            section["blocks"] = [
+                _p("Certificate files are stored privately outside any publicly "
+                   "reachable media location and can be opened only by the student who "
+                   "uploaded them. Transcripts are deleted immediately after their "
+                   "subjects and grades have been read."),
+                _p("A certificate or transcript may contain your name, NRIC/MyKad or "
+                   "passport number, student or candidate number, institution, grades "
+                   "and other information appearing on the original document."),
+                _p("MomentumQuest never extracts or stores an NRIC/MyKad or passport "
+                   "number from these documents. Such a number is not used for matching "
+                   "or recommendations, copied into a filename or URL, written to "
+                   "ordinary logs, or disclosed to companies or other students."),
+                _p("From a transcript, MomentumQuest keeps the subject codes, grades "
+                   "and skills recognised from them. The transcript file itself is "
+                   "deleted as soon as reading finishes."),
+                _p("From a certificate, MomentumQuest keeps the skills and levels you "
+                   "select. They are self-declared and used immediately. No "
+                   "administrator reads the certificate and MomentumQuest does not "
+                   "confirm it with the issuer."),
+            ]
+
+        elif heading.startswith("5. Certificate and Skill Verification"):
+            section["heading"] = "5. Self-Declared Certificate Skills"
+            section["blocks"] = [
+                _p("When you add a certificate, you choose the skills and levels that "
+                   "you believe it represents. Those declarations are added to your "
+                   "existing skill set immediately."),
+                _p("MomentumQuest does not verify the certificate, the issuing "
+                   "organisation, your completion of the course, or the skill level you "
+                   "selected. These skills must therefore be understood as "
+                   "self-declared, not endorsed or independently verified."),
+                _p("You can remove a self-declared certificate. MomentumQuest then "
+                   "recalculates the affected skills from any other live certificate or "
+                   "transcript records you still have."),
+            ]
+
+        elif heading.startswith("6. CV Processing"):
+            for index, block in enumerate(section.get("blocks", [])):
+                if block.get("text", "").startswith(
+                    "Information taken from a CV is treated as information"
+                ):
+                    section["blocks"][index] = _p(
+                        "Information taken from a CV and skills added from a certificate "
+                        "are treated as information you have declared, not as "
+                        "independently verified evidence."
+                    )
+
+        elif heading.startswith("7. Job Applications and Employers"):
+            blocks = section.get("blocks", [])
+            for index, block in enumerate(blocks):
+                if block.get("text", "").startswith(
+                    "For each skill in an application the employer is shown"
+                ):
+                    blocks[index] = _p(
+                        "Employers do not receive your certificates, transcripts, "
+                        "examination results or any identification number. New "
+                        "certificate skills are self-declared and are not presented as "
+                        "administrator-verified."
+                    )
+
+        elif heading.startswith("8. Who May Access"):
+            section["blocks"] = [
+                _p("Students may access their own account and certificate files, and "
+                   "may not access another student's."),
+                _p("Certificate files are not available to administrators or companies. "
+                   "A transcript file is deleted immediately after processing, so no "
+                   "person can open it afterwards."),
+                _p("Companies may access applications submitted to their own job "
+                   "listings. They cannot access uploaded certificates, transcripts, "
+                   "NRIC/MyKad or passport numbers."),
+            ]
+
+        elif heading.startswith("9. Storage and Security"):
+            for index, block in enumerate(section.get("blocks", [])):
+                if block.get("text", "").startswith("Uploaded documents are stored"):
+                    section["blocks"][index] = _p(
+                        "Certificate files are stored outside the public media directory "
+                        "under unpredictable filenames. They are reachable only through "
+                        "an authenticated endpoint that checks on every request that the "
+                        "requester is the owning student."
+                    )
+
+        elif heading.startswith("11. Withdrawing Consent"):
+            for index, block in enumerate(section.get("blocks", [])):
+                if block.get("text", "").startswith(
+                    "Withdrawing document-verification consent means"
+                ):
+                    section["blocks"][index] = _p(
+                        "Withdrawing document-processing consent disables new certificate "
+                        "and transcript uploads. Self-declared certificates can be removed "
+                        "separately; skills supported only by a removed or withdrawn "
+                        "record are recalculated."
+                    )
+
+        elif heading.startswith("12. Your Choices and Rights"):
+            for block in section.get("blocks", []):
+                if block.get("type") == "list":
+                    block["items"] = [
+                        "request access to your personal information;",
+                        "request correction of inaccurate information;",
+                        "remove a self-declared certificate;",
+                        "ask how your information is being processed;",
+                        "request deletion of information where applicable;",
+                        "withdraw a consent; or",
+                        "ask questions about this Privacy Notice.",
+                    ]
+
+    return updated
+
+
+NOTICES["1.4"] = _certificate_skills_are_self_declared(NOTICES["1.3"])
 
 
 def get_notice(version=None):

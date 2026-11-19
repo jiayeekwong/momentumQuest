@@ -46,26 +46,24 @@ interface SkillEvidence {
   skill_id: number;
   claimed_level: ProficiencyLevel;
   approved_level: ProficiencyLevel | '';
-  // What the student actually holds for this skill from this document, or
-  // null while the claim is pending or after it was refused.
+  // What this declaration currently contributes to the skill profile.
   granted_level: ProficiencyLevel | null;
-  review_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  review_status: 'SELF_DECLARED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   review_note: string;
 }
 
 interface Certificate {
   id: number;
   certificate_name: string;
-  // One document, several claims: a "Data Analytics Programme" certificate is
-  // proof of Python, SQL and Data Visualisation at once, and each is reviewed
-  // on its own.
+  // One document, several declarations: a "Data Analytics Programme"
+  // certificate may add Python, SQL and Data Visualisation at once.
   skill_evidence: SkillEvidence[];
   cert_url: string;
   source: string;
   original_name: string;
   has_file: boolean;
   uploaded_time: string;
-  verified_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  verified_status: 'SELF_DECLARED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   // Plain-language explanation of a rejection. The admin's internal notes are
   // never sent to the student, only this.
   rejection_message: string;
@@ -88,7 +86,8 @@ interface SkillOption {
 
 type Tab = 'transcripts' | 'certificates';
 
-const STATUS_BADGE: Record<string, { variant: 'success' | 'warning' | 'danger'; icon: typeof Clock }> = {
+const STATUS_BADGE: Record<string, { variant: 'primary' | 'success' | 'warning' | 'danger'; icon: typeof Clock }> = {
+  SELF_DECLARED: { variant: 'primary', icon: Award },
   APPROVED: { variant: 'success', icon: CheckCircle2 },
   PENDING:  { variant: 'warning', icon: Clock },
   REJECTED: { variant: 'danger',  icon: XCircle },
@@ -290,12 +289,11 @@ function DocumentConsentPanel({
 // ─── Certificate upload ───────────────────────────────────────
 
 /**
- * Submits one certificate as proof of one or more skills.
+ * Adds one certificate with one or more self-declared skills.
  *
  * A single document routinely evidences several skills, so the form collects
  * a list of claims rather than one skill. Each claim carries the level the
- * student is asserting; an administrator reviews each one separately and may
- * approve a subset, or lower a level that the certificate does not support.
+ * student is asserting and is added to the skill profile immediately.
  *
  * Two kinds of proof are accepted because students hold them in two forms: a
  * downloaded PDF/image, or a credential URL from the issuing platform. The
@@ -380,8 +378,7 @@ function CertificateUploadForm({
         reset();
         onUploaded({
           kind: 'ok',
-          text: 'Certificate submitted. An admin will review each claimed skill '
-              + 'before any of them are added to your profile.',
+          text: 'Certificate and self-declared skills added to your profile.',
         });
       } else {
         // DRF returns {field: [message]}; surface the first one rather than [object Object].
@@ -478,8 +475,8 @@ function CertificateUploadForm({
               </Button>
             </div>
             <p className="text-xs text-neutral-400">
-              Claim the level you believe this certificate supports. An admin
-              may approve a lower level, or approve only some of these skills.
+              Choose the level you want to self-declare. It will be used in
+              your skill profile and job recommendation matching immediately.
               {claims.length >= MAX_CLAIMED_SKILLS
                 && ` Up to ${MAX_CLAIMED_SKILLS} skills per certificate.`}
             </p>
@@ -548,7 +545,7 @@ function CertificateUploadForm({
 
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={!canSubmit} isLoading={submitting}>
-            {submitting ? 'Submitting…' : 'Submit for endorsement'}
+            {submitting ? 'Adding…' : 'Add certificate and skills'}
           </Button>
           {claims.length === 0 && (
             <span className="text-xs text-neutral-400">Add at least one skill to submit.</span>
@@ -570,9 +567,8 @@ function CertificateUploadForm({
 /**
  * Skill Validation, rendered inside the student's profile.
  *
- * `onSkillsChanged` fires after a transcript is accepted so the surrounding
- * Skill Portfolio can refresh — a transcript upload writes StudentSkill rows,
- * and the list above it would otherwise show stale data.
+ * `onSkillsChanged` fires whenever a transcript or certificate changes the
+ * materialized StudentSkill rows so the surrounding portfolio can refresh.
  */
 export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => void }) {
   const [tab, setTab] = useState<Tab>('transcripts');
@@ -619,11 +615,7 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
       .catch(() => {});
 
   /**
-   * Withdraw a submission that has not been decided yet.
-   *
-   * The button only appears on PENDING rows, but the server enforces the same
-   * rule -- an approved certificate is the evidence behind a skill the student
-   * already holds, so it cannot be pulled out from under it.
+   * Remove a self-declared certificate and recalculate its covered skills.
    */
   const deleteCertificate = async (id: number) => {
     setDeletingId(id);
@@ -631,7 +623,8 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
       const res = await apiFetch(`/api/resources/certificates/${id}/`, { method: 'DELETE' });
       if (res.ok) {
         setCertificates(prev => prev.filter(c => c.id !== id));
-        setMessage({ kind: 'ok', text: 'Submission withdrawn and the document deleted.' });
+        setMessage({ kind: 'ok', text: 'Certificate removed and your skills recalculated.' });
+        onSkillsChanged?.();
       } else {
         setMessage({ kind: 'err', text: 'This submission could not be withdrawn.' });
       }
@@ -699,7 +692,7 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
             <ShieldCheck size={20} className="text-primary" /> Skill Validation
           </h3>
           <p className="text-sm text-neutral-500 mt-1">
-            Prove your skills with your examination results or a course certificate.
+            Build your skill profile from examination results or self-declared certificates.
           </p>
         </div>
 
@@ -797,8 +790,9 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
         {tab === 'certificates' && (
           <div className="space-y-3">
             <div className="text-sm text-neutral-500 bg-neutral-50 border border-neutral-100 rounded-lg p-4">
-              Certificates from external courses need an admin to endorse them before
-              the skill is added to your profile.
+              Add the skills you earned from an external certificate. They are
+              self-declared and are used in your profile and job matching immediately;
+              MomentumQuest does not verify them with the issuer.
             </div>
 
             <CertificateUploadForm
@@ -806,7 +800,10 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
               uploadNotice={notice?.upload_notice ?? null}
               onUploaded={result => {
                 setMessage(result);
-                if (result.kind === 'ok') loadCertificates();
+                if (result.kind === 'ok') {
+                  loadCertificates();
+                  onSkillsChanged?.();
+                }
               }}
             />
 
@@ -843,7 +840,9 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
                               className={cn(
                                 'inline-flex items-center gap-1 rounded-full px-2.5 py-1',
                                 'text-[11px] font-semibold',
-                                evidence.review_status === 'APPROVED'
+                                evidence.review_status === 'SELF_DECLARED'
+                                  ? 'bg-indigo-50 text-primary'
+                                  : evidence.review_status === 'APPROVED'
                                   ? 'bg-emerald-50 text-emerald-700'
                                   : evidence.review_status === 'REJECTED'
                                     ? 'bg-neutral-100 text-neutral-400 line-through'
@@ -869,7 +868,10 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant={badge.variant} className="inline-flex items-center gap-1">
-                        <Icon size={12} /> {cert.verified_status}
+                        <Icon size={12} />
+                        {cert.verified_status === 'SELF_DECLARED'
+                          ? 'SELF-DECLARED'
+                          : cert.verified_status}
                       </Badge>
                       {cert.has_file ? (
                         <Button size="sm" variant="outline" onClick={() => openCertificate(cert)}>
@@ -882,7 +884,8 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
                           </Button>
                         </a>
                       ) : null}
-                      {cert.verified_status === 'PENDING' && (
+                      {(cert.verified_status === 'PENDING'
+                        || cert.verified_status === 'SELF_DECLARED') && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -891,7 +894,7 @@ export function SkillValidation({ onSkillsChanged }: { onSkillsChanged?: () => v
                           onClick={() => deleteCertificate(cert.id)}
                         >
                           <Trash2 size={14} />
-                          {deletingId === cert.id ? 'Removing…' : 'Withdraw'}
+                          {deletingId === cert.id ? 'Removing…' : 'Remove'}
                         </Button>
                       )}
                     </div>

@@ -5,7 +5,7 @@
     "consent_statements": {
       "APPLICATION_DISCLOSURE_ACKNOWLEDGEMENT": "By submitting, you agree that the information in this application will be shared with the employer for recruitment purposes.",
       "CV_PROCESSING_CONSENT": "I agree to MomentumQuest reading this CV and sending it to the employer with my application. I can remove it at any time.",
-      "DOCUMENT_VERIFICATION_CONSENT": "I agree to MomentumQuest processing and privately storing documents I submit for qualification and skill verification.",
+      "DOCUMENT_VERIFICATION_CONSENT": "I agree to MomentumQuest processing and privately storing documents I submit to add self-declared certificate skills or recognise transcript skills.",
       "PRIVACY_NOTICE_ACKNOWLEDGEMENT": "I have read and understood the MomentumQuest Privacy Notice."
     },
     "contact_email": "momentumquest.system@gmail.com",
@@ -14,20 +14,20 @@
       "body": "Your CV is read so that MomentumQuest can suggest the skills, education and experience to include in your application. You can edit or remove anything that was read from it before you submit.\n\nThe file itself is kept and sent to the employer with your application, because reading a CV loses things a person would notice.\n\nOnly the employer you applied to can open it, and only for that application. It is deleted six months after you apply, and you can remove it yourself at any time without withdrawing your application.",
       "heading": "How we use your CV"
     },
-    "effective_date": "2026-09-28",
+    "effective_date": "2026-11-19",
     "sections": [
       {
         "blocks": [
           {
-            "text": "MomentumQuest is a career and learning support platform that helps students manage their skills, identify skill gaps, obtain learning recommendations, explore job opportunities, submit job applications and track application progress.",
+            "text": "MomentumQuest is a career and learning support platform that helps students manage skills, identify skill gaps, obtain learning and job recommendations, explore opportunities, submit applications and track their progress.",
             "type": "paragraph"
           },
           {
-            "text": "This version of the notice (1.1) adds descriptions of two things version 1.0 did not cover: how a CV is processed when you apply for a job, and what is shared with an employer when you submit an application.",
+            "text": "This version records the change from administrator-endorsed certificate skills to skills declared directly by the student. It also retains the transcript and CV processing terms introduced by earlier versions.",
             "type": "paragraph"
           },
           {
-            "text": "Please read this notice before creating your MomentumQuest account.",
+            "text": "Please read this notice before creating an account or uploading a document.",
             "type": "paragraph"
           }
         ],
@@ -96,56 +96,40 @@
       {
         "blocks": [
           {
-            "text": "Verifying qualifications and skills is a core part of what MomentumQuest does. Skill validation, skill-gap analysis and the recommendations built on them depend on evidence you submit.",
+            "text": "Uploading a certificate or examination result is optional. If you choose to upload one, MomentumQuest processes it only as described in this notice.",
             "type": "paragraph"
           },
           {
-            "text": "Consenting to document processing is therefore required to use the student features of MomentumQuest. You are not required to upload any particular document, and you may use the platform without uploading one; but if you choose to submit a certificate or an examination result, it will be processed as described here.",
+            "text": "Certificate skills are declarations you make yourself. They are added to your profile immediately and may affect skill gaps, learning recommendations and job recommendation matching.",
             "type": "paragraph"
           },
           {
-            "text": "You may withdraw this consent later. Doing so stops MomentumQuest verifying new documents; it does not delete your account.",
+            "text": "You may withdraw document-processing consent later. This stops new document uploads but does not delete your account.",
             "type": "paragraph"
           }
         ],
-        "heading": "3. Document Verification Is a Required Student Function"
+        "heading": "3. Document Processing for Student Skills"
       },
       {
         "blocks": [
           {
-            "text": "Certificates, examination results, transcripts and other supporting documents you upload are stored privately. They are never placed in a publicly reachable location and are never served through a public media URL.",
+            "text": "Certificate files are stored privately outside any publicly reachable media location and can be opened only by the student who uploaded them. Transcripts are deleted immediately after their subjects and grades have been read.",
             "type": "paragraph"
           },
           {
-            "text": "Such a document may contain personal information including:",
+            "text": "A certificate or transcript may contain your name, NRIC/MyKad or passport number, student or candidate number, institution, grades and other information appearing on the original document.",
             "type": "paragraph"
           },
           {
-            "items": [
-              "your full name;",
-              "NRIC/MyKad number;",
-              "passport number;",
-              "student or candidate number;",
-              "educational institution;",
-              "examination results and grades; and",
-              "other information appearing on the original document."
-            ],
-            "type": "list"
-          },
-          {
-            "text": "Authorised MomentumQuest administrators may open these documents when reviewing them for certificate, qualification or skill verification. Every such access is recorded in the privacy audit log.",
+            "text": "MomentumQuest never extracts or stores an NRIC/MyKad or passport number from these documents. Such a number is not used for matching or recommendations, copied into a filename or URL, written to ordinary logs, or disclosed to companies or other students.",
             "type": "paragraph"
           },
           {
-            "text": "From a transcript, MomentumQuest extracts your subject codes and grades, and the skills recognised from them. These are stored so that your skills and skill gaps can be calculated.",
+            "text": "From a transcript, MomentumQuest keeps the subject codes, grades and skills recognised from them. The transcript file itself is deleted as soon as reading finishes.",
             "type": "paragraph"
           },
           {
-            "text": "MomentumQuest does not extract or store your NRIC/MyKad or passport number as a field in your profile or database. Where such a number appears on a document you upload, it remains inside that document and is not copied anywhere else, used for matching or recommendations, written into a filename, placed in a URL, recorded in logs, or disclosed to companies or other students.",
-            "type": "paragraph"
-          },
-          {
-            "text": "A transcript is checked automatically before its skills are used: MomentumQuest confirms that the document reads as an academic transcript and that any matric number on it matches your account. It is not checked by a person, and it is not checked with the issuing university. Skills recognised this way rest on those automatic checks alone.",
+            "text": "From a certificate, MomentumQuest keeps the skills and levels you select. They are self-declared and used immediately. No administrator reads the certificate and MomentumQuest does not confirm it with the issuer.",
             "type": "paragraph"
           }
         ],
@@ -154,19 +138,19 @@
       {
         "blocks": [
           {
-            "text": "An administrator reviewing a submitted document checks that the name on it matches your registered name, that it is readable, that the issuing institution is identifiable, and that it supports the qualification or skill you claimed.",
+            "text": "When you add a certificate, you choose the skills and levels that you believe it represents. Those declarations are added to your existing skill set immediately.",
             "type": "paragraph"
           },
           {
-            "text": "A submission is marked Pending, Verified or Rejected. Where a submission is rejected you are given a plain-language reason.",
+            "text": "MomentumQuest does not verify the certificate, the issuing organisation, your completion of the course, or the skill level you selected. These skills must therefore be understood as self-declared, not endorsed or independently verified.",
             "type": "paragraph"
           },
           {
-            "text": "MomentumQuest's verification confirms the submitted document for the purposes of this platform. It is not independent legal identity verification by a government authority. MomentumQuest holds no trusted identity record to compare an identification number against, and therefore does not attempt to verify one.",
+            "text": "You can remove a self-declared certificate. MomentumQuest then recalculates the affected skills from any other live certificate or transcript records you still have.",
             "type": "paragraph"
           }
         ],
-        "heading": "5. Certificate and Skill Verification"
+        "heading": "5. Self-Declared Certificate Skills"
       },
       {
         "blocks": [
@@ -195,7 +179,7 @@
             "type": "paragraph"
           },
           {
-            "text": "Information taken from a CV is treated as information you have declared, not as verified evidence. It is not the same as a certificate an administrator has checked.",
+            "text": "Information taken from a CV and skills added from a certificate are treated as information you have declared, not as independently verified evidence.",
             "type": "paragraph"
           }
         ],
@@ -216,7 +200,7 @@
             "type": "paragraph"
           },
           {
-            "text": "For each skill in an application the employer is shown whether it was verified by an administrator at the time of submission. The employer receives the verification result only. They do not receive your certificates, your transcripts, your examination results, or any identification number.",
+            "text": "Employers do not receive your certificates, transcripts, examination results or any identification number. New certificate skills are self-declared and are not presented as administrator-verified.",
             "type": "paragraph"
           }
         ],
@@ -225,15 +209,15 @@
       {
         "blocks": [
           {
-            "text": "Students may access their own account and their own submitted documents, and may not access another student's.",
+            "text": "Students may access their own account and certificate files, and may not access another student's.",
             "type": "paragraph"
           },
           {
-            "text": "Authorised administrators may access uploaded documents where necessary for verification and authorised system administration. Such access is recorded.",
+            "text": "Certificate files are not available to administrators or companies. A transcript file is deleted immediately after processing, so no person can open it afterwards.",
             "type": "paragraph"
           },
           {
-            "text": "Companies may access the applications submitted to their own job listings. They cannot access your NRIC/MyKad or passport number, your uploaded documents, or any certificate-verification function.",
+            "text": "Companies may access applications submitted to their own job listings. They cannot access uploaded certificates, transcripts, NRIC/MyKad or passport numbers.",
             "type": "paragraph"
           }
         ],
@@ -242,7 +226,7 @@
       {
         "blocks": [
           {
-            "text": "Uploaded documents are stored outside the public media directory, under unpredictable filenames, and are reachable only through an authenticated endpoint that checks on every request that the requester is the owning student or an authorised administrator.",
+            "text": "Certificate files are stored outside the public media directory under unpredictable filenames. They are reachable only through an authenticated endpoint that checks on every request that the requester is the owning student.",
             "type": "paragraph"
           },
           {
@@ -288,7 +272,7 @@
             "type": "paragraph"
           },
           {
-            "text": "Withdrawing document-verification consent means MomentumQuest will no longer verify new certificates or academic documents for you, and document-verification functions become unavailable. Skills supported only by evidence you have withdrawn or deleted are recalculated.",
+            "text": "Withdrawing document-processing consent disables new certificate and transcript uploads. Self-declared certificates can be removed separately; skills supported only by a removed or withdrawn record are recalculated.",
             "type": "paragraph"
           },
           {
@@ -312,7 +296,7 @@
             "items": [
               "request access to your personal information;",
               "request correction of inaccurate information;",
-              "report incorrect certificate or skill verification;",
+              "remove a self-declared certificate;",
               "ask how your information is being processed;",
               "request deletion of information where applicable;",
               "withdraw a consent; or",
@@ -341,7 +325,7 @@
         "heading": "13. Changes to This Privacy Notice"
       }
     ],
-    "summary": "MomentumQuest processes your personal and academic information to provide skill validation, learning recommendations and job-matching functions.\n\nDocuments you submit for verification, such as certificates and examination results, are stored privately and may be opened by authorised administrators to confirm that they belong to you.\n\nWhen you apply for a job, a CV you upload is read once to prepare your application and then deleted. The information you confirm is stored with the application and shared with that employer.",
+    "summary": "MomentumQuest processes your personal and academic information to provide skill profiles, learning recommendations and job-matching functions.\n\nSkills you add from a certificate are self-declared. They are added to your profile and used for recommendations immediately; MomentumQuest does not ask an administrator or the issuer to verify them. Certificate files are stored privately and can be opened only by you.\n\nWhen you apply for a job, a CV you upload is read to prepare your application, kept for that application, and shared only with that employer.",
     "system": "MomentumQuest",
     "transcript_notice": {
       "acknowledgement": "I agree to MomentumQuest reading this document to recognise my skills. I understand the file is deleted immediately afterwards.",
@@ -349,10 +333,10 @@
       "heading": "Examination result verification"
     },
     "upload_notice": {
-      "acknowledgement": "I agree to MomentumQuest processing and privately storing this document for qualification and skill verification.",
-      "body": "This document is stored privately and can be opened only by you and by authorised MomentumQuest administrators reviewing it for verification.\n\nMomentumQuest does not extract or store any identification number shown on it, and never uses one for job matching, recommendations or skill-gap analysis.",
-      "heading": "Document verification"
+      "acknowledgement": "I agree to MomentumQuest privately storing this certificate and using the skills and levels I declare from it in my profile and recommendations.",
+      "body": "This certificate is stored privately and can be opened only by you. MomentumQuest does not ask an administrator or the issuing organisation to verify it.\n\nThe skills and levels you choose are self-declared. They are added to your skill profile and used for skill gaps and job recommendations immediately. MomentumQuest does not extract or store any identification number shown in the certificate.",
+      "heading": "Self-declared certificate skills"
     },
-    "version": "1.3"
+    "version": "1.4"
   }
 }

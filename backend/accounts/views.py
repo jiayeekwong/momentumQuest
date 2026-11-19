@@ -82,7 +82,7 @@ class RestoreConsentView(APIView):
     administrator re-consented for you" is not something consent can mean.
 
     This is the path the withdrawal message names. Without it, withdrawing was
-    a one-way door that permanently disabled document verification.
+    a one-way door that permanently disabled document uploads.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -109,9 +109,9 @@ class RestoreConsentView(APIView):
             # documents and the skills they supported are gone, and giving
             # consent again does not bring back evidence nobody has reviewed
             # since.
-            "detail": ("Document verification is enabled again. Skills removed "
+            "detail": ("Document uploads are enabled again. Skills removed "
                        "when you withdrew are not restored -- upload the "
-                       "documents again to have them verified."),
+                       "documents again to add them to your profile."),
         })
 
 

@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from accounts.audit import record_privacy_event
 from accounts.models import AdminProfile, PrivacyAuditLog, UserConsent
 from accounts.permissions import (
-    IsAdminUserRole, IsCompany, IsStudent, admin_profile_for, is_platform_admin,
+    IsAdminUserRole, IsCompany, IsStudent, admin_profile_for,
 )
 from accounts.privacy_notice import CURRENT_VERSION
 from .file_validation import MAX_BYTES as MAX_UPLOAD_BYTES
@@ -43,8 +43,6 @@ from .models import (
     TranscriptUpload,
 )
 from .serializers import (
-    CertificateAdminSerializer,
-    CertificateEndorseSerializer,
     CertificateSerializer,
     CertificateUploadSerializer,
     CourseSerializer,
@@ -183,27 +181,20 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class CertificateListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/resources/certificates/  — student views own certs; admin sees all
+    GET  /api/resources/certificates/  — student views own certificates
     POST /api/resources/certificates/  — student uploads a certificate, either
-         as a file (multipart ``file``) or as a credential URL.
+         as a file (multipart ``file``) or as a credential URL; its declared
+         skills are added to the profile immediately.
     """
 
     def get_permissions(self):
-        # Only a student can submit: POST reaches user.student_profile, which a
-        # company account does not have. Companies are excluded from reading
-        # too -- certificates are private documents and no company workflow
-        # goes through this route.
-        if self.request.method == "POST":
-            return [IsStudent()]
-        # DRF's | operator is defined on the permission metaclass, so it
-        # composes classes, not instances.
-        return [(IsStudent | IsAdminUserRole)()]
+        # Certificates are private self-declarations. There is no admin review
+        # queue and no company workflow through this route.
+        return [IsStudent()]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
             return CertificateUploadSerializer
-        if is_platform_admin(self.request.user):
-            return CertificateAdminSerializer
         return CertificateSerializer
 
     def get_serializer_context(self):
@@ -212,12 +203,6 @@ class CertificateListCreateView(generics.ListCreateAPIView):
         return context
 
     def get_queryset(self):
-        if is_platform_admin(self.request.user):
-            return (Certificate.objects
-                    .select_related("student", "student__user", "admin",
-                                    "upload_consent")
-                    .prefetch_related("skill_evidence__skill")
-                    .order_by("-uploaded_time"))
         return Certificate.objects.filter(
             student__user=self.request.user
         ).select_related("student").prefetch_related("skill_evidence__skill")
@@ -346,6 +331,7 @@ class CertificateListCreateView(generics.ListCreateAPIView):
                 certificate = serializer.save(
                     student=self.request.user.student_profile,
                     upload_consent=consent,
+                    verified_status=Certificate.VerifiedStatus.SELF_DECLARED,
                     **extra,
                 )
                 # Inside the same transaction as the document: a certificate
@@ -356,9 +342,16 @@ class CertificateListCreateView(generics.ListCreateAPIView):
                         certificate=certificate,
                         skill=entry["skill"],
                         claimed_level=entry["claimed_level"],
+                        review_status=(
+                            CertificateSkillEvidence.ReviewStatus.SELF_DECLARED
+                        ),
                     )
                     for entry in claimed_skills
                 ])
+                recalculate_student_skills(
+                    certificate.student,
+                    skills=[entry["skill"] for entry in claimed_skills],
+                )
                 return certificate
         except Exception:
             # A rollback undoes the rows but not the bytes already stored. An
@@ -373,8 +366,8 @@ class CertificateListCreateView(generics.ListCreateAPIView):
 
 class CertificateDetailView(generics.RetrieveDestroyAPIView):
     """
-    GET    /api/resources/certificates/<pk>/  — owner or admin
-    DELETE /api/resources/certificates/<pk>/  — owner, while still PENDING
+    GET    /api/resources/certificates/<pk>/  — owner only
+    DELETE /api/resources/certificates/<pk>/  — owner, for a self-declaration
 
     Authorisation is decided here on the server for every method. The frontend
     hides buttons it should not offer, but that is presentation; this is the
@@ -386,15 +379,13 @@ class CertificateDetailView(generics.RetrieveDestroyAPIView):
     ).prefetch_related("skill_evidence__skill")
 
     def get_serializer_class(self):
-        if is_platform_admin(self.request.user):
-            return CertificateAdminSerializer
         return CertificateSerializer
 
     def get_object(self):
         certificate = get_object_or_404(self.get_queryset(), pk=self.kwargs["pk"])
 
         is_owner = certificate.student.user_id == self.request.user.id
-        if not is_owner and not is_platform_admin(self.request.user):
+        if not is_owner:
             raise PermissionDenied("You may only open your own certificate.")
 
         return certificate
@@ -403,13 +394,14 @@ class CertificateDetailView(generics.RetrieveDestroyAPIView):
         if instance.student.user_id != self.request.user.id:
             raise PermissionDenied("You may only delete your own certificate.")
 
-        # An approved certificate is the evidence behind a skill the student
-        # already holds. Removing it would leave the granted skill standing
-        # with nothing supporting it, so deletion stops at PENDING.
-        if instance.verified_status != Certificate.VerifiedStatus.PENDING:
+        # Legacy reviewed decisions stay immutable; current self-declarations
+        # can be removed and their affected skills recalculated below.
+        if instance.verified_status not in {
+            Certificate.VerifiedStatus.PENDING,
+            Certificate.VerifiedStatus.SELF_DECLARED,
+        }:
             raise ValidationError(
-                "A certificate that has already been reviewed cannot be deleted. "
-                "Contact your administrator if the result is wrong."
+                "A legacy reviewed certificate cannot be deleted here."
             )
 
         certificate_id = instance.pk
@@ -424,8 +416,8 @@ class CertificateDetailView(generics.RetrieveDestroyAPIView):
         # The post_delete receiver removes the stored file.
         instance.delete()
 
-        # No-op for a pending certificate, which granted nothing -- and the
-        # correct behaviour if the pending-only rule above is ever relaxed.
+        # Removes a skill if this was its only source, otherwise falls back to
+        # the next-highest live certificate or transcript record.
         recalculate_student_skills(student, skills=covered)
 
         record_privacy_event(
@@ -440,8 +432,7 @@ class CertificateDetailView(generics.RetrieveDestroyAPIView):
 class CertificateFileView(APIView):
     """
     GET /api/resources/certificates/<pk>/file/
-    Streams an uploaded certificate back to its owner, or to an admin who has
-    to look at it before endorsing.
+    Streams an uploaded certificate back to its owner.
     """
     permission_classes = [IsAuthenticated]
 
@@ -456,7 +447,7 @@ class CertificateFileView(APIView):
         certificate = get_object_or_404(Certificate, pk=pk)
 
         is_owner = certificate.student.user_id == request.user.id
-        if not is_owner and not is_platform_admin(request.user):
+        if not is_owner:
             raise PermissionDenied("You may only open your own certificate.")
 
         if not certificate.file_path:
@@ -470,17 +461,6 @@ class CertificateFileView(APIView):
         stream = private_storage.open_stored(certificate.file_path)
         if stream is None:
             raise Http404("Certificate file is missing from storage.")
-
-        # An admin opening someone else's document is the moment worth
-        # recording; a student opening their own is not an access event.
-        if not is_owner:
-            record_privacy_event(
-                PrivacyAuditLog.Action.CERTIFICATE_VIEWED_BY_ADMIN,
-                actor=request.user,
-                target=certificate.student.user,
-                resource_id=certificate.pk,
-                request=request,
-            )
 
         extension = os.path.splitext(certificate.file_path)[1].lower()
         response = FileResponse(
@@ -496,101 +476,6 @@ class CertificateFileView(APIView):
         response["Cache-Control"] = "private, no-store, max-age=0"
         response["X-Robots-Tag"] = "noindex, nofollow"
         return response
-
-
-class CertificateEndorseView(generics.UpdateAPIView):
-    """
-    PATCH /api/resources/certificates/<id>/endorse/
-    Admin endorses or rejects a student certificate.
-
-    Approving is what actually grants the skill. Until an admin approves, a
-    certificate is only a claim; the transcript route writes StudentSkill
-    directly because an examination result is its own proof, whereas an
-    external course certificate needs a human to vouch for it first.
-
-    The decision is per skill as well as per document. An administrator may
-    approve every claim, approve only the ones the certificate genuinely
-    supports, lower an exaggerated claimed level, or reject the document
-    outright -- so an approved certificate can legitimately carry both
-    approved and rejected claims.
-
-    Rejecting a previously approved certificate does NOT revoke the skill it
-    granted. Silently changing a student's standing on a re-review needs a
-    defined project policy, and there is none; the record of the reversal is
-    kept in the audit log for a human to act on.
-    """
-    queryset           = Certificate.objects.all()
-    serializer_class   = CertificateEndorseSerializer
-    permission_classes = [IsAdminUserRole]
-
-    def perform_update(self, serializer):
-        approved = serializer.validated_data.pop("skills", [])
-
-        decided_at = timezone.now()
-        approved_by_skill = {entry["skill"].id: entry for entry in approved}
-        touched = []
-
-        # The verdict on the document and the skills it grants commit together
-        # or not at all. serializer.save() used to run before this block, so a
-        # failure while applying the evidence left the certificate APPROVED
-        # with none of its skills granted -- and nothing reconciles that later,
-        # because the certificate already looks decided.
-        with transaction.atomic():
-            # Who decided, and when, is stamped here rather than accepted from
-            # the request body, so it cannot be supplied by the client.
-            certificate = serializer.save(
-                admin=admin_profile_for(self.request.user),
-                verified_at=timezone.now(),
-            )
-
-            for evidence in certificate.skill_evidence.select_related("skill"):
-                decision = approved_by_skill.get(evidence.skill_id)
-                if (decision is not None
-                        and certificate.verified_status ==
-                        Certificate.VerifiedStatus.APPROVED):
-                    evidence.review_status = (
-                        CertificateSkillEvidence.ReviewStatus.APPROVED)
-                    evidence.approved_level = decision["approved_level"]
-                    evidence.review_note = decision.get("review_note", "")
-                else:
-                    # A claim the administrator did not approve is refused,
-                    # including every claim on a rejected document. Leaving it
-                    # PENDING would keep it in the queue forever with the
-                    # document already decided.
-                    evidence.review_status = (
-                        CertificateSkillEvidence.ReviewStatus.REJECTED)
-                    evidence.approved_level = ""
-                evidence.reviewed_at = decided_at
-                evidence.save(update_fields=["review_status", "approved_level",
-                                             "review_note", "reviewed_at"])
-                touched.append(evidence.skill)
-
-            # Authoritative, not an upgrade-only apply: the student's level for
-            # each touched skill is re-derived from every piece of live
-            # evidence they hold. That is what makes an approval at BEGINNER
-            # unable to pull down an existing ADVANCED, and what makes a
-            # withdrawal actually take a level away.
-            recalculate_student_skills(certificate.student, skills=touched)
-
-        if certificate.verified_status == Certificate.VerifiedStatus.APPROVED:
-            action = PrivacyAuditLog.Action.CERTIFICATE_VERIFIED
-        else:
-            action = PrivacyAuditLog.Action.CERTIFICATE_REJECTED
-
-        record_privacy_event(
-            action,
-            actor=self.request.user,
-            target=certificate.student.user,
-            resource_id=certificate.pk,
-            request=self.request,
-        )
-
-    def update(self, request, *args, **kwargs):
-        super().update(request, *args, **kwargs)
-        # Respond with the admin view so the queue can re-render the decided
-        # row without a second request.
-        certificate = self.get_object()
-        return Response(CertificateAdminSerializer(certificate).data)
 
 
 class TranscriptListCreateView(APIView):
@@ -647,7 +532,7 @@ class TranscriptListCreateView(APIView):
         ):
             return Response(
                 {"document_consent_ack":
-                    "You must acknowledge the Certificate Verification Notice before "
+                    "You must acknowledge the examination result notice before "
                     "uploading a document."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
