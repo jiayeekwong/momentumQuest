@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
-from accounts.models import AdminProfile
+from accounts.models import AdminProfile, Department
 from config.sanitization import sanitize_html, sanitize_text
 
 
@@ -36,6 +36,13 @@ class Announcement(models.Model):
         max_length=10,
         choices=AudienceChoice.choices,
         default=AudienceChoice.EVERYONE,
+    )
+    # Empty means the audience is not department-scoped. When audience is
+    # STUDENTS, one or more rows identify the departments that can see it.
+    target_departments = models.ManyToManyField(
+        Department,
+        blank=True,
+        related_name='announcements',
     )
     supporting_doc = models.URLField(blank=True, null=True)
     attachment_path = models.CharField(

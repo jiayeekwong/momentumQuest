@@ -141,7 +141,7 @@ def transcript_events(student):
         }
 
 
-def announcement_events(*, audiences=None, href="/dashboard"):
+def announcement_events(*, audiences=None, user=None, href="/dashboard"):
     from .models import Announcement
 
     announcements = (
@@ -153,6 +153,9 @@ def announcement_events(*, audiences=None, href="/dashboard"):
     )
     if audiences is not None:
         announcements = announcements.filter(audience__in=audiences)
+    if user is not None:
+        from .audiences import visible_announcements_for
+        announcements = visible_announcements_for(user, announcements)
 
     for announcement in announcements.order_by("-publish_time")[:FEED_LIMIT]:
         yield {
@@ -178,6 +181,7 @@ def build_feed(student):
                 Announcement.AudienceChoice.EVERYONE,
                 Announcement.AudienceChoice.STUDENTS,
             ],
+            user=student.user,
             href="/dashboard",
         ),
     )

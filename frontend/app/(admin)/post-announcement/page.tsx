@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Plus, Bell, Users, Briefcase, GraduationCap, CheckCircle2, Bold, Italic, Underline, List, Link2, X, Trash2, Clock, Paperclip, AlertTriangle, Upload } from 'lucide-react';
+import { Plus, Bell, CheckCircle2, Bold, Italic, Underline, List, Link2, X, Trash2, Clock, Paperclip, AlertTriangle, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -14,14 +14,10 @@ import AnnouncementDetailModal, {
   AUDIENCE_LABELS, isImageUrl, timeAgo, type Announcement,
 } from '@/src/components/AnnouncementDetailModal';
 import { RichText } from '@/src/lib/richText';
+import { useAuth } from '@/src/context/AuthContext';
+import { useDepartments } from '@/src/lib/privacyNotice';
 
 // ─── Constants ────
-
-const AUDIENCES = [
-  { id: 'EVERYONE',  label: 'Everyone',       icon: Users,         desc: 'All students and companies' },
-  { id: 'STUDENTS',  label: 'Students Only',  icon: GraduationCap, desc: 'Only student accounts' },
-  { id: 'COMPANIES', label: 'Companies Only', icon: Briefcase,     desc: 'Only company accounts' },
-];
 
 const ALL_CATEGORIES = ['Career Event', 'Job Opportunity', 'Training', 'Platform Update', 'General'];
 
@@ -34,6 +30,8 @@ const ALL_CATEGORIES = ['Career Event', 'Job Opportunity', 'Training', 'Platform
 // ─── Create Form ─────────
 
 function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => void; onClose: () => void }) {
+  const { user } = useAuth();
+  const { departments } = useDepartments();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [, forceUpdate]  = useState(0);
   const [isPosting,    setIsPosting]    = useState(false);
@@ -41,7 +39,7 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
   const [error,        setError]        = useState('');
   const [title,        setTitle]        = useState('');
   const [categories,   setCategories]   = useState<string[]>([]);
-  const [audience,     setAudience]     = useState('EVERYONE');
+  const [audienceSelection, setAudienceSelection] = useState('EVERYONE');
   const [supportingDoc, setSupportingDoc] = useState('');
   const [attachmentReceipt, setAttachmentReceipt] = useState('');
   const [uploadedName, setUploadedName] = useState<string | null>(null);
@@ -96,12 +94,15 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
 
     setIsPosting(true);
     try {
+      const selectedDepartment = audienceSelection === 'EVERYONE'
+        ? null : audienceSelection;
       const res = await apiFetch('/api/dashboard/announcements/create/', {
         method: 'POST',
         body: JSON.stringify({
           title,
           message,
-          audience,
+          audience: selectedDepartment ? 'STUDENTS' : 'EVERYONE',
+          target_departments: selectedDepartment ? [selectedDepartment] : [],
           categories,
           supporting_doc: supportingDoc.trim() || null,
           attachment_receipt: attachmentReceipt || undefined,
@@ -156,16 +157,24 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
       {/* Target Audience */}
       <div className="space-y-2">
         <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">Target Audience</label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {AUDIENCES.map(a => (
-            <div key={a.id} onClick={() => setAudience(a.id)}
-              className={cn('p-3 border-2 rounded-xl cursor-pointer transition-all flex flex-col gap-1',
-                audience === a.id ? 'border-primary bg-indigo-50/50' : 'border-neutral-100 hover:border-neutral-200')}>
-              <a.icon className={audience === a.id ? 'text-primary' : 'text-neutral-400'} size={16} />
-              <span className={cn('text-xs font-bold', audience === a.id ? 'text-primary' : 'text-neutral-900')}>{a.label}</span>
-            </div>
+        <select
+          value={audienceSelection}
+          onChange={event => setAudienceSelection(event.target.value)}
+          className="w-full h-11 px-3 border border-neutral-300 rounded-lg bg-white text-sm font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="EVERYONE">Everyone — all students and companies</option>
+          {(user?.isSuperuser
+            ? departments
+            : (user?.department ? [user.department] : [])
+          ).map(department => (
+            <option key={department} value={department}>
+              {department} students only
+            </option>
           ))}
-        </div>
+        </select>
+        <p className="text-xs text-neutral-500">
+          Department announcements are visible only to students in the selected department.
+        </p>
       </div>
 
       {/* Rich-text body */}
@@ -330,7 +339,9 @@ export default function AnnouncementsPage() {
                         <Badge key={cat} variant="primary" className="text-[9px] font-black tracking-widest">{cat}</Badge>
                       ))}
                       <Badge variant="neutral" className="text-[9px] font-black tracking-widest">
-                        {AUDIENCE_LABELS[a.audience] ?? a.audience}
+                        {a.target_departments?.length
+                          ? a.target_departments.join(' · ')
+                          : (AUDIENCE_LABELS[a.audience] ?? a.audience)}
                       </Badge>
                     </div>
 

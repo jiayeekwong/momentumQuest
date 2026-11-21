@@ -52,14 +52,22 @@ def send_announcement_email_notifications(announcement_id):
         return 0
 
     recipients = list(
-        User.objects
-        .filter(
+        User.objects.select_related("student_profile").filter(
             role__in=audience_roles,
             is_active=True,
             email_verified=True,
         )
-        .values_list("email", flat=True)
     )
+    department_ids = list(
+        announcement.target_departments.values_list("id", flat=True))
+    if (announcement.audience == Announcement.AudienceChoice.STUDENTS
+            and department_ids):
+        recipients = [
+            user for user in recipients
+            if (getattr(getattr(user, "student_profile", None),
+                        "department_id", None) in department_ids)
+        ]
+    recipients = [user.email for user in recipients]
     if not recipients:
         return 0
 

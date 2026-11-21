@@ -49,6 +49,7 @@ from resources.file_validation import InvalidUpload, validate_document
 from .models import Announcement
 from .announcement_email import send_announcement_email_notifications
 from .notifications import build_announcement_feed, build_feed
+from .audiences import published_announcements, visible_announcements_for
 from .serializers import AnnouncementReviewSerializer, AnnouncementSerializer
 
 
@@ -1198,25 +1199,12 @@ class AnnouncementListView(generics.ListAPIView):
 
     def get_queryset(self):
         role = self.request.user.role
-        published = Announcement.objects.filter(
-            approval_status=Announcement.ApprovalStatus.APPROVED,
-            publish_time__isnull=False,
-        )
-        if role == 'STUDENT':
-            return published.filter(
-                audience__in=['EVERYONE', 'STUDENTS']
-            ).select_related(
-                'admin', 'submitted_by__company_profile',
-                'submitted_by__admin_profile', 'reviewed_by')
-        if role == 'COMPANY':
-            return published.filter(
-                audience__in=['EVERYONE', 'COMPANIES']
-            ).select_related(
-                'admin', 'submitted_by__company_profile',
-                'submitted_by__admin_profile', 'reviewed_by')
+        published = visible_announcements_for(
+            self.request.user, published_announcements())
         return published.select_related(
             'admin', 'submitted_by__company_profile',
-            'submitted_by__admin_profile', 'reviewed_by')
+            'submitted_by__admin_profile', 'reviewed_by').prefetch_related(
+                'target_departments')
 
 
 class AnnouncementCreateView(generics.CreateAPIView):
@@ -1310,9 +1298,13 @@ class AnnouncementDeleteView(generics.DestroyAPIView):
     DELETE /api/dashboard/announcements/<id>/
     Admin only — deletes an announcement.
     """
-    queryset           = Announcement.objects.all()
     serializer_class   = AnnouncementSerializer
     permission_classes = [IsAdminUserRole]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Announcement.objects.all()
+        return Announcement.objects.filter(submitted_by=self.request.user)
 
 
 class CompanyAnnouncementListCreateView(APIView):
@@ -1525,12 +1517,8 @@ class StudentDashboardView(APIView):
         # to companies -- the filtering existed but only on the endpoint nobody
         # was calling here.
         announcements = (
-            Announcement.objects
-            .filter(
-                approval_status=Announcement.ApprovalStatus.APPROVED,
-                publish_time__isnull=False,
-                audience__in=['EVERYONE', 'STUDENTS'],
-            )
+            visible_announcements_for(
+                request.user, published_announcements())
             .select_related(
                 'admin', 'submitted_by__company_profile',
                 'submitted_by__admin_profile', 'reviewed_by')
@@ -1611,8 +1599,15 @@ class AdminDashboardView(APIView):
     def get(self, request):
         pending_certificates = Certificate.objects.filter(
             verified_status='PENDING').count()
-        pending_training = TrainingProgramme.objects.filter(
-            approval_status=TrainingProgramme.ApprovalStatus.PENDING).count()
+        pending_training_rows = TrainingProgramme.objects.filter(
+            approval_status=TrainingProgramme.ApprovalStatus.PENDING)
+        if not request.user.is_superuser:
+            department_id = getattr(
+                admin_profile_for(request.user), 'department_id', None)
+            pending_training_rows = (
+                pending_training_rows.filter(department_id=department_id)
+                if department_id else pending_training_rows.none())
+        pending_training = pending_training_rows.count()
         pending_announcements = Announcement.objects.filter(
             approval_status=Announcement.ApprovalStatus.PENDING,
             submitted_by__role='COMPANY').count()

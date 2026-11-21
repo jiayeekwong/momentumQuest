@@ -9,6 +9,7 @@ import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { apiFetch } from '@/src/lib/apiFetch';
 import { cn } from '@/src/lib/utils';
 import { RichText } from '@/src/lib/richText';
+import { useDepartments } from '@/src/lib/privacyNotice';
 
 interface TrainingProgramme {
   id: number;
@@ -17,6 +18,9 @@ interface TrainingProgramme {
   programme_duration: string;
   description: string;
   supporting_doc: string | null;
+  department: string | null;
+  visibility: 'DEPARTMENT' | 'EVERYONE' | null;
+  rejection_reason: string;
   approval_status: 'PENDING' | 'APPROVED' | 'REJECTED';
   submission_time: string;
 }
@@ -61,6 +65,7 @@ function DetailModal({ programme: p, onClose }: { programme: TrainingProgramme; 
             </div>
             <h2 className="text-xl font-black text-neutral-900 leading-tight">{p.title}</h2>
             <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-neutral-400 font-medium">
+              {p.department && <span>{p.department}</span>}
               {p.programme_duration && <span className="flex items-center gap-1"><Clock size={11} /> {p.programme_duration}</span>}
               <span>Submitted {formatDate(p.submission_time)}</span>
             </div>
@@ -76,6 +81,21 @@ function DetailModal({ programme: p, onClose }: { programme: TrainingProgramme; 
               html={p.description} />
           ) : (
             <p className="text-sm text-neutral-400 italic">No description provided.</p>
+          )}
+
+          {p.approval_status === 'APPROVED' && p.visibility && (
+            <p className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700">
+              <strong>Student visibility:</strong>{' '}
+              {p.visibility === 'EVERYONE'
+                ? 'All students'
+                : `${p.department ?? 'Selected department'} students only`}
+            </p>
+          )}
+
+          {p.approval_status === 'REJECTED' && p.rejection_reason && (
+            <p className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              <strong>Reason for rejection:</strong> {p.rejection_reason}
+            </p>
           )}
 
           {p.supporting_doc && (
@@ -111,6 +131,7 @@ function DetailModal({ programme: p, onClose }: { programme: TrainingProgramme; 
 
 export default function PostTrainingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { departments } = useDepartments();
 
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -123,6 +144,7 @@ export default function PostTrainingPage() {
   const [skillName, setSkillName] = useState('');
   const [duration, setDuration] = useState('');
   const [description, setDescription] = useState('');
+  const [department, setDepartment] = useState('');
   const [supportingDoc, setSupportingDoc] = useState('');
   const [attachmentReceipt, setAttachmentReceipt] = useState('');
   const [uploadedName, setUploadedName] = useState<string | null>(null);
@@ -173,6 +195,7 @@ export default function PostTrainingPage() {
     setSkillName(prog.skill ?? '');
     setDuration(prog.programme_duration ?? '');
     setDescription(prog.description ?? '');
+    setDepartment(prog.department ?? '');
     setSupportingDoc(prog.supporting_doc ?? '');
     setAttachmentReceipt('');
     setUploadedName(prog.supporting_doc ? 'Existing attachment' : null);
@@ -211,6 +234,7 @@ export default function PostTrainingPage() {
           description,
           skill_name:         skillName.trim() || undefined,
           programme_duration: duration,
+          department,
           supporting_doc:     supportingDoc.trim() || null,
           attachment_receipt: attachmentReceipt || undefined,
         }),
@@ -232,6 +256,7 @@ export default function PostTrainingPage() {
           setSkillName('');
           setDuration('');
           setDescription('');
+          setDepartment('');
           setSupportingDoc('');
           setAttachmentReceipt('');
           setUploadedName(null);
@@ -268,6 +293,7 @@ export default function PostTrainingPage() {
                 setSkillName('');
                 setDuration('');
                 setDescription('');
+                setDepartment('');
                 setSupportingDoc('');
                 setAttachmentReceipt('');
                 setUploadedName(null);
@@ -322,10 +348,16 @@ export default function PostTrainingPage() {
                             </span>
                           )}
                           <span>Submitted {formatDate(prog.submission_time)}</span>
+                          {prog.department && <span>{prog.department}</span>}
                         </div>
                         {prog.description && (
                           <RichText className="text-xs text-neutral-400 mt-2 line-clamp-2 rich-text"
                             html={prog.description} />
+                        )}
+                        {prog.approval_status === 'REJECTED' && prog.rejection_reason && (
+                          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                            Rejected: {prog.rejection_reason}
+                          </p>
                         )}
                       </div>
                       <div className="shrink-0 flex flex-col items-end gap-2">
@@ -394,6 +426,26 @@ export default function PostTrainingPage() {
                         onChange={e => setSkillName(e.target.value)} />
                       <Input label="Duration" placeholder="e.g. 6 weeks / 40 hours" value={duration}
                         onChange={e => setDuration(e.target.value)} icon={<Clock size={16} />} required />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-neutral-900 uppercase tracking-widest block">
+                        Reviewing Department
+                      </label>
+                      <select
+                        value={department}
+                        onChange={event => setDepartment(event.target.value)}
+                        required
+                        className="w-full h-11 px-3 border border-neutral-300 rounded-lg bg-white text-sm font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Select department</option>
+                        {departments.map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-neutral-500">
+                        Only administrators from this department can approve or reject the programme.
+                      </p>
                     </div>
 
                     <div className="space-y-2">

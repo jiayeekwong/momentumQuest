@@ -6,7 +6,7 @@ from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
 from accounts.departments import COURSE_DEPARTMENTS, validate_department
-from accounts.models import StudentSkill
+from accounts.models import Department, StudentSkill, User
 from scrape_jobs.models import Skill
 from . import private_storage
 from .attachments import (
@@ -392,15 +392,22 @@ class TrainingProgrammeSerializer(serializers.ModelSerializer):
     # can be checked. External links still receive normal URL validation.
     supporting_doc = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, max_length=200)
+    department = serializers.SlugRelatedField(
+        slug_field="name", required=False,
+        queryset=Department.objects.filter(is_active=True))
 
     class Meta:
         model  = TrainingProgramme
         fields = [
             "id", "company", "company_name", "skill", "skill_name",
             "title", "description", "programme_duration", "supporting_doc",
-            "attachment_receipt", "approval_status", "submission_time",
+            "attachment_receipt", "department", "approval_status",
+            "visibility", "rejection_reason", "reviewed_at", "submission_time",
         ]
-        read_only_fields = ["id", "company", "skill", "approval_status", "submission_time"]
+        read_only_fields = [
+            "id", "company", "skill", "approval_status", "visibility",
+            "rejection_reason", "reviewed_at", "submission_time",
+        ]
 
     def get_company_name(self, obj):
         return obj.company.company_name if obj.company else None
@@ -415,6 +422,13 @@ class TrainingProgrammeSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        request = self.context.get("request")
+        if (request is not None and request.user.role == User.Role.COMPANY
+                and self.instance is None and not attrs.get("department")):
+            raise serializers.ValidationError({
+                "department": "Select the department that should review this programme."
+            })
+
         receipt = attrs.pop("attachment_receipt", "")
         requested_url = attrs.get(
             "supporting_doc",
@@ -514,11 +528,16 @@ class TrainingProgrammeReviewSerializer(serializers.ModelSerializer):
     """
     company = serializers.StringRelatedField(read_only=True)
     skill   = serializers.StringRelatedField(read_only=True)
+    department = serializers.SlugRelatedField(
+        slug_field="name", read_only=True)
 
     class Meta:
         model  = TrainingProgramme
-        fields = ["id", "title", "company", "skill", "approval_status"]
-        read_only_fields = ["id", "title"]
+        fields = [
+            "id", "title", "company", "skill", "department",
+            "approval_status", "visibility", "rejection_reason",
+        ]
+        read_only_fields = ["id", "title", "company", "skill", "department"]
 
     def validate_approval_status(self, value):
         allowed = {
@@ -530,6 +549,26 @@ class TrainingProgrammeReviewSerializer(serializers.ModelSerializer):
                 "approval_status must be either 'APPROVED' or 'REJECTED'."
             )
         return value
+
+    def validate(self, attrs):
+        if self.instance.approval_status != TrainingProgramme.ApprovalStatus.PENDING:
+            raise serializers.ValidationError({
+                "approval_status": "Only a pending programme can be reviewed."
+            })
+        decision = attrs.get("approval_status")
+        if decision == TrainingProgramme.ApprovalStatus.APPROVED:
+            if attrs.get("visibility") not in TrainingProgramme.Visibility.values:
+                raise serializers.ValidationError({
+                    "visibility": "Choose department students or all students."
+                })
+            attrs["rejection_reason"] = ""
+        elif decision == TrainingProgramme.ApprovalStatus.REJECTED:
+            if not attrs.get("rejection_reason", "").strip():
+                raise serializers.ValidationError({
+                    "rejection_reason": "Give the company a reason for rejection."
+                })
+            attrs["visibility"] = None
+        return attrs
 
 
 class AdminTranscriptReviewSerializer(serializers.ModelSerializer):

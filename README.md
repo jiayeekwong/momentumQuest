@@ -506,9 +506,28 @@ admin serializer or an unscoped queryset — those choices are access control
 too, and were testing the role on their own.
 
 Administrators are now created by `python manage.py create_admin --email ...
---name ...`, which sets both facts together. The one existing administrator was
+--name ... --department "Software Engineering"` (or `--superuser` for the
+global bootstrap account), which sets both facts together. The one existing administrator was
 created by `createsuperuser` and already had `is_staff`, so nobody was locked
 out and no data migration was needed.
+
+### Department administrators and invitations
+
+The terminal command is now only the bootstrap/recovery path. A superadmin can
+open **Manage Admins**, choose an active department, and send a single-use
+invitation link. The recipient sets their name and password through that link;
+the server creates an active, email-verified staff account with the `ADMIN`
+role and the invited department. Only a SHA-256 digest of the token is stored,
+pending invitations are unique per email, and links expire after 48 hours by
+default (`ADMIN_INVITATION_TIMEOUT_SECONDS`).
+
+Departments are normalized rows rather than free text. Students select one at
+registration and may correct it from their profile (the change is audit
+logged). Department administrators may publish either to their own students or
+to everyone; superadmins may select any department. Company training
+programmes name their reviewing department, only that department's
+administrators may decide them, and approval explicitly chooses between that
+department's students and all students.
 
 ### Stored XSS could steal authentication tokens
 

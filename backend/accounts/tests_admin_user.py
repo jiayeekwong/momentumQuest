@@ -146,6 +146,10 @@ class OtherUserCreationPathsAreUnaffectedTests(TestCase):
 
     def test_api_registration_still_hashes(self):
         from rest_framework.test import APIClient
+        from accounts.models import Department
+
+        department, _ = Department.objects.get_or_create(
+            code="SE", defaults={"name": "Software Engineering"})
 
         response = APIClient().post("/api/auth/register/", {
             "email": "registered@example.edu",
@@ -153,6 +157,7 @@ class OtherUserCreationPathsAreUnaffectedTests(TestCase):
             "confirm_password": NEW_PASSWORD,
             "role": User.Role.STUDENT,
             "name": "Registered Student",
+            "department": department.name,
             "privacy_notice_accepted": True,
             "document_verification_consent": True,
         }, format="json")
@@ -170,10 +175,15 @@ class OtherUserCreationPathsAreUnaffectedTests(TestCase):
         from unittest import mock
 
         from django.core.management import call_command
+        from accounts.models import Department
+
+        department, _ = Department.objects.get_or_create(
+            code="SE", defaults={"name": "Software Engineering"})
 
         with mock.patch.dict(os.environ, {"ADMIN_PASSWORD": NEW_PASSWORD}):
             call_command("create_admin", email="cli@example.edu",
-                         name="CLI Admin", stdout=StringIO())
+                         name="CLI Admin", department=department.name,
+                         stdout=StringIO())
         user = User.objects.get(email="cli@example.edu")
 
         self.assertEqual(identify_hasher(user.password).algorithm, "pbkdf2_sha256")
@@ -327,5 +337,3 @@ class UnfinishedAccountsAreReportedTests(TestCase):
 
     def test_nothing_is_reported_on_an_empty_database(self):
         self.assertEqual(self._warnings(), [])
-
-

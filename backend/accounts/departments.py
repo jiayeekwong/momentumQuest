@@ -28,6 +28,38 @@ COURSE_ONLY_DEPARTMENTS = [
 COURSE_DEPARTMENTS = DEPARTMENTS + COURSE_ONLY_DEPARTMENTS
 
 
+def active_department_names():
+    """Return active department names from the database in display order."""
+    from .models import Department
+
+    return list(
+        Department.objects.filter(is_active=True)
+        .order_by("name")
+        .values_list("name", flat=True)
+    )
+
+
+def resolve_department(value, *, field_name="department", required=False):
+    """Resolve an active department name, raising a DRF field error."""
+    from rest_framework import serializers
+    from .models import Department
+
+    name = str(value or "").strip()
+    if not name:
+        if required:
+            raise serializers.ValidationError({
+                field_name: ["Select a department."]
+            })
+        return None
+
+    department = Department.objects.filter(name=name, is_active=True).first()
+    if department is None:
+        raise serializers.ValidationError({
+            field_name: [f"'{name}' is not a recognised department."]
+        })
+    return department
+
+
 def validate_department(value, allowed=None, field_name="department"):
     """Raise DRF ValidationError unless ``value`` is a known department.
 
@@ -39,7 +71,7 @@ def validate_department(value, allowed=None, field_name="department"):
     if not value:
         return ""
 
-    choices = allowed if allowed is not None else DEPARTMENTS
+    choices = allowed if allowed is not None else active_department_names()
     if value not in choices:
         raise serializers.ValidationError({
             field_name: [f"'{value}' is not a recognised department."]

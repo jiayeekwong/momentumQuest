@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -764,6 +765,9 @@ def notify_admins_of_withdrawal(programme):
     recipients = sorted(
         AdminProfile.objects
         .filter(user__is_active=True)
+        .filter(
+            Q(user__is_superuser=True)
+            | Q(department_id=programme.department_id))
         .exclude(user__email="")
         .values_list("user__email", flat=True))
     if not recipients:
@@ -850,6 +854,9 @@ class CompanyTrainingDetailView(APIView):
         serializer.save(
             approval_status=TrainingProgramme.ApprovalStatus.PENDING,
             admin=None,
+            visibility=None,
+            rejection_reason='',
+            reviewed_at=None,
         )
         return Response(serializer.data)
 
@@ -926,8 +933,14 @@ class AdminTrainingListView(generics.ListAPIView):
 
     def get_queryset(self):
         qs = TrainingProgramme.objects.select_related(
-            'skill', 'company'
+            'skill', 'company', 'department'
         ).order_by('-submission_time')
+
+        if not self.request.user.is_superuser:
+            department_id = getattr(
+                admin_profile_for(self.request.user), 'department_id', None)
+            qs = (qs.filter(department_id=department_id)
+                  if department_id else qs.none())
 
         status_param = self.request.query_params.get('status')
         if status_param:
@@ -941,13 +954,24 @@ class AdminTrainingReviewView(generics.UpdateAPIView):
     Admin approves or rejects a training programme submission.
     Stamps the reviewing admin on save.
     """
-    queryset           = TrainingProgramme.objects.all()
     serializer_class   = TrainingProgrammeReviewSerializer
     permission_classes = [IsAdminUserRole]
     http_method_names  = ['patch', 'options', 'head']
 
+    def get_queryset(self):
+        qs = TrainingProgramme.objects.select_related('department')
+        if self.request.user.is_superuser:
+            return qs
+        department_id = getattr(
+            admin_profile_for(self.request.user), 'department_id', None)
+        return (qs.filter(department_id=department_id)
+                if department_id else qs.none())
+
     def perform_update(self, serializer):
-        serializer.save(admin=admin_profile_for(self.request.user))
+        serializer.save(
+            admin=admin_profile_for(self.request.user),
+            reviewed_at=timezone.now(),
+        )
 
 
 class ApprovedTrainingListView(generics.ListAPIView):
@@ -960,6 +984,24 @@ class ApprovedTrainingListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return TrainingProgramme.objects.filter(
-            approval_status=TrainingProgramme.ApprovalStatus.APPROVED
-        ).select_related('skill', 'company').order_by('-submission_time')
+        queryset = TrainingProgramme.objects.filter(
+            approval_status=TrainingProgramme.ApprovalStatus.APPROVED,
+        )
+        # Department visibility is a student-facing publishing decision.
+        # Administrators and the owning-company screens may still inspect the
+        # approved catalogue; student accounts receive the actual audience
+        # filter that controls discovery.
+        if self.request.user.role != self.request.user.Role.STUDENT:
+            return queryset.select_related(
+                'skill', 'company', 'department').order_by('-submission_time')
+
+        department_id = self.request.user.student_profile.department_id
+        return queryset.filter(
+            Q(visibility=TrainingProgramme.Visibility.EVERYONE)
+            | Q(visibility__isnull=True)
+            | Q(
+                visibility=TrainingProgramme.Visibility.DEPARTMENT,
+                department_id=department_id,
+            )
+        ).select_related(
+            'skill', 'company', 'department').order_by('-submission_time')

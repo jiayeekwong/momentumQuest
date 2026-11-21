@@ -1,22 +1,42 @@
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .permissions import IsStudent
+from .permissions import IsStudent, IsSuperAdmin
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import signing
 from django.core.mail import send_mail
+from django.db import transaction
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import status
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import RoleTerminologyFeedback, StudentSkill, UserConsent
-from .departments import COURSE_DEPARTMENTS, DEPARTMENTS
+from .audit import record_privacy_event
+from .admin_invitations import (
+    invitation_token_hash,
+    issue_invitation_token,
+    send_admin_invitation,
+)
+from .models import (
+    AdminInvitation,
+    PrivacyAuditLog,
+    RoleTerminologyFeedback,
+    StudentSkill,
+    UserConsent,
+)
+from .departments import (
+    COURSE_ONLY_DEPARTMENTS,
+    active_department_names,
+    resolve_department,
+)
 from .privacy_notice import get_notice
 from .withdrawal import WithdrawalError, restore_consent, withdraw_latest
 from .serializers import (
+    AdminInvitationAcceptSerializer,
+    AdminInvitationSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
@@ -25,6 +45,113 @@ from .serializers import (
     UserConsentSerializer,
     set_student_target_roles,
 )
+
+
+class AdminInvitationListCreateView(generics.ListCreateAPIView):
+    """Superadmin-only invitation management."""
+
+    serializer_class = AdminInvitationSerializer
+    permission_classes = [IsSuperAdmin]
+    throttle_scope = "admin_invite"
+
+    def get_queryset(self):
+        AdminInvitation.objects.filter(
+            status=AdminInvitation.Status.PENDING,
+            expires_at__lte=timezone.now(),
+        ).update(status=AdminInvitation.Status.EXPIRED)
+        return AdminInvitation.objects.select_related(
+            "department", "invited_by")
+
+    def perform_create(self, serializer):
+        invitation = serializer.save()
+        token = serializer.issued_token
+        transaction.on_commit(
+            lambda: send_admin_invitation(invitation, token))
+
+
+class AdminInvitationValidateView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "token_confirm"
+
+    def get(self, request):
+        token = request.query_params.get("token", "")
+        invitation = AdminInvitation.objects.filter(
+            token_hash=invitation_token_hash(token),
+        ).select_related("department").first()
+        if invitation is None or invitation.status != AdminInvitation.Status.PENDING:
+            return Response(
+                {"detail": "This invitation is invalid or has already been used."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if invitation.expires_at <= timezone.now():
+            invitation.status = AdminInvitation.Status.EXPIRED
+            invitation.save(update_fields=["status", "updated_at"])
+            return Response(
+                {"detail": "This invitation has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({
+            "email": invitation.email,
+            "department": invitation.department.name,
+            "expires_at": invitation.expires_at,
+        })
+
+
+class AdminInvitationAcceptView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "token_confirm"
+
+    def post(self, request):
+        serializer = AdminInvitationAcceptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(
+            {"detail": "Administrator account created.", "email": user.email},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminInvitationResendView(APIView):
+    permission_classes = [IsSuperAdmin]
+    throttle_scope = "admin_invite"
+
+    def post(self, request, pk):
+        invitation = AdminInvitation.objects.filter(pk=pk).select_related(
+            "department").first()
+        if invitation is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if invitation.status == AdminInvitation.Status.ACCEPTED:
+            return Response(
+                {"detail": "An accepted invitation cannot be resent."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if get_user_model().objects.filter(email=invitation.email).exists():
+            return Response(
+                {"detail": "An account already exists for this email address."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        token = issue_invitation_token(invitation)
+        transaction.on_commit(
+            lambda: send_admin_invitation(invitation, token))
+        return Response(AdminInvitationSerializer(invitation).data)
+
+
+class AdminInvitationRevokeView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, pk):
+        invitation = AdminInvitation.objects.filter(pk=pk).first()
+        if invitation is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if invitation.status != AdminInvitation.Status.PENDING:
+            return Response(
+                {"detail": "Only a pending invitation can be revoked."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        invitation.status = AdminInvitation.Status.REVOKED
+        invitation.revoked_at = timezone.now()
+        invitation.save(update_fields=["status", "revoked_at", "updated_at"])
+        return Response(AdminInvitationSerializer(invitation).data)
 
 
 class PrivacyNoticeCurrentView(APIView):
@@ -51,9 +178,10 @@ class DepartmentListView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
+        departments = active_department_names()
         return Response({
-            "departments": DEPARTMENTS,
-            "course_departments": COURSE_DEPARTMENTS,
+            "departments": departments,
+            "course_departments": departments + COURSE_ONLY_DEPARTMENTS,
         })
 
 
@@ -192,7 +320,8 @@ class ProfileView(APIView):
         if user.role == 'STUDENT' and hasattr(user, 'student_profile'):
             profile = user.student_profile
             data["student_name"] = profile.student_name
-            data["department"] = profile.department
+            data["department"] = (
+                profile.department.name if profile.department_id else None)
             data["matric_number"] = profile.matric_number
             # The Broad Area comes back with the name so a client can group
             # the student\'s targets without a second request. It is
@@ -211,6 +340,10 @@ class ProfileView(APIView):
 
         elif user.role == 'ADMIN' and hasattr(user, 'admin_profile'):
             data["admin_name"] = user.admin_profile.admin_name
+            data["department"] = (
+                user.admin_profile.department.name
+                if user.admin_profile.department_id else None)
+            data["is_superuser"] = user.is_superuser
 
         return Response(data)
 
@@ -230,15 +363,22 @@ class ProfileView(APIView):
             if 'student_name' in request.data:
                 profile.student_name = request.data['student_name'].strip() or profile.student_name
             if 'department' in request.data:
-                department = request.data['department'] or ''
-                if department and department not in DEPARTMENTS:
-                    return Response(
-                        {'department': [f"'{department}' is not a recognised department."]},
-                        status=status.HTTP_400_BAD_REQUEST)
+                department = resolve_department(
+                    request.data['department'], required=True)
+                changed = profile.department_id != department.id
                 profile.department = department
             if 'matric_number' in request.data:
                 profile.matric_number = str(request.data['matric_number']).strip()
             profile.save()
+            if 'department' in request.data and changed:
+                record_privacy_event(
+                    PrivacyAuditLog.Action.DEPARTMENT_CHANGED,
+                    actor=user,
+                    target=user,
+                    resource_id=profile.pk,
+                    resource_type=PrivacyAuditLog.ResourceType.PROFILE,
+                    request=request,
+                )
             # target_roles is the only target a user may set. The MASCO
             # occupation is derived from it inside set_student_target_roles;
             # accepting target_occupation_ids here let the dashboard overwrite

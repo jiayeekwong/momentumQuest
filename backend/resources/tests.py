@@ -2952,12 +2952,14 @@ class TrainingBrochuresSurviveTests(APITestCase):
     )
 
     def setUp(self):
-        from accounts.models import Company, User
+        from accounts.models import Company, Department, User
 
         self.user = User.objects.create_user(email="co-upload@example.edu",
                                              password="Sufficient-Pass-1",
                                              role=User.Role.COMPANY)
         Company.objects.create(user=self.user, company_name="ACME")
+        self.department, _ = Department.objects.get_or_create(
+            code="SE", defaults={"name": "Software Engineering"})
         self.client.force_authenticate(user=self.user)
 
     def _upload(self):
@@ -2990,6 +2992,7 @@ class TrainingBrochuresSurviveTests(APITestCase):
         upload = self._upload()
         created = self.client.post('/api/resources/training/', {
             'title': 'Secure Python',
+            'department': self.department.name,
             'supporting_doc': upload.data['url'],
             'attachment_receipt': upload.data['attachment_receipt'],
         }, format='json')
@@ -3010,6 +3013,7 @@ class TrainingBrochuresSurviveTests(APITestCase):
         upload = self._upload()
         payload = {
             'title': 'First Programme',
+            'department': self.department.name,
             'supporting_doc': upload.data['url'],
             'attachment_receipt': upload.data['attachment_receipt'],
         }

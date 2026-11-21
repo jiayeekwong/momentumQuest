@@ -5,7 +5,9 @@ from django.contrib.auth.models import Group
 from .forms import UserChangeForm, UserCreationForm
 from .models import (
     AdminProfile,
+    AdminInvitation,
     Company,
+    Department,
     PrivacyAuditLog,
     SkillGap,
     Student,
@@ -137,6 +139,8 @@ class UserAdmin(DjangoUserAdmin):
 admin.site.register(Student)
 admin.site.register(Company)
 admin.site.register(AdminProfile)
+admin.site.register(Department)
+admin.site.register(AdminInvitation)
 admin.site.register(StudentTargetRole)
 admin.site.register(RoleTerminologyFeedback)
 admin.site.register(SkillGap)

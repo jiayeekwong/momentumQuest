@@ -618,8 +618,17 @@ class TrainingProgramme(models.Model):
         APPROVED = 'APPROVED', 'Approved'
         REJECTED = 'REJECTED', 'Rejected'
 
+    class Visibility(models.TextChoices):
+        DEPARTMENT = 'DEPARTMENT', 'Selected department only'
+        EVERYONE = 'EVERYONE', 'All students'
+
     company          = models.ForeignKey(Company, on_delete=models.CASCADE,
                                          related_name='training_programmes')
+    # Nullable for programmes that predate department routing. New company
+    # submissions are required to select one active department.
+    department       = models.ForeignKey(
+        'accounts.Department', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='training_programmes')
     admin            = models.ForeignKey(AdminProfile, on_delete=models.SET_NULL,
                                          null=True, blank=True,
                                          related_name='reviewed_programmes')
@@ -640,6 +649,10 @@ class TrainingProgramme(models.Model):
     approval_status  = models.CharField(max_length=10,
                                         choices=ApprovalStatus.choices,
                                         default=ApprovalStatus.PENDING)
+    visibility       = models.CharField(
+        max_length=12, choices=Visibility.choices, null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    reviewed_at      = models.DateTimeField(null=True, blank=True)
     submission_time  = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -10,7 +10,9 @@ interface BackendProfile {
   name?: string;
   student_name?: string;
   company_name?: string;
+  admin_name?: string;
   department?: string;
+  is_superuser?: boolean;
   target_roles?: TargetRole[];
 }
 
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           department: profileData.department,
           targetRoles: profileData.target_roles,
           companyName: profileData.company_name,
+          isSuperuser: profileData.is_superuser,
         };
         setUser(restored);
         localStorage.setItem('mq_user', JSON.stringify(restored));
@@ -117,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileData.name ||
       profileData.student_name ||
       profileData.company_name ||
+      profileData.admin_name ||
       profileData.email.split('@')[0];
 
     const newUser: User = {
@@ -128,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       department: profileData.department,
       targetRoles: profileData.target_roles,
       companyName: profileData.company_name,
+      isSuperuser: profileData.is_superuser,
     };
 
     setUser(newUser);

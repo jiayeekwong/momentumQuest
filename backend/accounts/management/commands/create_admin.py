@@ -11,6 +11,10 @@ a shell with database access. IsAdminUserRole requires both, so neither alone
 is enough.
 
     python manage.py create_admin --email you@uni.edu --name "Your Name"
+        --department "Software Engineering"
+
+For the first global superadmin, pass ``--superuser``; a superadmin has no
+department restriction and may therefore omit ``--department``.
 
 The password is read from ADMIN_PASSWORD in the environment, from the terminal
 with --prompt-password, or generated and printed once. It is never taken from
@@ -24,6 +28,7 @@ import secrets
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from accounts.departments import resolve_department
 from accounts.models import AdminProfile, User
 
 
@@ -33,6 +38,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--email", required=True)
         parser.add_argument("--name", required=True)
+        parser.add_argument(
+            "--department",
+            help="Department for a regular administrator. Superusers may omit it.")
         parser.add_argument(
             "--superuser", action="store_true",
             help="Also grant is_superuser, for Django admin access.")
@@ -50,6 +58,16 @@ class Command(BaseCommand):
         name = options["name"].strip()
         if not email or not name:
             raise CommandError("--email and --name are both required.")
+
+        try:
+            department = resolve_department(options.get("department"))
+        except Exception as exc:
+            detail = getattr(exc, "detail", None)
+            raise CommandError(str(detail or exc)) from exc
+        if department is None and not options["superuser"]:
+            raise CommandError(
+                "--department is required for a regular administrator. "
+                "Only a --superuser may be global.")
 
         existing = User.objects.filter(email=email).first()
         if existing and not options["promote"]:
@@ -93,7 +111,8 @@ class Command(BaseCommand):
             )
 
         AdminProfile.objects.update_or_create(
-            user=user, defaults={"admin_name": name})
+            user=user,
+            defaults={"admin_name": name, "department": department})
 
         self.stdout.write(self.style.SUCCESS(
             f"{'Promoted' if existing else 'Created'} administrator {email} "

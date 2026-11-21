@@ -16,6 +16,11 @@ def is_platform_admin(user):
     )
 
 
+def is_superadmin(user):
+    """Global administration is deliberately narrower than platform admin."""
+    return bool(is_platform_admin(user) and user.is_superuser)
+
+
 class IsStudent(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == 'STUDENT'
@@ -38,6 +43,13 @@ class IsAdminUserRole(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return is_platform_admin(request.user)
+
+
+class IsSuperAdmin(permissions.BasePermission):
+    """Operations that can grant authority require a Django superuser."""
+
+    def has_permission(self, request, view):
+        return is_superadmin(request.user)
 
 class AdminProfileMissing(APIException):
     """An administrator account that was never finished being set up.

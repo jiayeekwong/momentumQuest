@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Target, Briefcase, GraduationCap, FileText,
   UserCircle, LogOut, Bell, ShieldCheck, Megaphone, FileCheck, Users,
-  Menu, X
+  Menu, X, UserPlus
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { cn } from '@/src/lib/utils';
@@ -251,6 +251,7 @@ const ROUTE_OWNER: Record<string, 'student' | 'company' | 'admin'> = {
   '/admin-dashboard': 'admin', '/approvals': 'admin',
   '/manage-courses': 'admin',
   '/post-announcement': 'admin',
+  '/manage-admins': 'admin',
 };
 
 export function DashboardLayout({ children, title }: { children: ReactNode; title: string }) {
@@ -314,6 +315,9 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
     { icon: ShieldCheck, label: 'Pending Approvals', path: '/approvals' },
     { icon: GraduationCap, label: 'Manage Courses', path: '/manage-courses' },
     { icon: Megaphone, label: 'Post Announcement', path: '/post-announcement' },
+    ...(user?.isSuperuser
+      ? [{ icon: UserPlus, label: 'Manage Admins', path: '/manage-admins' }]
+      : []),
   ];
 
   const menuItems =

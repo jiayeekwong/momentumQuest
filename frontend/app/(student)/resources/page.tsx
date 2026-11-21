@@ -29,6 +29,8 @@ interface TrainingProgramme {
   description: string;
   programme_duration: string;
   supporting_doc: string | null;
+  department: string | null;
+  visibility: 'DEPARTMENT' | 'EVERYONE' | null;
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -67,6 +69,7 @@ function TrainingModal({ programme: p, onClose }: { programme: TrainingProgramme
             <h2 className="text-xl font-black text-neutral-900 leading-tight">{p.title}</h2>
             <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-neutral-400 font-medium">
               {p.company_name && <span>by {p.company_name}</span>}
+              {p.department && <span>{p.department}</span>}
               {p.programme_duration && <span className="flex items-center gap-1"><Clock size={11} /> {p.programme_duration}</span>}
             </div>
           </div>
@@ -309,6 +312,11 @@ export default function ResourcesPage() {
 
                   <div className="flex flex-wrap gap-2">
                     {t.skill && <Badge variant="neutral" className="text-[9px] px-2 py-0.5">{t.skill}</Badge>}
+                    {t.department && (
+                      <Badge variant="secondary" className="text-[9px] px-2 py-0.5">
+                        {t.visibility === 'EVERYONE' ? `All students · ${t.department}` : t.department}
+                      </Badge>
+                    )}
                     {t.programme_duration && (
                       <span className="flex items-center gap-1 text-[10px] font-bold text-neutral-400">
                         <Clock size={10} /> {t.programme_duration}

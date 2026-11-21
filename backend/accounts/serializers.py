@@ -4,7 +4,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
@@ -15,10 +15,13 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .audit import record_privacy_event
-from .departments import DEPARTMENTS, validate_department
+from .admin_invitations import invitation_token_hash, new_invitation_token
+from .departments import resolve_department
 from .models import (
+    AdminInvitation,
     AdminProfile,
     Company,
+    Department,
     PrivacyAuditLog,
     Student,
     StudentSkill,
@@ -38,6 +41,120 @@ User = get_user_model()
 BLOCKED_EMAIL_DOMAINS = ["example.com", "test.com", "fake.com"]
 
 SPECIAL_CHARACTER_PATTERN = r"[!@#$%^&*(),.?\":{}|<>_\-+=/\\[\]~`]"
+
+
+class AdminInvitationSerializer(serializers.ModelSerializer):
+    department = serializers.SlugRelatedField(
+        slug_field="name",
+        queryset=Department.objects.filter(is_active=True),
+    )
+    invited_by = serializers.EmailField(
+        source="invited_by.email", read_only=True, allow_null=True)
+
+    class Meta:
+        model = AdminInvitation
+        fields = [
+            "id", "email", "department", "status", "invited_by",
+            "expires_at", "accepted_at", "created_at",
+        ]
+        read_only_fields = [
+            "id", "status", "invited_by", "expires_at", "accepted_at",
+            "created_at",
+        ]
+
+    def validate_email(self, value):
+        email = value.lower().strip()
+        validate_real_email_domain(email)
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                "An account already exists for this email address.")
+        if AdminInvitation.objects.filter(
+                email=email, status=AdminInvitation.Status.PENDING).exists():
+            raise serializers.ValidationError(
+                "A pending invitation already exists for this email address.")
+        return email
+
+    def create(self, validated_data):
+        token, token_hash, expires_at = new_invitation_token()
+        try:
+            invitation = AdminInvitation.objects.create(
+                **validated_data,
+                token_hash=token_hash,
+                expires_at=expires_at,
+                invited_by=self.context["request"].user,
+            )
+        except IntegrityError as exc:
+            raise serializers.ValidationError({
+                "email": [
+                    "A pending invitation already exists for this email address."
+                ]
+            }) from exc
+        self.issued_token = token
+        return invitation
+
+
+class AdminInvitationAcceptSerializer(serializers.Serializer):
+    token = serializers.CharField(write_only=True, max_length=256)
+    name = serializers.CharField(max_length=100)
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data["password"] != data["confirm_password"]:
+            raise serializers.ValidationError({
+                "confirm_password": ["Passwords do not match."]})
+        validate_strong_password(data["password"])
+
+        token_hash = invitation_token_hash(data["token"])
+        invitation = AdminInvitation.objects.filter(
+            token_hash=token_hash).select_related("department").first()
+        if invitation is None or invitation.status != AdminInvitation.Status.PENDING:
+            raise serializers.ValidationError({
+                "token": ["This invitation is invalid or has already been used."]})
+        if invitation.expires_at <= timezone.now():
+            invitation.status = AdminInvitation.Status.EXPIRED
+            invitation.save(update_fields=["status", "updated_at"])
+            raise serializers.ValidationError({
+                "token": ["This invitation has expired. Ask the superadmin to resend it."]})
+        if User.objects.filter(email=invitation.email).exists():
+            raise serializers.ValidationError({
+                "token": ["An account already exists for this invitation email."]})
+
+        data["invitation_id"] = invitation.pk
+        return data
+
+    def save(self):
+        with transaction.atomic():
+            invitation = (
+                AdminInvitation.objects.select_for_update()
+                .select_related("department")
+                .get(pk=self.validated_data["invitation_id"])
+            )
+            if not invitation.is_usable:
+                raise serializers.ValidationError({
+                    "token": ["This invitation is no longer available."]})
+            if User.objects.filter(email=invitation.email).exists():
+                raise serializers.ValidationError({
+                    "token": ["An account already exists for this invitation email."]})
+
+            user = User.objects.create_user(
+                email=invitation.email,
+                password=self.validated_data["password"],
+                role=User.Role.ADMIN,
+                is_staff=True,
+                is_active=True,
+                email_verified=True,
+            )
+            AdminProfile.objects.create(
+                user=user,
+                admin_name=self.validated_data["name"].strip(),
+                department=invitation.department,
+            )
+            invitation.status = AdminInvitation.Status.ACCEPTED
+            invitation.accepted_at = timezone.now()
+            invitation.save(update_fields=[
+                "status", "accepted_at", "updated_at"])
+        return user
 
 
 # ============================================================
@@ -305,7 +422,8 @@ class RegisterSerializer(serializers.Serializer):
         # The department list is served from the backend, so a value outside it
         # means a stale client or a hand-made request, not a new department.
         if data.get("role") == User.Role.STUDENT:
-            validate_department(data.get("department", ""))
+            data["department_obj"] = resolve_department(
+                data.get("department", ""), required=True)
 
         # An account must not exist without consent, so this is a hard gate
         # rather than a frontend courtesy -- the sign-up page disables its
@@ -474,7 +592,7 @@ class RegisterSerializer(serializers.Serializer):
             student = Student.objects.create(
                 user=user,
                 student_name=name,
-                department=validated_data.get("department", ""),
+                department=validated_data["department_obj"],
                 matric_number=validated_data.get("matric_number", "").strip(),
             )
             # The Market Role is the only career target a user chooses;

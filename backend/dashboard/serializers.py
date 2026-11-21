@@ -13,6 +13,7 @@ from resources.attachments import (
     verify_attachment_receipt,
 )
 from resources import private_storage
+from accounts.models import Department, User
 from .models import Announcement
 
 
@@ -45,6 +46,9 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         write_only=True, required=False, allow_blank=True, max_length=2048)
     supporting_doc = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, max_length=200)
+    target_departments = serializers.SlugRelatedField(
+        slug_field='name', many=True, required=False,
+        queryset=Department.objects.filter(is_active=True))
 
     class Meta:
         model = Announcement
@@ -52,6 +56,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             'id', 'admin_name', 'author_name', 'author_type',
             'reviewed_by_name', 'title', 'message',
             'categories', 'audience', 'supporting_doc', 'attachment_receipt',
+            'target_departments',
             'approval_status', 'rejection_reason', 'submitted_at',
             'reviewed_at', 'publish_time',
         ]
@@ -130,6 +135,47 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         elif (self.instance is not None and 'supporting_doc' in attrs
               and not existing_unchanged):
             self._attachment_path_update = None
+        request = self.context.get('request')
+        if request is not None and request.user.role == User.Role.ADMIN:
+            audience = attrs.get(
+                'audience',
+                self.instance.audience if self.instance else None)
+            departments = attrs.get('target_departments', [])
+            if audience == Announcement.AudienceChoice.EVERYONE:
+                attrs['target_departments'] = []
+            elif audience == Announcement.AudienceChoice.STUDENTS:
+                if not departments:
+                    profile = getattr(request.user, 'admin_profile', None)
+                    # Legacy administrators created before department scoping
+                    # have no department. Preserve their old all-students API
+                    # behaviour until a superadmin assigns them one.
+                    if (not request.user.is_superuser
+                            and getattr(profile, 'department_id', None)):
+                        raise serializers.ValidationError({
+                            'target_departments':
+                                'Select your department for a student announcement.'})
+                if not request.user.is_superuser:
+                    profile = getattr(request.user, 'admin_profile', None)
+                    own_id = getattr(profile, 'department_id', None)
+                    chosen_ids = {department.id for department in departments}
+                    if departments and (own_id is None or chosen_ids != {own_id}):
+                        raise serializers.ValidationError({
+                            'target_departments':
+                                'Department administrators can target only their own department.'})
+            elif audience == Announcement.AudienceChoice.COMPANIES:
+                profile = getattr(request.user, 'admin_profile', None)
+                if (not request.user.is_superuser
+                        and getattr(profile, 'department_id', None)):
+                    raise serializers.ValidationError({
+                        'audience': 'Department administrators can target everyone or their department.'})
+                attrs['target_departments'] = []
+            else:
+                raise serializers.ValidationError({
+                    'audience': 'Choose Everyone or department students.'})
+        elif request is not None and request.user.role == User.Role.COMPANY:
+            # Company submissions use the existing all-students moderation
+            # flow; a company cannot smuggle department targeting into it.
+            attrs['target_departments'] = []
         return attrs
 
     def create(self, validated_data):

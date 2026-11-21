@@ -1,6 +1,11 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
+    AdminInvitationAcceptView,
+    AdminInvitationListCreateView,
+    AdminInvitationResendView,
+    AdminInvitationRevokeView,
+    AdminInvitationValidateView,
     CustomTokenObtainPairView,
     DepartmentListView,
     EmailChangeConfirmView,
@@ -21,6 +26,16 @@ from .views import (
 )
 
 urlpatterns = [
+    path('admin-invitations/', AdminInvitationListCreateView.as_view(),
+         name='admin_invitations'),
+    path('admin-invitations/validate/', AdminInvitationValidateView.as_view(),
+         name='admin_invitation_validate'),
+    path('admin-invitations/accept/', AdminInvitationAcceptView.as_view(),
+         name='admin_invitation_accept'),
+    path('admin-invitations/<int:pk>/resend/',
+         AdminInvitationResendView.as_view(), name='admin_invitation_resend'),
+    path('admin-invitations/<int:pk>/revoke/',
+         AdminInvitationRevokeView.as_view(), name='admin_invitation_revoke'),
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

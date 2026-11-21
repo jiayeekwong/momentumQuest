@@ -51,11 +51,38 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
+class Department(models.Model):
+    """A faculty department used for both targeting and authorization.
+
+    The short code is stable enough for integrations while the display name can
+    be corrected without rewriting every student, administrator, announcement,
+    and training programme that refers to the department.
+    """
+
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Student(models.Model):
     student_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     student_name = models.CharField(max_length=100)
-    department = models.CharField(max_length=100, blank=True)
+    # Nullable only for legacy rows created before departments were normalized.
+    # Registration and profile APIs require an active department.
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='students',
+    )
     # University enrolment number used by automatic transcript identity
     # matching. Deliberately NOT an identity-document number: MomentumQuest
     # stores no NRIC/MyKad or passport number in any field -- see
@@ -79,9 +106,83 @@ class AdminProfile(models.Model):
     admin_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_profile')
     admin_name = models.CharField(max_length=100)
+    # A regular administrator is scoped to one department. Superusers are the
+    # global override and may leave this blank.
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='administrators',
+    )
 
     def __str__(self):
         return self.admin_name
+
+
+class AdminInvitation(models.Model):
+    """A single-use invitation for a department administrator.
+
+    Only a SHA-256 digest is stored. The bearer token exists only in the email,
+    so a database read cannot be turned directly into an administrator account.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        ACCEPTED = 'ACCEPTED', 'Accepted'
+        REVOKED = 'REVOKED', 'Revoked'
+        EXPIRED = 'EXPIRED', 'Expired'
+
+    email = models.EmailField(db_index=True)
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name='admin_invitations',
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    invited_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='admin_invitations_sent',
+    )
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['email', 'status'],
+                name='admin_invite_email_status',
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['email'],
+                condition=models.Q(status='PENDING'),
+                name='one_pending_admin_invite_per_email',
+            ),
+        ]
+
+    @property
+    def is_usable(self):
+        return (
+            self.status == self.Status.PENDING
+            and self.expires_at > timezone.now()
+        )
+
+    def __str__(self):
+        return f"{self.email} -> {self.department.name} ({self.status})"
 
 
 class StudentTargetRole(models.Model):
@@ -415,11 +516,13 @@ class PrivacyAuditLog(models.Model):
         TRANSCRIPT_REJECTED        = 'TRANSCRIPT_REJECTED',        'Transcript rejected'
         CONSENT_ACCEPTED           = 'CONSENT_ACCEPTED',           'Consent accepted'
         CONSENT_WITHDRAWN          = 'CONSENT_WITHDRAWN',          'Consent withdrawn'
+        DEPARTMENT_CHANGED         = 'DEPARTMENT_CHANGED',         'Department changed'
 
     class ResourceType(models.TextChoices):
         CERTIFICATE = 'CERTIFICATE', 'Certificate'
         TRANSCRIPT  = 'TRANSCRIPT',  'Transcript'
         CONSENT     = 'CONSENT',     'Consent'
+        PROFILE     = 'PROFILE',     'Profile'
 
     # SET_NULL on both sides: deleting an account must not erase the record
     # that its documents were once reviewed.

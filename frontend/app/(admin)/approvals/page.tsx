@@ -24,6 +24,8 @@ interface ApprovalItem {
   supportingDoc: string | null;
   kind: ApprovalKind;
   rejectionReason: string;
+  department: string | null;
+  visibility: 'DEPARTMENT' | 'EVERYONE' | null;
 }
 
 const statusVariants: Record<ApprovalStatus, 'neutral' | 'success' | 'danger'> = {
@@ -68,6 +70,7 @@ function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => voi
             <h2 className="text-xl font-black text-neutral-900 leading-tight">{item.title}</h2>
             <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-neutral-400 font-medium">
               <span>By {item.submittedBy}</span>
+              {item.department && <span>{item.department}</span>}
               {item.duration && <span className="flex items-center gap-1"><Clock size={11} /> {item.duration}</span>}
               <span>Submitted {item.submittedDate}</span>
             </div>
@@ -125,6 +128,7 @@ export default function ApprovalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [detailItem, setDetailItem] = useState<ApprovalItem | null>(null);
+  const [visibilityByItem, setVisibilityByItem] = useState<Record<number, 'DEPARTMENT' | 'EVERYONE'>>({});
 
   useEffect(() => {
     Promise.all([
@@ -137,6 +141,8 @@ export default function ApprovalsPage() {
         id: number; title: string; company_name: string | null;
         submission_time: string; approval_status: string; description: string;
         skill: string | null; programme_duration: string; supporting_doc: string | null;
+        department: string | null; visibility: 'DEPARTMENT' | 'EVERYONE' | null;
+        rejection_reason: string;
         }>;
         const announcementData = (Array.isArray(announcementResponse)
           ? announcementResponse : announcementResponse.results ?? []) as Array<{
@@ -156,7 +162,9 @@ export default function ApprovalsPage() {
           duration:      t.programme_duration || '',
           supportingDoc: t.supporting_doc,
           kind:           'training' as const,
-          rejectionReason: '',
+          rejectionReason: t.rejection_reason || '',
+          department: t.department,
+          visibility: t.visibility,
           })),
           ...announcementData.map(a => ({
             id: a.id,
@@ -170,6 +178,8 @@ export default function ApprovalsPage() {
             supportingDoc: a.supporting_doc,
             kind: 'announcement' as const,
             rejectionReason: a.rejection_reason || '',
+            department: null,
+            visibility: null,
           })),
         ]);
       })
@@ -179,7 +189,7 @@ export default function ApprovalsPage() {
 
   const updateStatus = async (item: ApprovalItem, newStatus: 'APPROVED' | 'REJECTED') => {
     let rejectionReason = '';
-    if (item.kind === 'announcement' && newStatus === 'REJECTED') {
+    if (newStatus === 'REJECTED') {
       const answer = window.prompt('Give the company a reason for rejection:');
       if (answer === null) return;
       rejectionReason = answer.trim();
@@ -194,6 +204,9 @@ export default function ApprovalsPage() {
         method: 'PATCH',
         body: JSON.stringify({
           approval_status: newStatus,
+          ...(item.kind === 'training' && newStatus === 'APPROVED'
+            ? { visibility: visibilityByItem[item.id] ?? 'DEPARTMENT' }
+            : {}),
           ...(rejectionReason ? { rejection_reason: rejectionReason } : {}),
         }),
       });
@@ -280,13 +293,28 @@ export default function ApprovalsPage() {
                     </div>
                     <p className="text-xs font-semibold text-neutral-500 mb-1">
                       By {item.submittedBy} · {item.submittedDate}
+                      {item.department && <span> · {item.department}</span>}
                       {item.supportingDoc && (
                         <span className="inline-flex items-center gap-1 ml-2 text-primary"><FileText size={10} /> Attachment</span>
                       )}
                     </p>
                     <p className="text-sm text-neutral-600 leading-relaxed line-clamp-2">{stripHtml(item.details)}</p>
                     {item.status === 'pending' && (
-                      <div className="flex gap-3 mt-4">
+                      <div className="flex flex-wrap gap-3 mt-4">
+                        {item.kind === 'training' && (
+                          <select
+                            aria-label={`Visibility for ${item.title}`}
+                            value={visibilityByItem[item.id] ?? 'DEPARTMENT'}
+                            onChange={event => setVisibilityByItem(previous => ({
+                              ...previous,
+                              [item.id]: event.target.value as 'DEPARTMENT' | 'EVERYONE',
+                            }))}
+                            className="h-9 px-3 rounded-lg border border-neutral-300 bg-white text-xs font-bold text-neutral-700"
+                          >
+                            <option value="DEPARTMENT">{item.department ?? 'Department'} students only</option>
+                            <option value="EVERYONE">All students</option>
+                          </select>
+                        )}
                         <Button size="sm"
                           className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"
                           disabled={actionLoading === item.id}

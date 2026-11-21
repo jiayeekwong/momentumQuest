@@ -19,6 +19,7 @@ export interface User {
   role: UserRole;
   avatar?: string;
   department?: string;
+  isSuperuser?: boolean;
   targetRoles?: TargetRole[];
   companyName?: string;
   createdAt?: string;

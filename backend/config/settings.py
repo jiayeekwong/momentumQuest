@@ -283,6 +283,7 @@ _THROTTLE_RATES = {
     # brute-force actually targets, so they are throttled at least as hard as
     # the request that issues the token.
     "token_confirm": os.getenv("THROTTLE_TOKEN_CONFIRM", "10/hour"),
+    "admin_invite": os.getenv("THROTTLE_ADMIN_INVITE", "20/hour"),
 }
 
 # Relaxed under the test runner, not removed. Throttle history is keyed by
@@ -523,6 +524,11 @@ ACCOUNT_LINK_TIMEOUT_SECONDS = int(os.getenv(
     os.getenv("VERIFICATION_TIMEOUT", str(60 * 15)),
 ))
 PASSWORD_RESET_TIMEOUT = ACCOUNT_LINK_TIMEOUT_SECONDS
+
+# Administrator invitations are deliberately longer-lived than password reset
+# links because the recipient may need to coordinate access with their faculty.
+ADMIN_INVITATION_TIMEOUT_SECONDS = int(os.getenv(
+    "ADMIN_INVITATION_TIMEOUT_SECONDS", str(48 * 60 * 60)))
 # Kept as a compatibility alias for deployments that still inspect it.
 VERIFICATION_TIMEOUT = ACCOUNT_LINK_TIMEOUT_SECONDS
 ACCOUNT_LINK_TIMEOUT_MINUTES = max(

@@ -9,6 +9,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { apiFetch } from '@/src/lib/apiFetch';
 import { SkillValidation } from '@/src/components/SkillValidation';
 import { cn } from '@/src/lib/utils';
+import { useDepartments } from '@/src/lib/privacyNotice';
 
 interface StudentSkill {
   skill_name: string;
@@ -43,6 +44,7 @@ interface VerifiedCertificate {
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
+  const { departments } = useDepartments();
   const isCompany = user?.role === 'company';
   // Named positively rather than as "not a company". Everything below that a
   // student owns -- skills, certificates, transcripts -- was gated on
@@ -98,6 +100,7 @@ export default function ProfilePage() {
   // Student header edit
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(user?.name ?? '');
+  const [studentDepartment, setStudentDepartment] = useState(user?.department ?? '');
   const [studentSaving, setStudentSaving] = useState(false);
   const [studentError, setStudentError] = useState('');
 
@@ -222,12 +225,14 @@ export default function ProfilePage() {
     // Auth is restored after the first client render, so initialise this
     // field when the editor opens rather than relying on the initial render.
     setName(user?.name ?? '');
+    setStudentDepartment(user?.department ?? '');
     setStudentError('');
     setEditMode(true);
   };
 
   const closeStudentEdit = () => {
     setName(user?.name ?? '');
+    setStudentDepartment(user?.department ?? '');
     setStudentError('');
     setEditMode(false);
   };
@@ -240,18 +245,29 @@ export default function ProfilePage() {
       setStudentError('Full name is required.');
       return;
     }
+    if (!studentDepartment) {
+      setStudentError('Please select your department.');
+      return;
+    }
+    if (studentDepartment !== user.department && !window.confirm(
+      'Changing your department will immediately change which department announcements and training programmes you can see. Continue?'
+    )) return;
 
     setStudentSaving(true);
     setStudentError('');
     try {
       const res = await apiFetch('/api/auth/profile/', {
         method: 'PATCH',
-        body: JSON.stringify({ student_name: studentName }),
+        body: JSON.stringify({
+          student_name: studentName,
+          department: studentDepartment,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setStudentError(
-          data?.student_name?.[0] ?? data?.detail ?? 'Failed to update your profile.'
+          data?.student_name?.[0] ?? data?.department?.[0]
+            ?? data?.detail ?? 'Failed to update your profile.'
         );
         return;
       }
@@ -286,6 +302,21 @@ export default function ProfilePage() {
               {editMode && isStudent ? (
                 <div className="space-y-3 mb-4">
                   <Input label="Full Name" value={name} onChange={e => setName(e.target.value)} />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-neutral-700 uppercase tracking-widest">
+                      Department
+                    </label>
+                    <select
+                      value={studentDepartment}
+                      onChange={event => setStudentDepartment(event.target.value)}
+                      className="w-full h-11 px-3 border border-neutral-300 rounded-lg bg-white text-sm font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">Select department</option>
+                      {departments.map(department => (
+                        <option key={department} value={department}>{department}</option>
+                      ))}
+                    </select>
+                  </div>
                   {studentError && (
                     <p className="text-sm font-medium text-danger" role="alert">
                       {studentError}

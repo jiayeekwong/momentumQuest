@@ -20,6 +20,7 @@ export interface Announcement {
   message: string;
   categories: string[];
   audience: string;
+  target_departments?: string[];
   admin_name: string | null;
   author_name?: string | null;
   author_type?: string | null;
@@ -71,7 +72,9 @@ export default function AnnouncementDetailModal({ announcement: a, onClose }: { 
                 <Badge key={cat} variant="primary" className="text-[9px] font-black tracking-widest">{cat}</Badge>
               ))}
               <Badge variant="neutral" className="text-[9px] font-black tracking-widest">
-                {AUDIENCE_LABELS[a.audience] ?? a.audience}
+                {a.target_departments?.length
+                  ? a.target_departments.join(' · ')
+                  : (AUDIENCE_LABELS[a.audience] ?? a.audience)}
               </Badge>
             </div>
             <h2 className="text-xl font-black text-neutral-900 leading-tight">{a.title}</h2>
