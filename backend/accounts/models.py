@@ -121,11 +121,15 @@ class AdminProfile(models.Model):
 
 
 class AdminInvitation(models.Model):
-    """A single-use invitation for a department administrator.
+    """A single-use invitation for an administrator or superuser.
 
     Only a SHA-256 digest is stored. The bearer token exists only in the email,
     so a database read cannot be turned directly into an administrator account.
     """
+
+    class Role(models.TextChoices):
+        DEPARTMENT_ADMIN = 'DEPARTMENT_ADMIN', 'Department administrator'
+        SUPERUSER = 'SUPERUSER', 'Superuser'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
@@ -134,9 +138,16 @@ class AdminInvitation(models.Model):
         EXPIRED = 'EXPIRED', 'Expired'
 
     email = models.EmailField(db_index=True)
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.DEPARTMENT_ADMIN,
+    )
     department = models.ForeignKey(
         Department,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='admin_invitations',
     )
     token_hash = models.CharField(max_length=64, unique=True)
@@ -172,6 +183,16 @@ class AdminInvitation(models.Model):
                 condition=models.Q(status='PENDING'),
                 name='one_pending_admin_invite_per_email',
             ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        role='DEPARTMENT_ADMIN',
+                        department__isnull=False,
+                    )
+                    | models.Q(role='SUPERUSER', department__isnull=True)
+                ),
+                name='admin_invite_role_department',
+            ),
         ]
 
     @property
@@ -182,7 +203,8 @@ class AdminInvitation(models.Model):
         )
 
     def __str__(self):
-        return f"{self.email} -> {self.department.name} ({self.status})"
+        scope = self.department.name if self.department else 'all departments'
+        return f"{self.email} -> {self.get_role_display()} / {scope} ({self.status})"
 
 
 class StudentTargetRole(models.Model):

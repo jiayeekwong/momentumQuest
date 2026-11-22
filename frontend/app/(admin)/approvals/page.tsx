@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Clock, GraduationCap, X, FileText, ExternalLink, Megaphone } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, XCircle, Clock, GraduationCap, X, FileText, ExternalLink, Megaphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Card, Badge, Button } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { notifyPendingReviewsChanged } from '@/src/lib/adminReviewEvents';
 import { RichText } from '@/src/lib/richText';
 
 type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
@@ -43,6 +44,17 @@ function isImageUrl(url: string): boolean {
 // Strip HTML tags for short plain-text previews (full HTML is rendered in the modal).
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function apiErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback;
+  const response = data as Record<string, unknown>;
+  if (typeof response.detail === 'string') return response.detail;
+  for (const value of Object.values(response)) {
+    if (Array.isArray(value) && value.length) return String(value[0]);
+    if (typeof value === 'string') return value;
+  }
+  return fallback;
 }
 
 // ─── Detail Modal ──────────────────────────────────────────────────────────────
@@ -119,6 +131,122 @@ function DetailModal({ item, onClose }: { item: ApprovalItem; onClose: () => voi
   );
 }
 
+function RejectionModal({
+  item,
+  reason,
+  error,
+  isSubmitting,
+  onReasonChange,
+  onClose,
+  onSubmit,
+}: {
+  item: ApprovalItem;
+  reason: string;
+  error: string;
+  isSubmitting: boolean;
+  onReasonChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: (event: React.FormEvent) => void;
+}) {
+  const typeLabel = item.kind === 'training' ? 'training programme' : 'announcement';
+  const rejectionPlaceholder = item.kind === 'training'
+    ? 'For example: Please include the programme schedule and clarify the learning outcomes.'
+    : 'For example: Please include the event date and clarify how students can participate.';
+
+  return (
+    <motion.div
+      key="rejection-backdrop"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-950/45 px-4 py-8 backdrop-blur-sm"
+      onClick={() => { if (!isSubmitting) onClose(); }}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && !isSubmitting) onClose();
+      }}
+    >
+      <motion.form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rejection-title"
+        aria-describedby="rejection-description"
+        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 8 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        onSubmit={onSubmit}
+        onClick={event => event.stopPropagation()}
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl"
+      >
+        <div className="flex items-start gap-4 border-b border-neutral-100 px-6 py-5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-danger">
+            <AlertTriangle size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 id="rejection-title" className="text-lg font-black text-neutral-900">
+              Reject {item.kind === 'training' ? 'Training Programme' : 'Announcement'}
+            </h2>
+            <p id="rejection-description" className="mt-1 text-sm leading-relaxed text-neutral-500">
+              Explain what needs to be corrected. The company will see this reason and can revise its submission.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Close rejection dialog"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-40"
+          >
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="space-y-5 px-6 py-5">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">{typeLabel}</p>
+            <p className="mt-1 truncate text-sm font-bold text-neutral-900">{item.title}</p>
+            <p className="mt-0.5 text-xs text-neutral-500">Submitted by {item.submittedBy}</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="rejection-reason" className="text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                Reason for rejection
+              </label>
+              <span className="text-[10px] font-semibold tabular-nums text-neutral-400">{reason.length}/500</span>
+            </div>
+            <textarea
+              id="rejection-reason"
+              value={reason}
+              onChange={event => onReasonChange(event.target.value)}
+              maxLength={500}
+              rows={5}
+              autoFocus
+              disabled={isSubmitting}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? 'rejection-error' : undefined}
+              placeholder={rejectionPlaceholder}
+              className={cn(
+                'w-full resize-none rounded-xl border bg-white px-3.5 py-3 text-sm leading-relaxed text-neutral-800 outline-none transition-all',
+                'placeholder:text-neutral-400 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-neutral-50',
+                error ? 'border-danger focus:border-danger focus:ring-danger/15' : 'border-neutral-300',
+              )}
+            />
+            {error && <p id="rejection-error" role="alert" className="text-xs font-semibold text-danger">{error}</p>}
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-neutral-100 bg-neutral-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="danger" isLoading={isSubmitting} disabled={isSubmitting || !reason.trim()}>
+            <XCircle size={15} /> Reject {item.kind === 'training' ? 'Programme' : 'Announcement'}
+          </Button>
+        </div>
+      </motion.form>
+    </motion.div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ApprovalsPage() {
@@ -128,6 +256,10 @@ export default function ApprovalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [detailItem, setDetailItem] = useState<ApprovalItem | null>(null);
+  const [rejectionItem, setRejectionItem] = useState<ApprovalItem | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionError, setRejectionError] = useState('');
+  const [pageError, setPageError] = useState('');
   const [visibilityByItem, setVisibilityByItem] = useState<Record<number, 'DEPARTMENT' | 'EVERYONE'>>({});
 
   useEffect(() => {
@@ -187,14 +319,11 @@ export default function ApprovalsPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const updateStatus = async (item: ApprovalItem, newStatus: 'APPROVED' | 'REJECTED') => {
-    let rejectionReason = '';
-    if (newStatus === 'REJECTED') {
-      const answer = window.prompt('Give the company a reason for rejection:');
-      if (answer === null) return;
-      rejectionReason = answer.trim();
-      if (!rejectionReason) return;
-    }
+  const updateStatus = async (
+    item: ApprovalItem,
+    newStatus: 'APPROVED' | 'REJECTED',
+    reason = '',
+  ): Promise<string | null> => {
     setActionLoading(item.id);
     try {
       const endpoint = item.kind === 'training'
@@ -207,23 +336,66 @@ export default function ApprovalsPage() {
           ...(item.kind === 'training' && newStatus === 'APPROVED'
             ? { visibility: visibilityByItem[item.id] ?? 'DEPARTMENT' }
             : {}),
-          ...(rejectionReason ? { rejection_reason: rejectionReason } : {}),
+          ...(reason ? { rejection_reason: reason } : {}),
         }),
       });
       if (res.ok) {
         const ui = newStatus.toLowerCase() as ApprovalStatus;
         setItems(prev => prev.map(row => row.id === item.id && row.kind === item.kind
-          ? { ...row, status: ui, rejectionReason }
+          ? { ...row, status: ui, rejectionReason: reason }
           : row));
         setDetailItem(prev => prev && prev.id === item.id && prev.kind === item.kind
-          ? { ...prev, status: ui, rejectionReason }
+          ? { ...prev, status: ui, rejectionReason: reason }
           : prev);
+        notifyPendingReviewsChanged();
+        return null;
       }
+      const data = await res.json().catch(() => null);
+      return apiErrorMessage(data, 'The review could not be saved. Please try again.');
     } catch {
-      // silent
+      return 'Network error. Check your connection and try again.';
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const approveItem = async (item: ApprovalItem) => {
+    setPageError('');
+    const error = await updateStatus(item, 'APPROVED');
+    if (error) setPageError(error);
+  };
+
+  const openRejectionModal = (item: ApprovalItem) => {
+    setRejectionItem(item);
+    setRejectionReason('');
+    setRejectionError('');
+    setPageError('');
+  };
+
+  const closeRejectionModal = () => {
+    if (actionLoading !== null) return;
+    setRejectionItem(null);
+    setRejectionReason('');
+    setRejectionError('');
+  };
+
+  const submitRejection = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rejectionItem) return;
+    const reason = rejectionReason.trim();
+    if (!reason) {
+      setRejectionError('Enter a reason so the company knows what to correct.');
+      return;
+    }
+
+    setRejectionError('');
+    const error = await updateStatus(rejectionItem, 'REJECTED', reason);
+    if (error) {
+      setRejectionError(error);
+      return;
+    }
+    setRejectionItem(null);
+    setRejectionReason('');
   };
 
   const kindItems = items.filter(item => item.kind === kind);
@@ -263,6 +435,12 @@ export default function ApprovalsPage() {
             <Megaphone size={16} /> Announcements
           </button>
         </div>
+
+        {pageError && (
+          <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-danger">
+            {pageError}
+          </p>
+        )}
 
         {isLoading ? (
           <div className="space-y-4">
@@ -318,14 +496,14 @@ export default function ApprovalsPage() {
                         <Button size="sm"
                           className="h-9 text-xs bg-success hover:bg-success/90 text-white flex items-center gap-1.5"
                           disabled={actionLoading === item.id}
-                          onClick={() => updateStatus(item, 'APPROVED')}>
+                          onClick={() => void approveItem(item)}>
                           <CheckCircle2 size={14} />
                           {actionLoading === item.id ? 'Saving…' : 'Approve'}
                         </Button>
                         <Button size="sm" variant="outline"
                           className="h-9 text-xs text-danger border-danger/30 hover:bg-danger/5 flex items-center gap-1.5"
                           disabled={actionLoading === item.id}
-                          onClick={() => updateStatus(item, 'REJECTED')}>
+                          onClick={() => openRejectionModal(item)}>
                           <XCircle size={14} /> Reject
                         </Button>
                       </div>
@@ -351,6 +529,23 @@ export default function ApprovalsPage() {
       {/* Detail modal */}
       <AnimatePresence>
         {detailItem && <DetailModal item={detailItem} onClose={() => setDetailItem(null)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {rejectionItem && (
+          <RejectionModal
+            item={rejectionItem}
+            reason={rejectionReason}
+            error={rejectionError}
+            isSubmitting={actionLoading === rejectionItem.id}
+            onReasonChange={value => {
+              setRejectionReason(value);
+              if (rejectionError) setRejectionError('');
+            }}
+            onClose={closeRejectionModal}
+            onSubmit={submitRejection}
+          />
+        )}
       </AnimatePresence>
     </DashboardLayout>
   );

@@ -75,3 +75,16 @@ class DepartmentAnnouncementAudienceTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.data)
         for user in (self.software_student, self.ai_student, self.company):
             self.assertIn("Department update", self._visible_titles(user))
+
+    def test_department_admin_can_target_companies_only(self):
+        response = self._publish(
+            self.admin, "COMPANIES", [self.software.name])
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["audience"], "COMPANIES")
+        self.assertEqual(response.data["target_departments"], [])
+        self.assertNotIn(
+            "Department update", self._visible_titles(self.software_student))
+        self.assertNotIn(
+            "Department update", self._visible_titles(self.ai_student))
+        self.assertIn("Department update", self._visible_titles(self.company))

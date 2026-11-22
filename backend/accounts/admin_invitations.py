@@ -46,12 +46,22 @@ def send_admin_invitation(invitation, token):
         f"{settings.FRONTEND_URL.rstrip('/')}/accept-admin-invitation"
         f"?token={token}"
     )
+    if invitation.role == invitation.Role.SUPERUSER:
+        account_description = (
+            "a MomentumQuest superuser with access to all departments and "
+            "administrator-management permissions"
+        )
+    else:
+        account_description = (
+            f"the MomentumQuest administrator for {invitation.department.name}"
+        )
+
     try:
         send_mail(
             subject="You have been invited to administer MomentumQuest",
             message=(
-                "A MomentumQuest superadmin invited you to become the "
-                f"administrator for {invitation.department.name}.\n\n"
+                "A MomentumQuest superuser invited you to become "
+                f"{account_description}.\n\n"
                 f"Create your administrator account: {link}\n\n"
                 "This invitation is single-use and expires automatically. "
                 "If you were not expecting it, you can ignore this email."

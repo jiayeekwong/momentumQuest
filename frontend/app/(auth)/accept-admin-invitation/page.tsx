@@ -10,7 +10,8 @@ import { API_BASE } from '@/src/lib/apiFetch';
 
 interface InvitationDetails {
   email: string;
-  department: string;
+  role: 'DEPARTMENT_ADMIN' | 'SUPERUSER';
+  department: string | null;
   expires_at: string;
 }
 
@@ -35,6 +36,7 @@ function AcceptInvitationContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(token ? '' : 'This invitation link is invalid.');
   const [complete, setComplete] = useState(false);
+  const isSuperuserInvitation = details?.role === 'SUPERUSER';
 
   useEffect(() => {
     if (!token) return;
@@ -84,14 +86,16 @@ function AcceptInvitationContent() {
           <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-primary">
             <ShieldCheck size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-neutral-950">Set up your admin account</h1>
+          <h1 className="text-2xl font-bold text-neutral-950">
+            Set up your {isSuperuserInvitation ? 'superuser' : 'admin'} account
+          </h1>
 
           {isChecking ? (
             <p className="mt-5 text-sm text-neutral-500">Checking your invitation…</p>
           ) : complete ? (
             <div className="mt-5 space-y-5">
               <p className="rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-success">
-                Your administrator account is ready. You can now sign in with {details?.email}.
+                Your {isSuperuserInvitation ? 'superuser' : 'administrator'} account is ready. You can now sign in with {details?.email}.
               </p>
               <Link href="/login" className="block rounded-lg bg-primary px-5 py-3 text-center font-semibold text-white hover:opacity-90">
                 Go to Login
@@ -101,8 +105,22 @@ function AcceptInvitationContent() {
             <form onSubmit={acceptInvitation} className="mt-5 space-y-5">
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-sm text-neutral-700">
                 <p><span className="font-semibold">Email:</span> {details.email}</p>
-                <p className="mt-1"><span className="font-semibold">Department:</span> {details.department}</p>
+                <p className="mt-1">
+                  <span className="font-semibold">Account type:</span>{' '}
+                  {isSuperuserInvitation ? 'Superuser' : 'Department administrator'}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold">
+                    {isSuperuserInvitation ? 'Access:' : 'Department:'}
+                  </span>{' '}
+                  {isSuperuserInvitation ? 'All departments' : details.department}
+                </p>
               </div>
+              {isSuperuserInvitation && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                  This account will have full platform access, including the ability to manage departments and invite other administrators.
+                </p>
+              )}
               <Input label="Full Name" value={name} onChange={event => setName(event.target.value)} required />
               <div>
                 <Input label="Password" type="password" value={password} onChange={event => setPassword(event.target.value)} required />
@@ -113,7 +131,7 @@ function AcceptInvitationContent() {
               <Input label="Confirm Password" type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} required />
               {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-danger">{error}</p>}
               <Button type="submit" fullWidth size="lg" isLoading={isSubmitting} disabled={isSubmitting}>
-                Create Admin Account
+                Create {isSuperuserInvitation ? 'Superuser' : 'Admin'} Account
               </Button>
             </form>
           ) : (

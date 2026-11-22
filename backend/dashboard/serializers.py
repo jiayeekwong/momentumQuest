@@ -163,15 +163,12 @@ class AnnouncementSerializer(serializers.ModelSerializer):
                             'target_departments':
                                 'Department administrators can target only their own department.'})
             elif audience == Announcement.AudienceChoice.COMPANIES:
-                profile = getattr(request.user, 'admin_profile', None)
-                if (not request.user.is_superuser
-                        and getattr(profile, 'department_id', None)):
-                    raise serializers.ValidationError({
-                        'audience': 'Department administrators can target everyone or their department.'})
                 attrs['target_departments'] = []
             else:
                 raise serializers.ValidationError({
-                    'audience': 'Choose Everyone or department students.'})
+                    'audience': (
+                        'Choose Everyone, Companies, or department students.')
+                })
         elif request is not None and request.user.role == User.Role.COMPANY:
             # Company submissions use the existing all-students moderation
             # flow; a company cannot smuggle department targeting into it.

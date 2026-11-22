@@ -94,14 +94,17 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
 
     setIsPosting(true);
     try {
-      const selectedDepartment = audienceSelection === 'EVERYONE'
+      const selectedDepartment = ['EVERYONE', 'COMPANIES'].includes(audienceSelection)
         ? null : audienceSelection;
+      const audience = audienceSelection === 'COMPANIES'
+        ? 'COMPANIES'
+        : (selectedDepartment ? 'STUDENTS' : 'EVERYONE');
       const res = await apiFetch('/api/dashboard/announcements/create/', {
         method: 'POST',
         body: JSON.stringify({
           title,
           message,
-          audience: selectedDepartment ? 'STUDENTS' : 'EVERYONE',
+          audience,
           target_departments: selectedDepartment ? [selectedDepartment] : [],
           categories,
           supporting_doc: supportingDoc.trim() || null,
@@ -171,9 +174,14 @@ function CreateForm({ onSuccess, onClose }: { onSuccess: (a: Announcement) => vo
               {department} students only
             </option>
           ))}
+          <option value="COMPANIES">Companies only</option>
         </select>
         <p className="text-xs text-neutral-500">
-          Department announcements are visible only to students in the selected department.
+          {audienceSelection === 'EVERYONE'
+            ? 'Visible to every student and company on MomentumQuest.'
+            : audienceSelection === 'COMPANIES'
+              ? 'Visible only to registered company accounts.'
+              : 'Visible only to students in the selected department.'}
         </p>
       </div>
 

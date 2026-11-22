@@ -47,6 +47,8 @@ class AdminInvitationSerializer(serializers.ModelSerializer):
     department = serializers.SlugRelatedField(
         slug_field="name",
         queryset=Department.objects.filter(is_active=True),
+        required=False,
+        allow_null=True,
     )
     invited_by = serializers.EmailField(
         source="invited_by.email", read_only=True, allow_null=True)
@@ -54,13 +56,31 @@ class AdminInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminInvitation
         fields = [
-            "id", "email", "department", "status", "invited_by",
+            "id", "email", "role", "department", "status", "invited_by",
             "expires_at", "accepted_at", "created_at",
         ]
         read_only_fields = [
             "id", "status", "invited_by", "expires_at", "accepted_at",
             "created_at",
         ]
+
+    def validate(self, attrs):
+        role = attrs.get(
+            "role", AdminInvitation.Role.DEPARTMENT_ADMIN)
+        department = attrs.get("department")
+        if role == AdminInvitation.Role.DEPARTMENT_ADMIN and department is None:
+            raise serializers.ValidationError({
+                "department": [
+                    "Select a department for a department administrator."
+                ]
+            })
+        if role == AdminInvitation.Role.SUPERUSER and department is not None:
+            raise serializers.ValidationError({
+                "department": [
+                    "A superuser has access to all departments and cannot be assigned to one."
+                ]
+            })
+        return attrs
 
     def validate_email(self, value):
         email = value.lower().strip()
@@ -127,7 +147,6 @@ class AdminInvitationAcceptSerializer(serializers.Serializer):
         with transaction.atomic():
             invitation = (
                 AdminInvitation.objects.select_for_update()
-                .select_related("department")
                 .get(pk=self.validated_data["invitation_id"])
             )
             if not invitation.is_usable:
@@ -142,13 +161,19 @@ class AdminInvitationAcceptSerializer(serializers.Serializer):
                 password=self.validated_data["password"],
                 role=User.Role.ADMIN,
                 is_staff=True,
+                is_superuser=(
+                    invitation.role == AdminInvitation.Role.SUPERUSER),
                 is_active=True,
                 email_verified=True,
             )
             AdminProfile.objects.create(
                 user=user,
                 admin_name=self.validated_data["name"].strip(),
-                department=invitation.department,
+                department=(
+                    invitation.department
+                    if invitation.role == AdminInvitation.Role.DEPARTMENT_ADMIN
+                    else None
+                ),
             )
             invitation.status = AdminInvitation.Status.ACCEPTED
             invitation.accepted_at = timezone.now()

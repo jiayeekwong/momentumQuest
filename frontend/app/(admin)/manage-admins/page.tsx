@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Mail, RefreshCw, ShieldCheck, UserPlus, XCircle } from 'lucide-react';
+import { Crown, Mail, RefreshCw, ShieldCheck, UserPlus, XCircle } from 'lucide-react';
 import { DashboardLayout } from '@/src/components/Layout';
 import { Badge, Button, Card, Input } from '@/src/components/ui';
 import { useAuth } from '@/src/context/AuthContext';
@@ -9,11 +9,13 @@ import { apiFetch } from '@/src/lib/apiFetch';
 import { useDepartments } from '@/src/lib/privacyNotice';
 
 type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+type InvitationRole = 'DEPARTMENT_ADMIN' | 'SUPERUSER';
 
 interface AdminInvitation {
   id: number;
   email: string;
-  department: string;
+  role: InvitationRole;
+  department: string | null;
   status: InvitationStatus;
   invited_by: string | null;
   expires_at: string;
@@ -43,6 +45,7 @@ export default function ManageAdminsPage() {
   const { user } = useAuth();
   const { departments } = useDepartments();
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<InvitationRole>('DEPARTMENT_ADMIN');
   const [department, setDepartment] = useState('');
   const [invitations, setInvitations] = useState<AdminInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,12 +94,17 @@ export default function ManageAdminsPage() {
     try {
       const response = await apiFetch('/api/auth/admin-invitations/', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), department }),
+        body: JSON.stringify({
+          email: email.trim(),
+          role,
+          department: role === 'DEPARTMENT_ADMIN' ? department : null,
+        }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(apiError(data, 'Could not send the invitation.'));
       setInvitations(current => [data, ...current]);
       setEmail('');
+      setRole('DEPARTMENT_ADMIN');
       setDepartment('');
       setSuccess(`Invitation sent to ${data.email}.`);
     } catch (sendError) {
@@ -148,12 +156,15 @@ export default function ManageAdminsPage() {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Administrator invitations</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Assign a department and send a single-use registration link. Links expire automatically.
+            Invite a department administrator or another superuser with a single-use registration link.
           </p>
         </div>
 
         <Card>
-          <form onSubmit={sendInvitation} className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <form
+            onSubmit={sendInvitation}
+            className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1.2fr_auto] xl:items-end"
+          >
             <Input
               label="Administrator Email"
               type="email"
@@ -164,22 +175,62 @@ export default function ManageAdminsPage() {
             />
             <div className="space-y-1.5">
               <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
+                Account Type
+              </label>
+              <select
+                value={role}
+                onChange={event => {
+                  const nextRole = event.target.value as InvitationRole;
+                  setRole(nextRole);
+                  if (nextRole === 'SUPERUSER') setDepartment('');
+                }}
+                className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="DEPARTMENT_ADMIN">Department administrator</option>
+                <option value="SUPERUSER">Superuser</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-900">
                 Department
               </label>
               <select
                 value={department}
                 onChange={event => setDepartment(event.target.value)}
-                required
-                className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                required={role === 'DEPARTMENT_ADMIN'}
+                disabled={role === 'SUPERUSER'}
+                className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400"
               >
-                <option value="">Select a department</option>
+                <option value="">
+                  {role === 'SUPERUSER' ? 'All departments' : 'Select a department'}
+                </option>
                 {departments.map(name => <option key={name} value={name}>{name}</option>)}
               </select>
             </div>
-            <Button type="submit" isLoading={isSending} disabled={!department || isSending}>
+            <Button
+              type="submit"
+              isLoading={isSending}
+              disabled={(role === 'DEPARTMENT_ADMIN' && !department) || isSending}
+              className="md:col-span-2 xl:col-span-1"
+            >
               <UserPlus size={16} /> Send Invitation
             </Button>
           </form>
+
+          <div className={`mt-4 flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs ${
+            role === 'SUPERUSER'
+              ? 'border border-amber-200 bg-amber-50 text-amber-800'
+              : 'bg-indigo-50 text-indigo-700'
+          }`}>
+            {role === 'SUPERUSER'
+              ? <Crown className="mt-0.5 shrink-0" size={15} />
+              : <ShieldCheck className="mt-0.5 shrink-0" size={15} />}
+            <p>
+              {role === 'SUPERUSER'
+                ? 'Superusers can manage every department and invite or revoke other administrators. Only grant this access to trusted platform owners.'
+                : 'Department administrators can review and publish content only for their assigned department.'}
+            </p>
+          </div>
 
           {(error || success) && (
             <p className={`mt-4 rounded-lg px-3 py-2 text-sm font-semibold ${
@@ -219,15 +270,28 @@ export default function ManageAdminsPage() {
               {invitations.map(invitation => (
                 <div key={invitation.id} className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <span className="mt-0.5 rounded-lg bg-indigo-50 p-2 text-primary"><Mail size={16} /></span>
+                    <span className={`mt-0.5 rounded-lg p-2 ${
+                      invitation.role === 'SUPERUSER'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-indigo-50 text-primary'
+                    }`}>
+                      {invitation.role === 'SUPERUSER' ? <Crown size={16} /> : <Mail size={16} />}
+                    </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-neutral-900">{invitation.email}</p>
                       <p className="mt-0.5 text-xs text-neutral-500">
-                        {invitation.department} · sent {new Date(invitation.created_at).toLocaleDateString('en-MY')}
+                        {invitation.role === 'SUPERUSER'
+                          ? 'All departments'
+                          : invitation.department} · sent {new Date(invitation.created_at).toLocaleDateString('en-MY')}
                       </p>
                     </div>
                   </div>
-                  <Badge variant={statusVariant[invitation.status]}>{invitation.status.toLowerCase()}</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={invitation.role === 'SUPERUSER' ? 'warning' : 'primary'}>
+                      {invitation.role === 'SUPERUSER' ? 'Superuser' : 'Department admin'}
+                    </Badge>
+                    <Badge variant={statusVariant[invitation.status]}>{invitation.status.toLowerCase()}</Badge>
+                  </div>
                   <div className="flex gap-2">
                     {invitation.status !== 'ACCEPTED' && (
                       <Button

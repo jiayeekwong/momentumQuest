@@ -92,7 +92,9 @@ class AdminInvitationValidateView(APIView):
             )
         return Response({
             "email": invitation.email,
-            "department": invitation.department.name,
+            "role": invitation.role,
+            "department": (
+                invitation.department.name if invitation.department else None),
             "expires_at": invitation.expires_at,
         })
 
@@ -106,7 +108,15 @@ class AdminInvitationAcceptView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(
-            {"detail": "Administrator account created.", "email": user.email},
+            {
+                "detail": (
+                    "Superuser account created."
+                    if user.is_superuser
+                    else "Administrator account created."
+                ),
+                "email": user.email,
+                "is_superuser": user.is_superuser,
+            },
             status=status.HTTP_201_CREATED,
         )
 

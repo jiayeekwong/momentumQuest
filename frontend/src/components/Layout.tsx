@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/src/context/AuthContext';
 import { cn } from '@/src/lib/utils';
 import { apiFetch } from '@/src/lib/apiFetch';
+import { PENDING_REVIEWS_CHANGED_EVENT } from '@/src/lib/adminReviewEvents';
 import { Logo } from './Logo';
 
 interface SidebarItem {
@@ -258,6 +259,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
 
   // Below lg the sidebar is a drawer rather than a column, because 240px of
   // it leaves a phone nothing to read. Closed on every navigation: tapping a
@@ -288,6 +290,38 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
       : '/dashboard',
     );
   }, [wrongRole, user, router]);
+
+  // The badge uses the same department-scoped total as the dashboard card.
+  // Refresh on a short interval for new company submissions and immediately
+  // after this admin approves or rejects an item on the approvals page.
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    let cancelled = false;
+
+    const loadPendingReviews = () => {
+      void apiFetch('/api/dashboard/admin/')
+        .then(response => response.ok ? response.json() : null)
+        .then(data => {
+          const count = data?.stats?.pending_reviews;
+          if (!cancelled && typeof count === 'number') {
+            setPendingReviewCount(count);
+          }
+        })
+        .catch(() => {});
+    };
+
+    loadPendingReviews();
+    window.addEventListener(PENDING_REVIEWS_CHANGED_EVENT, loadPendingReviews);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadPendingReviews();
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(PENDING_REVIEWS_CHANGED_EVENT, loadPendingReviews);
+      window.clearInterval(timer);
+    };
+  }, [user?.id, user?.role]);
 
   if (!isLoading && !user) return null;
   if (wrongRole) return null;
@@ -366,6 +400,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
         <nav className="flex-1 p-4 space-y-1">
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
+            const badgeCount = item.path === '/approvals' ? pendingReviewCount : null;
             return (
               <Link
                 key={item.path}
@@ -379,7 +414,17 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
                 )}
               >
                 <item.icon size={18} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badgeCount !== null && badgeCount > 0 && (
+                  <span
+                    aria-label={`${badgeCount} pending reviews`}
+                    className="flex h-5 min-w-5 items-center justify-center rounded-full
+                               bg-amber-100 px-1.5 text-[10px] font-black leading-none
+                               text-amber-700"
+                  >
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
               </Link>
             );
           })}
